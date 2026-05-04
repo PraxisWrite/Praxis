@@ -5767,9 +5767,11 @@ function renderTeacherGrading(assignment, submission) {
                 }).join("")
             }
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-              <span style="font-size:0.82rem;color:var(--muted);">${reviewSummary.selectedCount}/${reviewSummary.rubric.length} criteria scored</span>
-              <span style="font-size:0.95rem;font-weight:700;color:var(--ink);">Auto total: ${reviewSummary.totalScore}/${reviewSummary.maxScore}</span>
-            </div>
+                   <span style="font-size:0.82rem;color:var(--muted);">${reviewSummary.selectedCount}/${reviewSummary.rubric.length} criteria scored</span>
+                   ${(typeof submission.teacherReview?.finalScore === "number" && submission.teacherReview.finalScore !== reviewSummary.totalScore) ? "" : `
+                     <span style="font-size:0.95rem;font-weight:700;color:var(--ink);">Auto total: ${reviewSummary.totalScore}/${reviewSummary.maxScore}</span>
+                   `}
+                 </div>
           </div>
 
           <div class="field" style="margin-bottom:12px;">

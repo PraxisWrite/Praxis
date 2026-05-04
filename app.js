@@ -5717,7 +5717,9 @@ function renderTeacherGrading(assignment, submission) {
                   compact: true,
                   rowScoreMap: reviewSummary.rowScoreMap,
                   suggestedRowScoreMap,
-                  currentScore: reviewSummary.totalScore,
+                  currentScore: (typeof submission.teacherReview?.finalScore === "number" && !Number.isNaN(submission.teacherReview.finalScore))
+                     ? submission.teacherReview.finalScore
+                     : reviewSummary.totalScore,
                 })
               : reviewSummary.rubric.map((criterion) => {
                   const bands = getCriterionBands(criterion);

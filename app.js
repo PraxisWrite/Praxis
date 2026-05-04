@@ -9088,17 +9088,6 @@ function buildSuggestedStudentComment(assignment, submission, metrics, totalScor
   return `${opening} ${chatComment} ${outlineComment} ${writingComment} ${revisionComment} ${reflectionComment}${pasteComment}`;
 }
 
-function buildGradeJustification(assignment, submission, metrics, totalScore, maxScore) {
-  const reflectionComplete = submission.reflections.improved.trim();
-  const outlineAssessment = assessOutlineEngagement(submission, assignment);
-  const chatAssessment = assessChatEngagement(submission.chatHistory);
-  const pasteFlags = metrics.largePasteCount;
-  const authorshipNote = pasteFlags
-    ? ` The process log includes ${pasteFlags} large paste event${pasteFlags === 1 ? "" : "s"}, so authorship should be verified.`
-    : " No large paste concerns detected.";
-  return `Suggested score: ${totalScore}/${maxScore}. The final piece is ${metrics.targetHit ? "within" : "outside"} the target word range and includes ${submission.writingEvents.length} tracked edit events. ${outlineAssessment.note} ${chatAssessment.note} ${reflectionComplete ? "The student completed the reflection." : "The revision reflection is incomplete."}${authorshipNote}`;
-}
-
 function normalizeTeacherDraft(draft) {
   return {
     brief: draft.brief.trim(),

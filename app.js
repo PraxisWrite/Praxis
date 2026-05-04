@@ -5773,8 +5773,10 @@ function renderTeacherGrading(assignment, submission) {
             ${ui.gradeSuggestionLoading ? `<span style="font-size:0.82rem;color:var(--muted);align-self:center;">AI is reviewing the submission…</span>` : ""}
             <button class="button-ghost" data-action="copy-lms-grade">Copy Grade</button>
             <button class="button" data-action="save-teacher-review">Submit grade</button>
-          </div>
-
+            </div>
+            ${ui.notice && /grade submitted/i.test(ui.notice) ? `
+              <div style="margin-top:14px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:10px;color:#2e7d32;font-weight:600;">✓ ${escapeHtml(ui.notice)}</div>
+            ` : ""}
         </div>
       </div>
     </section>

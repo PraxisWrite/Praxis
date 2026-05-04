@@ -5998,7 +5998,6 @@ function renderStudentIdeasStep(assignment, submission) {
                 ${timeExpired ? "⏱ Time's up" : `⏱ ${minsRemaining}:${String(secsRemaining).padStart(2,'0')} left`}
               </div>
             ` : ""}
-            <button class="button-ghost" data-action="skip-chat-to-draft">Skip chat for now</button>
           </div>
         `}
         <button class="button" data-action="student-next-step" data-step="2" ${!hasEnoughChat ? "disabled title='Have a conversation with the coach first'" : ""}>Next: Write Draft</button>

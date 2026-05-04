@@ -3706,6 +3706,7 @@ if (action === "select-assignment") {
 
     submission.teacherReview.suggestedGrade = null;
     gradeSuggestionLoading: false,
+	gradeSubmitting: false,
     submission.teacherReview.suggestedRowScores = [];
     ui.notice = "Suggested grade cleared.";
     persistState();
@@ -3780,28 +3781,38 @@ if (action === "select-assignment") {
   }
 
   if (action === "save-teacher-review") {
-    const submission = getSelectedReviewSubmission();
-    const assignment = getSelectedAssignment();
-    if (!submission) {
-      return;
-    }
+       const submission = getSelectedReviewSubmission();
+       const assignment = getSelectedAssignment();
+       if (!submission) {
+         return;
+       }
 
-    submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
-    const notesInput = document.getElementById("teacher-review-notes");
-    const summary = calculateTeacherReviewSummary(assignment, submission);
-    submission.teacherReview.rubricType = getAssignmentRubricType(assignment);
-    submission.teacherReview.finalScore = summary.totalScore;
-    submission.teacherReview.finalNotes = notesInput ? notesInput.value.trim() : "";
-    submission.teacherReview.status = submission.teacherReview.status || "graded";
-    submission.teacherReview.savedAt = new Date().toISOString();
-    const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
-    replaceSubmissionInState(savedSubmission);
-    ui.selectedReviewSubmissionId = savedSubmission.id;
-    ui.notice = "Grade submitted to student.";
-    persistState();
-    render();
-    return;
-  }
+       if (ui.gradeSubmitting) {
+         return;
+       }
+       ui.gradeSubmitting = true;
+       render();
+
+       try {
+         submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
+         const notesInput = document.getElementById("teacher-review-notes");
+         const summary = calculateTeacherReviewSummary(assignment, submission);
+         submission.teacherReview.rubricType = getAssignmentRubricType(assignment);
+         submission.teacherReview.finalScore = summary.totalScore;
+         submission.teacherReview.finalNotes = notesInput ? notesInput.value.trim() : "";
+         submission.teacherReview.status = submission.teacherReview.status || "graded";
+         submission.teacherReview.savedAt = new Date().toISOString();
+         const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
+         replaceSubmissionInState(savedSubmission);
+         ui.selectedReviewSubmissionId = savedSubmission.id;
+         ui.notice = "Grade submitted to student.";
+         persistState();
+       } finally {
+         ui.gradeSubmitting = false;
+         render();
+       }
+       return;
+     }
 
   if (action === "set-review-status") {
     const submission = getSelectedReviewSubmission();
@@ -5772,7 +5783,7 @@ function renderTeacherGrading(assignment, submission) {
             <button class="button-secondary" data-action="generate-grade" ${ui.gradeSuggestionLoading ? "disabled" : ""}>${ui.gradeSuggestionLoading ? "Thinking…" : "Suggest Grade"}</button>
             ${ui.gradeSuggestionLoading ? `<span style="font-size:0.82rem;color:var(--muted);align-self:center;">AI is reviewing the submission…</span>` : ""}
             <button class="button-ghost" data-action="copy-lms-grade">Copy Grade</button>
-            <button class="button" data-action="save-teacher-review">Submit grade</button>
+            <button class="button" data-action="save-teacher-review" ${ui.gradeSubmitting ? "disabled" : ""}>${ui.gradeSubmitting ? "Submitting…" : "Submit grade"}</button>
             </div>
             ${ui.notice && /grade submitted/i.test(ui.notice) ? `
               <div style="margin-top:14px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:10px;color:#2e7d32;font-weight:600;">✓ ${escapeHtml(ui.notice)}</div>

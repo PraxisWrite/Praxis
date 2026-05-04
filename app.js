@@ -3786,26 +3786,27 @@ if (action === "select-assignment") {
        if (!submission) {
          return;
        }
-
        if (ui.gradeSubmitting) {
          return;
        }
+       // Capture editable inputs BEFORE render() wipes the DOM.
+       const finalScoreInput = document.getElementById("teacher-review-final-score");
+       const overrideRaw = finalScoreInput ? finalScoreInput.value : "";
+       const notesInput = document.getElementById("teacher-review-notes");
+       const notesValue = notesInput ? notesInput.value.trim() : "";
        ui.gradeSubmitting = true;
        render();
 
-       try {
+      try {
          submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
-         const notesInput = document.getElementById("teacher-review-notes");
          const summary = calculateTeacherReviewSummary(assignment, submission);
          submission.teacherReview.rubricType = getAssignmentRubricType(assignment);
-         const finalScoreInput = document.getElementById("teacher-review-final-score");
-       	 const overrideRaw = finalScoreInput ? finalScoreInput.value : "";
-      	 const overrideNum = overrideRaw === "" ? null : Number(overrideRaw);
-      	 submission.teacherReview.finalScore = (overrideNum !== null && !Number.isNaN(overrideNum))
+         const overrideNum = overrideRaw === "" ? null : Number(overrideRaw);
+         submission.teacherReview.finalScore = (overrideNum !== null && !Number.isNaN(overrideNum))
            ? overrideNum
            : summary.totalScore;
-         submission.teacherReview.finalNotes = notesInput ? notesInput.value.trim() : "";
-         submission.teacherReview.status = submission.teacherReview.status || "graded";
+         submission.teacherReview.finalNotes = notesValue;
+         submission.teacherReview.status = "graded";
          submission.teacherReview.savedAt = new Date().toISOString();
          const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
          replaceSubmissionInState(savedSubmission);

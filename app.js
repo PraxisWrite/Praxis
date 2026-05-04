@@ -3705,8 +3705,6 @@ if (action === "select-assignment") {
     }
 
     submission.teacherReview.suggestedGrade = null;
-    gradeSuggestionLoading: false,
-	gradeSubmitting: false,
     submission.teacherReview.suggestedRowScores = [];
     ui.notice = "Suggested grade cleared.";
     persistState();

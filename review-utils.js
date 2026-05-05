@@ -1,4 +1,6 @@
 (() => {
+  const LARGE_SINGLE_INSERT_LIMIT = 220;
+
   function safeArray(value) {
     return Array.isArray(value) ? value : [];
   }
@@ -98,7 +100,10 @@
   }
 
   function getPlaybackOperationCount(event) {
-    if (!event || event.type === "paste" || event.type === "delete") return 1;
+    const isLargeSingleInsert = event?.type === "insert"
+      && String(event?.insertedText || "").length >= LARGE_SINGLE_INSERT_LIMIT
+      && !String(event?.removedText || "");
+    if (!event || event.type === "paste" || event.type === "delete" || isLargeSingleInsert) return 1;
     if (event.type === "replace") {
       return Math.max(1, 1 + String(event.insertedText || "").length);
     }

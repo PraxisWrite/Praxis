@@ -202,6 +202,7 @@ test("annotation short labels preserve custom wording", () => {
 test("playback operation counts keep paste and delete atomic", () => {
   assert.equal(reviewUtils.getPlaybackOperationCount({ type: "paste", insertedText: "x".repeat(300) }), 1);
   assert.equal(reviewUtils.getPlaybackOperationCount({ type: "delete", removedText: "x".repeat(120) }), 1);
+  assert.equal(reviewUtils.getPlaybackOperationCount({ type: "insert", insertedText: "x".repeat(300) }), 1);
   assert.equal(reviewUtils.getPlaybackOperationCount({ type: "insert", insertedText: "abc" }), 3);
   assert.equal(reviewUtils.getPlaybackOperationCount({ type: "replace", removedText: "old", insertedText: "new" }), 4);
 });

@@ -4885,7 +4885,7 @@ function renderAdminClassDetail() {
                   : sub?.draft_text?.trim()
                     ? sub.draft_text.trim().split(/\s+/).length
                     : 0;
-                const pasteFlags = (sub?.writing_events || []).filter(e => e.flagged).length;
+                const pasteFlags = (sub?.writing_events || []).filter((entry) => isPasteLikeWritingEvent(entry)).length;
                 const statusColour = status === "submitted" ? "var(--sage)" : status === "not started" ? "var(--muted)" : "var(--accent)";
 
                 return `
@@ -5378,7 +5378,7 @@ function renderTeacherWorkspace() {
                   const statusCounts = getSubmissionCountsForAssignment(assignment.id, classRoster);
                   const submittedCount = statusCounts.submitted;
                   const gradedCount = statusCounts.graded;
-                  const pasteCount = assignmentSubs.filter(s => (s.writingEvents || []).some(e => e.flagged)).length;
+                  const pasteCount = assignmentSubs.filter(s => (s.writingEvents || []).some((entry) => isPasteLikeWritingEvent(entry))).length;
                   const totalStudents = statusCounts.total;
                   const isBriefExpanded = ui.expandedAssignmentBriefId === assignment.id;
                   const promptPreview = truncateText(stripPromptFormatting(assignment.prompt), 140);
@@ -5449,7 +5449,7 @@ function renderTeacherReview(assignment, submissions) {
   const submittedCount = statusCounts.submitted;
   const gradedCount = statusCounts.graded;
   const flaggedCount = submissions.filter(
-    s => Array.isArray(s.writingEvents) && s.writingEvents.some(e => e && e.flagged)
+    s => Array.isArray(s.writingEvents) && s.writingEvents.some((entry) => isPasteLikeWritingEvent(entry))
   ).length;
   const criterionAnalytics = buildCriterionAnalytics(assignment, submissions.filter((submission) => SubmissionUtils.isSubmissionGraded(submission)));
 
@@ -5540,7 +5540,7 @@ function renderTeacherReview(assignment, submissions) {
                 ? Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000))
                 : 0;
               const m = {
-                largePasteCount: events.filter(e => e && e.flagged).length,
+                largePasteCount: getPasteEvidenceItems(submission).length,
                 finalWordCount: finalText.trim() ? finalText.trim().split(/\s+/).length : 0,
                 revisionCount: events.length,
                 totalMinutes,
@@ -5585,7 +5585,7 @@ function renderTeacherGrading(assignment, submission) {
     ? Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000))
     : 0;
   const metrics = {
-    largePasteCount: events.filter(e => e && e.flagged).length,
+    largePasteCount: getPasteEvidenceItems(submission).length,
     finalWordCount: finalText.trim() ? finalText.trim().split(/\s+/).length : 0,
     revisionCount: events.length,
     totalMinutes,
@@ -6938,7 +6938,8 @@ function updateDraftSubmission(nextText) {
   const type = determineEventType(operation);
   const pasteContent = ui.pendingPaste?.content || "";
 
-  const isFlaggedPaste = type === "paste" && pasteContent.length >= LARGE_PASTE_LIMIT;
+  const isLargeSingleInsert = !pasteContent && operation.insertedText.length >= LARGE_PASTE_LIMIT && !operation.removedText;
+  const isFlaggedPaste = (type === "paste" && pasteContent.length >= LARGE_PASTE_LIMIT) || isLargeSingleInsert;
 
   submission.draftText = nextText;
   submission.updatedAt = now;
@@ -6955,6 +6956,7 @@ function updateDraftSubmission(nextText) {
     insertedText: type === "paste" ? pasteContent : operation.insertedText,
     delta: operation.insertedText.length - operation.removedText.length,
     flagged: isFlaggedPaste,
+    detectionReason: isLargeSingleInsert ? "large_single_insert_without_paste_event" : "",
     preview: trimTo(operation.insertedText || operation.removedText || nextText.slice(-40), 80),
   });
 
@@ -7066,11 +7068,25 @@ function getEventTimeMs(event) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function isLargeSingleInsertEvent(event) {
+  return event?.type === "insert"
+    && String(event?.insertedText || "").length >= LARGE_PASTE_LIMIT
+    && !String(event?.removedText || "");
+}
+
+function isPasteLikeWritingEvent(event) {
+  return Boolean(
+    event?.type === "paste"
+    || (event?.flagged && String(event?.insertedText || "").length >= LARGE_PASTE_LIMIT)
+    || isLargeSingleInsertEvent(event)
+  );
+}
+
 function countPlaybackOperations(event) {
   if (window.ReviewUtils?.getPlaybackOperationCount) {
     return window.ReviewUtils.getPlaybackOperationCount(event);
   }
-  if (!event || event.type === "paste" || event.type === "delete") return 1;
+  if (!event || isPasteLikeWritingEvent(event) || event.type === "delete") return 1;
   if (event.type === "replace") return Math.max(1, 1 + String(event.insertedText || "").length);
   return Math.max(1, String(event.removedText || "").length + String(event.insertedText || "").length);
 }
@@ -7164,7 +7180,7 @@ function updateDraftMeters() {
   updateTextContent("draft-event-count", String(submission.writingEvents.length));
   updateTextContent(
     "draft-paste-count",
-    String(submission.writingEvents.filter((entry) => entry.type === "paste" && entry.flagged).length)
+    String(submission.writingEvents.filter((entry) => isPasteLikeWritingEvent(entry)).length)
   );
 }
 
@@ -7470,10 +7486,13 @@ function getPlaybackFrames(submission) {
     }
 
     if (event.insertedText) {
-      if (event.type === "paste") {
+      if (isPasteLikeWritingEvent(event)) {
         const pasteStart = clamp(Number(event.start || 0), 0, text.length);
         text = text.slice(0, pasteStart) + event.insertedText + text.slice(pasteStart);
-        pushFrame(text, `Pasted ${String(event.insertedText || "").length} characters • ${formatTime(event.timestamp)}`, eventTimeMs + (operationIndex * intraEventDelayMs));
+        const label = event.type === "paste"
+          ? `Pasted ${String(event.insertedText || "").length} characters`
+          : `Bulk inserted ${String(event.insertedText || "").length} characters`;
+        pushFrame(text, `${label} • ${formatTime(event.timestamp)}`, eventTimeMs + (operationIndex * intraEventDelayMs));
         continue;
       }
 
@@ -7690,7 +7709,7 @@ function computeProcessMetrics(assignment, submission) {
   return {
     totalMinutes,
     revisionCount: events.length,
-    largePasteCount: events.filter((entry) => entry.type === "paste" && entry.flagged).length,
+    largePasteCount: getPasteEvidenceItems(submission).length,
     draftWordCount,
     finalWordCount,
     improvementLabel,
@@ -7921,7 +7940,7 @@ function getAssignmentRubricSummaryForAi(assignment) {
 function buildDraftLinesWithPasteMarkers(submission) {
   const text = String(submission?.draftText || "");
   const flaggedRanges = safeArray(submission?.writingEvents)
-    .filter((event) => event?.type === "paste" && event?.flagged && typeof event?.start === "number")
+    .filter((event) => isPasteLikeWritingEvent(event) && typeof event?.start === "number")
     .map((event) => ({
       start: Number(event.start || 0),
       end: Number(event.end ?? event.start ?? 0) + String(event.insertedText || "").length,
@@ -8345,7 +8364,7 @@ function findSpecificSentenceFeedback(sentenceEntries = [], { singleParagraphTas
 }
 
 function generateFeedback(assignment, submission) {
-  const pasteEvents = (submission.writingEvents || []).filter(e => e.type === "paste" && e.flagged);
+  const pasteEvents = (submission.writingEvents || []).filter((entry) => isPasteLikeWritingEvent(entry));
   const originalText = String(submission.draftText || "").trim();
   const hasFlaggedPaste = pasteEvents.length > 0;
   const sentenceEntries = buildFeedbackSentenceEntries(originalText, pasteEvents);
@@ -8595,7 +8614,7 @@ function getSubmissionReviewText(submission) {
 
 function getFlaggedPasteEvents(submission) {
   return safeArray(submission?.writingEvents)
-    .filter((event) => event?.type === "paste" && event?.flagged && String(event?.insertedText || ""));
+    .filter((event) => isPasteLikeWritingEvent(event) && String(event?.insertedText || ""));
 }
 
 function getPasteEvidenceItems(submission) {
@@ -8622,6 +8641,7 @@ function getPasteEvidenceItems(submission) {
       id,
       event,
       text: pastedText,
+      kind: event.type === "paste" ? "paste" : "bulk_insert",
       timestamp: event.timestamp || submission?.updatedAt || new Date().toISOString(),
       charCount: pastedText.length,
       preview: trimTo(pastedText.replace(/\s+/g, " ").trim(), 180),
@@ -8640,10 +8660,10 @@ function renderPasteEvidencePanel(submission) {
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
         <div>
           <p class="mini-label" style="margin-bottom:4px;">Paste evidence</p>
-          <h3 style="margin:0;">${items.length} flagged paste event${items.length === 1 ? "" : "s"}</h3>
-          <p class="subtle" style="margin:6px 0 0;">Click a paste flag to jump to the violet highlight when the pasted text is still present.</p>
+          <h3 style="margin:0;">${items.length} paste-like event${items.length === 1 ? "" : "s"}</h3>
+          <p class="subtle" style="margin:6px 0 0;">Click an evidence flag to jump to the violet highlight when the pasted or bulk-inserted text is still present.</p>
         </div>
-        <span class="warning-pill">Review paste flags</span>
+        <span class="warning-pill">Review authorship evidence</span>
       </div>
       <div style="display:grid;gap:10px;margin-top:12px;">
         ${items.map((item) => {
@@ -8651,6 +8671,7 @@ function renderPasteEvidencePanel(submission) {
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
               <span class="pill">${escapeHtml(formatDateTime(item.timestamp))}</span>
               <span class="pill">${item.charCount} characters</span>
+              <span class="pill">${item.kind === "paste" ? "Paste event" : "Large single insert"}</span>
               <span class="${item.foundExact ? "pill" : "warning-pill"}">${item.foundExact ? "Still found in final text" : "Edited or removed"}</span>
             </div>
             <p style="margin:0;font-size:0.9rem;line-height:1.55;">${escapeHtml(item.preview || "(blank paste)")}</p>
@@ -8668,7 +8689,7 @@ function renderPasteEvidencePanel(submission) {
                 ${body}
               </summary>
               <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px;">
-                <p class="subtle" style="margin:0 0 8px;">This pasted text is no longer found exactly in the final submission. It may have been edited or removed.</p>
+                <p class="subtle" style="margin:0 0 8px;">This pasted or bulk-inserted text is no longer found exactly in the final submission. It may have been edited or removed.</p>
                 <pre style="white-space:pre-wrap;word-break:break-word;margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;">${escapeHtml(item.text)}</pre>
               </div>
             </details>
@@ -8856,7 +8877,7 @@ function downloadStudentWork(assignment, submission) {
   const events = submission.writingEvents || [];
   const hasMarkedCopy = Boolean(
     safeArray(submission.teacherReview?.annotations).length ||
-    safeArray(submission.writingEvents).some((entry) => entry?.type === "paste" && entry?.flagged && entry?.insertedText)
+    safeArray(submission.writingEvents).some((entry) => isPasteLikeWritingEvent(entry) && entry?.insertedText)
   );
   const annotations = safeArray(submission.teacherReview?.annotations);
   const annotatedCopyHtml = renderAnnotatedText(submission, {
@@ -8869,7 +8890,7 @@ function downloadStudentWork(assignment, submission) {
   const insertCount = events.filter(e => e.type === "insert").length;
   const deleteCount = events.filter(e => e.type === "delete").length;
   const pasteCount = events.filter(e => e.type === "paste").length;
-  const flaggedCount = events.filter(e => e.flagged).length;
+  const flaggedCount = events.filter((entry) => isPasteLikeWritingEvent(entry)).length;
   const totalChars = events.reduce((sum, e) => sum + Math.abs(e.delta || 0), 0);
   const eventSummary = `
     <tr><td>Insertions</td><td>${insertCount} events</td></tr>
@@ -9077,7 +9098,7 @@ function isOutlineComplete(submission, assignment) {
 
 function renderTextWithPasteHighlights(text, writingEvents) {
   if (!text) return "";
-  const flaggedPastes = (writingEvents || []).filter(e => e.type === "paste" && e.flagged && e.insertedText);
+  const flaggedPastes = (writingEvents || []).filter((entry) => isPasteLikeWritingEvent(entry) && entry.insertedText);
   if (!flaggedPastes.length) return `<pre class="context-expanded-text">${escapeHtml(text)}</pre>`;
 
   let remaining = text;
@@ -9112,7 +9133,7 @@ function gradeSubmission(assignment, submission) {
   const revisionStrength = 1 - similarityRatio(draftText, submission.finalText || draftText);
   const reflectionsComplete = Boolean(submission.reflections.improved.trim());
   const outlineComplete = isOutlineComplete(submission, assignment);
-  const flaggedPasteCount = safeArray(submission.writingEvents).filter((entry) => entry.type === "paste" && entry.flagged).length;
+  const flaggedPasteCount = safeArray(submission.writingEvents).filter((entry) => isPasteLikeWritingEvent(entry)).length;
   const finalWordCount = wordCount(finalText);
   const draftWordCount = wordCount(draftText);
   const minimalSubmission = finalWordCount <= 1 && draftWordCount <= 1;
@@ -10072,6 +10093,9 @@ function renderEventSummary(entry) {
   const core = `${formatTime(entry.timestamp)} • ${entry.delta >= 0 ? "+" : ""}${entry.delta} chars`;
   if (entry.type === "paste") {
     return `${core}. ${entry.flagged ? "Large paste flagged." : "Paste captured."} ${entry.preview}`;
+  }
+  if (isLargeSingleInsertEvent(entry)) {
+    return `${core}. Large single insert flagged as paste-like evidence. ${entry.preview}`;
   }
   return `${core}. ${entry.preview || "Draft updated."}`;
 }

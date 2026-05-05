@@ -11,9 +11,11 @@ const submissionRegressionFixture = require("./fixtures/submission-regression-fi
 global.window = global.window || {};
 require("../rubric-utils.js");
 require("../review-utils.js");
+require("../paste-evidence-utils.js");
 
 const rubricUtils = global.window.RubricUtils;
 const reviewUtils = global.window.ReviewUtils;
+const pasteEvidenceUtils = global.window.PasteEvidenceUtils;
 
 function createMemoryStorage({ failFirstWrite = false } = {}) {
   const store = new Map();
@@ -205,6 +207,19 @@ test("playback operation counts keep paste and delete atomic", () => {
   assert.equal(reviewUtils.getPlaybackOperationCount({ type: "insert", insertedText: "x".repeat(300) }), 1);
   assert.equal(reviewUtils.getPlaybackOperationCount({ type: "insert", insertedText: "abc" }), 3);
   assert.equal(reviewUtils.getPlaybackOperationCount({ type: "replace", removedText: "old", insertedText: "new" }), 4);
+});
+
+test("paste evidence excerpts show starts and ends for long inserts", () => {
+  const text = `Start ${"middle ".repeat(80)} End`;
+  const excerpt = pasteEvidenceUtils.buildBoundaryExcerpt(text, { excerptLength: 40 });
+  assert.equal(excerpt.truncated, true);
+  assert.match(excerpt.start, /^Start middle/);
+  assert.match(excerpt.end, /End$/);
+
+  const shortExcerpt = pasteEvidenceUtils.buildBoundaryExcerpt("Short pasted text", { excerptLength: 40 });
+  assert.equal(shortExcerpt.truncated, false);
+  assert.equal(shortExcerpt.start, "Short pasted text");
+  assert.equal(shortExcerpt.end, "");
 });
 
 test("reopened submissions must clear active graded-review lock fields", () => {

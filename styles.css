@@ -1449,9 +1449,37 @@ button.rubric-level-cell:hover {
   cursor: pointer;
 }
 
+.paste-evidence-card summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+
 .paste-evidence-card:hover {
   border-color: #9b4dca;
   box-shadow: 0 10px 24px rgba(84, 47, 128, 0.08);
+}
+
+.paste-evidence-excerpts {
+  display: grid;
+  gap: 10px;
+}
+
+.paste-evidence-excerpts p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.paste-evidence-fulltext {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
 }
 
 .teacher-feedback-comparison {

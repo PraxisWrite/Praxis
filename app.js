@@ -8576,6 +8576,13 @@ function getPasteEvidenceItems(submission) {
       timestamp: event.timestamp || submission?.updatedAt || new Date().toISOString(),
       charCount: pastedText.length,
       preview: trimTo(pastedText.replace(/\s+/g, " ").trim(), 180),
+      excerpt: window.PasteEvidenceUtils?.buildBoundaryExcerpt
+        ? window.PasteEvidenceUtils.buildBoundaryExcerpt(pastedText)
+        : {
+            start: trimTo(pastedText.replace(/\s+/g, " ").trim(), 180),
+            end: "",
+            truncated: pastedText.length > 180,
+          },
       start,
       end: start === -1 ? -1 : start + pastedText.length,
       foundExact: start !== -1,
@@ -8598,30 +8605,50 @@ function renderPasteEvidencePanel(submission) {
       </div>
       <div style="display:grid;gap:10px;margin-top:12px;">
         ${items.map((item) => {
+          const kindLabel = window.PasteEvidenceUtils?.getEvidenceKindLabel
+            ? window.PasteEvidenceUtils.getEvidenceKindLabel(item.kind)
+            : (item.kind === "paste" ? "Paste event" : "Large single insert");
+          const statusLabel = window.PasteEvidenceUtils?.getEvidenceStatusLabel
+            ? window.PasteEvidenceUtils.getEvidenceStatusLabel(item.foundExact)
+            : (item.foundExact ? "Still found in final text" : "Edited or removed");
           const body = `
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
               <span class="pill">${escapeHtml(formatDateTime(item.timestamp))}</span>
               <span class="pill">${item.charCount} characters</span>
-              <span class="pill">${item.kind === "paste" ? "Paste event" : "Large single insert"}</span>
-              <span class="${item.foundExact ? "pill" : "warning-pill"}">${item.foundExact ? "Still found in final text" : "Edited or removed"}</span>
+              <span class="pill">${escapeHtml(kindLabel)}</span>
+              <span class="${item.foundExact ? "pill" : "warning-pill"}">${escapeHtml(statusLabel)}</span>
             </div>
-            <p style="margin:0;font-size:0.9rem;line-height:1.55;">${escapeHtml(item.preview || "(blank paste)")}</p>
+            <div class="paste-evidence-excerpts">
+              <div>
+                <p class="mini-label">Starts</p>
+                <p>${escapeHtml(item.excerpt?.start || "(blank insert)")}</p>
+              </div>
+              ${item.excerpt?.truncated ? `
+                <div>
+                  <p class="mini-label">Ends</p>
+                  <p>${escapeHtml(item.excerpt?.end || "")}</p>
+                </div>
+              ` : ""}
+            </div>
           `;
-          if (item.foundExact) {
-            return `
-              <button id="paste-evidence-${escapeAttribute(item.id)}" class="paste-evidence-card" data-action="inspect-paste-flag" data-paste-id="${escapeAttribute(item.id)}" type="button">
-                ${body}
-              </button>
-            `;
-          }
           return `
             <details id="paste-evidence-${escapeAttribute(item.id)}" class="paste-evidence-card">
-              <summary data-action="inspect-paste-flag" data-paste-id="${escapeAttribute(item.id)}">
+              <summary>
                 ${body}
               </summary>
               <div style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px;">
-                <p class="subtle" style="margin:0 0 8px;">This pasted or bulk-inserted text is no longer found exactly in the final submission. It may have been edited or removed.</p>
-                <pre style="white-space:pre-wrap;word-break:break-word;margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;">${escapeHtml(item.text)}</pre>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+                  ${item.foundExact
+                    ? `<button class="button-ghost" data-action="inspect-paste-flag" data-paste-id="${escapeAttribute(item.id)}" type="button" style="font-size:0.82rem;">Show in student text</button>`
+                    : `<button class="button-ghost" type="button" disabled style="font-size:0.82rem;">Exact text not found</button>`
+                  }
+                  <p class="subtle" style="margin:0;">${item.foundExact
+                    ? "This exact text is still present in the final submission."
+                    : "This exact text is no longer found in the final submission. It may have been edited, shortened, or removed."
+                  }</p>
+                </div>
+                <p class="mini-label" style="margin-bottom:6px;">Inserted text</p>
+                <pre class="paste-evidence-fulltext">${escapeHtml(item.text)}</pre>
               </div>
             </details>
           `;

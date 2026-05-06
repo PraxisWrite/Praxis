@@ -137,6 +137,13 @@ test("notification utils detect grade saves and reopened submissions", () => {
     }).status,
     "graded"
   );
+  assert.equal(
+    notificationUtils.submissionPayloadWithGradedStatus({
+      status: "graded",
+      teacher_review: { status: "draft", savedAt: null, finalScore: "" },
+    }).status,
+    "draft"
+  );
 });
 
 test("student submission writes cannot overwrite teacher-owned review state", () => {
@@ -193,6 +200,25 @@ test("student-visible reopened submissions cannot expose stale graded review dat
   assert.equal(visible.teacher_review.savedAt, null);
   assert.equal(visible.teacher_review.finalScore, "");
   assert.deepEqual(visible.teacher_review.annotations, []);
+});
+
+test("student-visible split graded status with open review is treated as editable", () => {
+  const visible = submissionSanitizer.normalizeStudentVisibleSubmission({
+    id: "submission-1",
+    status: "graded",
+    teacher_review: {
+      status: "draft",
+      savedAt: null,
+      finalScore: "",
+      finalNotes: "",
+      rowScores: [],
+      annotations: [],
+    },
+  });
+
+  assert.equal(visible.status, "draft");
+  assert.equal(visible.teacher_review.status, "ungraded");
+  assert.equal(visible.teacher_review.savedAt, null);
 });
 
 test("submitted student payload clears old review data for resubmission", () => {

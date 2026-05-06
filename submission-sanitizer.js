@@ -57,7 +57,37 @@ function sanitizeStudentSubmissionPayload(payload = {}) {
   return sanitizePayload(payload, STUDENT_SUBMISSION_ALLOWED_FIELDS);
 }
 
+function createOpenTeacherReview(review = {}) {
+  return {
+    ...review,
+    status: "ungraded",
+    rowScores: [],
+    suggestedRowScores: [],
+    suggestedGrade: null,
+    finalScore: "",
+    finalNotes: "",
+    annotations: [],
+    savedAt: null,
+    acceptedAt: null,
+  };
+}
+
+function isOpenForStudentEditing(status) {
+  return ["draft", "returned", "reopened"].includes(String(status || "").trim().toLowerCase());
+}
+
+function normalizeStudentVisibleSubmission(submission = {}) {
+  if (!submission || typeof submission !== "object") return submission;
+  if (!isOpenForStudentEditing(submission.status)) return submission;
+  return {
+    ...submission,
+    teacher_review: createOpenTeacherReview(submission.teacher_review),
+  };
+}
+
 module.exports = {
+  createOpenTeacherReview,
+  normalizeStudentVisibleSubmission,
   sanitizeStudentSubmissionPayload,
   sanitizeTeacherSubmissionPayload,
   STUDENT_SUBMISSION_ALLOWED_FIELDS,

@@ -14,6 +14,17 @@ function submissionWasReopened(previousSubmission, nextSubmission) {
   return nextStatus === "draft" && previousStatus && previousStatus !== "draft";
 }
 
+function submissionPayloadWithGradedStatus(payload = {}) {
+  const nextPayload = { ...(payload || {}) };
+  const review = nextPayload.teacher_review || nextPayload.teacherReview || {};
+  const reviewStatus = String(review?.status || "").toLowerCase();
+  const savedAt = review?.savedAt || review?.saved_at;
+  if (reviewStatus === "graded" && savedAt) {
+    nextPayload.status = "graded";
+  }
+  return nextPayload;
+}
+
 function appendResetQuery(urlValue = "") {
   const raw = String(urlValue || "").trim();
   if (!raw) return "";
@@ -33,5 +44,6 @@ module.exports = {
   appendResetQuery,
   getTeacherReviewSavedAt,
   submissionWasReopened,
+  submissionPayloadWithGradedStatus,
   teacherReviewWasNewlySaved,
 };

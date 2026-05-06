@@ -122,6 +122,13 @@ test("notification utils detect grade saves and reopened submissions", () => {
     notificationUtils.submissionWasReopened({ status: "draft" }, { status: "draft" }),
     false
   );
+  assert.equal(
+    notificationUtils.submissionPayloadWithGradedStatus({
+      status: "draft",
+      teacher_review: { status: "graded", savedAt: "2026-05-06T11:19:34.707Z" },
+    }).status,
+    "graded"
+  );
 });
 
 test("rubric mismatch regression uses parsed criteria total instead of stale declared total", () => {

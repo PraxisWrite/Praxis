@@ -97,6 +97,13 @@ test("notification utils normalize password reset redirects", () => {
     notificationUtils.appendResetQuery("https://auizero-production.up.railway.app"),
     "https://auizero-production.up.railway.app/?reset=1"
   );
+  assert.equal(
+    notificationUtils.forceActionLinkRedirect(
+      "https://project.supabase.co/auth/v1/verify?token=abc&type=recovery&redirect_to=http%3A%2F%2Flocalhost%3A3000",
+      "https://auizero-production.up.railway.app/?reset=1"
+    ),
+    "https://project.supabase.co/auth/v1/verify?token=abc&type=recovery&redirect_to=https%3A%2F%2Fauizero-production.up.railway.app%2F%3Freset%3D1"
+  );
 });
 
 test("notification utils detect grade saves and reopened submissions", () => {

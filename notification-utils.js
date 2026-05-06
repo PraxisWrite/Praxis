@@ -29,8 +29,23 @@ function appendResetQuery(urlValue = "") {
   }
 }
 
+function forceActionLinkRedirect(actionLink = "", redirectTo = "") {
+  const rawLink = String(actionLink || "").trim();
+  const targetRedirect = String(redirectTo || "").trim();
+  if (!rawLink || !targetRedirect) return rawLink;
+
+  try {
+    const url = new URL(rawLink);
+    url.searchParams.set("redirect_to", targetRedirect);
+    return url.toString();
+  } catch (_) {
+    return rawLink;
+  }
+}
+
 module.exports = {
   appendResetQuery,
+  forceActionLinkRedirect,
   getTeacherReviewSavedAt,
   submissionWasReopened,
   teacherReviewWasNewlySaved,

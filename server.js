@@ -6,6 +6,7 @@ const multer = require('multer');
 const { parseRubricBuffer, parseRubricText } = require('./rubricParser');
 const {
   appendResetQuery,
+  forceActionLinkRedirect,
   getTeacherReviewSavedAt,
   submissionWasReopened,
   teacherReviewWasNewlySaved,
@@ -261,6 +262,32 @@ async function sendEmail({ to, subject, html, text, idempotencyKey }) {
     throw new Error(payload?.message || payload?.error || `Email send failed with status ${response.status}`);
   }
   return payload;
+}
+
+async function sendPasswordResetEmail({ to, resetLink, baseUrl }) {
+  if (!canSendNotificationEmails() || !to || !resetLink) return { skipped: true };
+  const normalizedBaseUrl = String(baseUrl || '').replace(/\/+$/, '');
+  const supportLine = normalizedBaseUrl
+    ? `If the button does not work, open praxis here first: ${normalizedBaseUrl}`
+    : 'If the button does not work, open praxis from your usual class link and try again.';
+
+  return sendEmail({
+    to,
+    subject: 'Reset your praxis password',
+    html: `
+      <div style="font-family:Inter,Segoe UI,Arial,sans-serif;line-height:1.6;color:#1d2a44;">
+        <p>We received a request to reset your praxis password.</p>
+        <p><a href="${escapeHtmlEmail(resetLink)}" style="display:inline-block;padding:10px 16px;border-radius:999px;background:#4c6fe7;color:#ffffff;text-decoration:none;font-weight:600;">Reset password</a></p>
+        <p>This link can only be used once. If you did not request this, you can ignore this email.</p>
+      </div>
+    `,
+    text: `We received a request to reset your praxis password.\n\nReset password: ${resetLink}\n\nThis link can only be used once. If you did not request this, you can ignore this email.\n\n${supportLine}`,
+    idempotencyKey: makeIdempotencyKey([
+      'password-reset',
+      to,
+      new Date().toISOString().slice(0, 16),
+    ]),
+  });
 }
 
 async function getAuthUserEmailMap(userIds = []) {
@@ -848,12 +875,36 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   try {
     const { email, redirectTo: requestedRedirect } = req.body || {};
     if (!email) return res.status(400).json({ error: 'Email is required' });
+    const emailAddress = String(email).trim();
     const redirectTo = appendResetQuery(getPasswordResetBaseUrl(req, requestedRedirect));
+
+    if (canSendNotificationEmails()) {
+      const { data, error } = await supabase.auth.admin.generateLink({
+        type: 'recovery',
+        email: emailAddress,
+        options: { redirectTo },
+      });
+      if (error) return res.status(400).json({ error: error.message });
+
+      const actionLink = data?.properties?.action_link || data?.properties?.email_otp || '';
+      const resetLink = forceActionLinkRedirect(actionLink, redirectTo);
+      if (!resetLink || !/^https?:\/\//i.test(resetLink)) {
+        return res.status(500).json({ error: 'Could not create a password reset link.' });
+      }
+
+      await sendPasswordResetEmail({
+        to: emailAddress,
+        resetLink,
+        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+      });
+      return res.json({ ok: true, redirectTo, delivery: 'app-email' });
+    }
+
     const { error } = await supabaseUserAuth.auth.resetPasswordForEmail(String(email).trim(), {
       redirectTo,
     });
     if (error) return res.status(400).json({ error: error.message });
-    res.json({ ok: true, redirectTo });
+    res.json({ ok: true, redirectTo, delivery: 'supabase-auth' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

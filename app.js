@@ -3896,6 +3896,7 @@ if (action === "select-assignment") {
          submission.teacherReview.finalNotes = notesValue;
          submission.teacherReview.status = "graded";
          submission.teacherReview.savedAt = new Date().toISOString();
+         submission.status = "graded";
          const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
          replaceSubmissionInState(savedSubmission);
          ui.selectedReviewSubmissionId = savedSubmission.id;

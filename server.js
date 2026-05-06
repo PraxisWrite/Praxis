@@ -8,6 +8,7 @@ const {
   appendResetQuery,
   getTeacherReviewSavedAt,
   submissionWasReopened,
+  submissionPayloadWithGradedStatus,
   teacherReviewWasNewlySaved,
 } = require('./notification-utils');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -1605,7 +1606,10 @@ app.put('/api/assignments/:assignmentId/students/:studentId/submission', async (
     if (!ownedAssignment) return res.status(403).json({ error: 'You can only review submissions for your own assignments.' });
     const enrolledStudent = await ensureStudentBelongsToClass(ownedAssignment.class_id, studentId, readClient);
     if (!enrolledStudent) return res.status(400).json({ error: 'That student is not enrolled in this class.' });
-    const payload = { ...sanitizeSubmissionPayload(req.body), updated_at: new Date().toISOString() };
+    const payload = submissionPayloadWithGradedStatus({
+      ...sanitizeSubmissionPayload(req.body),
+      updated_at: new Date().toISOString(),
+    });
 
     const submissionClient = readClient;
     let { data, error } = await submissionClient
@@ -1687,7 +1691,10 @@ app.patch('/api/submissions/:id', async (req, res) => {
     }
     const { data, error } = await submissionWriteWithFallback(req, (client) => client
       .from('submissions')
-      .update({ ...sanitizeSubmissionPayload(req.body), updated_at: new Date().toISOString() })
+      .update(submissionPayloadWithGradedStatus({
+        ...sanitizeSubmissionPayload(req.body),
+        updated_at: new Date().toISOString(),
+      }))
       .eq('id', req.params.id)
       .select('*, profiles(id, name)')
       .single());

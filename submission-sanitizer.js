@@ -72,21 +72,48 @@ function createOpenTeacherReview(review = {}) {
   };
 }
 
+function getReviewRowScores(review = {}) {
+  return Array.isArray(review.rowScores)
+    ? review.rowScores
+    : (Array.isArray(review.row_scores) ? review.row_scores : []);
+}
+
+function isOpenTeacherReview(review = {}) {
+  const reviewStatus = String(review.status || "").trim().toLowerCase();
+  const hasSavedAt = Boolean(review.savedAt || review.saved_at);
+  const finalScore = review.finalScore ?? review.final_score ?? "";
+  const finalNotes = String(review.finalNotes || review.final_notes || "").trim();
+  const rowScores = getReviewRowScores(review);
+  const annotations = Array.isArray(review.annotations) ? review.annotations : [];
+  return ["", "draft", "ungraded", "returned", "reopened"].includes(reviewStatus)
+    && !hasSavedAt
+    && finalScore === ""
+    && !finalNotes
+    && rowScores.length === 0
+    && annotations.length === 0;
+}
+
 function isOpenForStudentEditing(status) {
   return ["draft", "returned", "reopened"].includes(String(status || "").trim().toLowerCase());
 }
 
 function normalizeStudentVisibleSubmission(submission = {}) {
   if (!submission || typeof submission !== "object") return submission;
-  if (!isOpenForStudentEditing(submission.status)) return submission;
+  const status = String(submission.status || "").trim().toLowerCase();
+  const review = submission.teacher_review || {};
+  const shouldTreatAsOpen = isOpenForStudentEditing(status)
+    || (status === "graded" && isOpenTeacherReview(review));
+  if (!shouldTreatAsOpen) return submission;
   return {
     ...submission,
+    status: status === "graded" ? "draft" : submission.status,
     teacher_review: createOpenTeacherReview(submission.teacher_review),
   };
 }
 
 module.exports = {
   createOpenTeacherReview,
+  isOpenTeacherReview,
   normalizeStudentVisibleSubmission,
   sanitizeStudentSubmissionPayload,
   sanitizeTeacherSubmissionPayload,

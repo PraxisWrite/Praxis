@@ -34,6 +34,12 @@ function submissionPayloadWithGradedStatus(payload = {}) {
   const savedAt = review?.savedAt || review?.saved_at;
   if (reviewStatus === "graded" && savedAt) {
     nextPayload.status = "graded";
+  } else if (
+    nextPayload.status === "graded" &&
+    ["", "draft", "ungraded", "returned", "reopened"].includes(reviewStatus) &&
+    !savedAt
+  ) {
+    nextPayload.status = "draft";
   }
   return nextPayload;
 }

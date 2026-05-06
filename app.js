@@ -1371,32 +1371,33 @@ async function syncTeacherReviewToServer(submission) {
 }
 
 async function upsertTeacherReviewSubmission(assignment, submission) {
-  if (!assignment?.id || !submission?.studentId) return submission;
-
-  try {
-    if (submission.id && !String(submission.id).startsWith("submission-") && !String(submission.id).startsWith("pending-review-")) {
-      const result = await Auth.apiFetch(`/api/submissions/${submission.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          status: submission.status,
-          teacher_review: submission.teacherReview,
-        }),
-      });
-      return mapServerSubmission(result?.submission || submission);
-    }
-
-    const result = await Auth.apiFetch(`/api/assignments/${assignment.id}/students/${submission.studentId}/submission`, {
-      method: "PUT",
-      body: JSON.stringify(buildSubmissionServerPayload(submission, {
-        teacher_review: submission.teacherReview,
-      })),
-    });
-
-    return mapServerSubmission(result?.submission || submission);
-  } catch (error) {
-    console.error("Could not upsert teacher review submission:", error.message, error);
-    return submission;
+  if (!assignment?.id || !submission?.studentId) {
+    throw new Error("Missing assignment or student for review save.");
   }
+
+  if (submission.id && !String(submission.id).startsWith("submission-") && !String(submission.id).startsWith("pending-review-")) {
+    const result = await Auth.apiFetch(`/api/submissions/${submission.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: submission.status,
+        teacher_review: submission.teacherReview,
+      }),
+    });
+    if (result?.error) throw new Error(result.error);
+    if (!result?.submission) throw new Error("Server did not return the saved submission.");
+    return mapServerSubmission(result.submission);
+  }
+
+  const result = await Auth.apiFetch(`/api/assignments/${assignment.id}/students/${submission.studentId}/submission`, {
+    method: "PUT",
+    body: JSON.stringify(buildSubmissionServerPayload(submission, {
+      teacher_review: submission.teacherReview,
+    })),
+  });
+
+  if (result?.error) throw new Error(result.error);
+  if (!result?.submission) throw new Error("Server did not return the saved submission.");
+  return mapServerSubmission(result.submission);
 }
 
 function replaceSubmissionInState(nextSubmission) {
@@ -3888,6 +3889,8 @@ if (action === "select-assignment") {
        // server response shows what the teacher typed, not the stale value.
        ui.pendingFinalScoreOverride = validOverride;
        render();
+       const previousStatus = submission.status;
+       const previousReview = createDefaultTeacherReview(submission.teacherReview);
        try {
          submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
          const summary = calculateTeacherReviewSummary(assignment, submission);
@@ -3902,6 +3905,11 @@ if (action === "select-assignment") {
          ui.selectedReviewSubmissionId = savedSubmission.id;
          ui.notice = "Grade submitted to student.";
          persistState();
+       } catch (error) {
+         submission.status = previousStatus;
+         submission.teacherReview = previousReview;
+         ui.notice = `Could not submit grade: ${error.message}`;
+         console.error("Could not submit grade:", error);
        } finally {
          ui.gradeSubmitting = false;
          ui.pendingFinalScoreOverride = null;
@@ -3919,15 +3927,24 @@ if (action === "select-assignment") {
     }
 
     submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
+    const previousStatus = submission.status;
+    const previousReview = createDefaultTeacherReview(submission.teacherReview);
     submission.status = nextStatus;
     submission.teacherReview.status = nextStatus;
     submission.updatedAt = new Date().toISOString();
 
-    const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
-    replaceSubmissionInState(savedSubmission);
-    ui.selectedReviewSubmissionId = savedSubmission.id;
-    ui.notice = `Marked ${savedSubmission._studentName || "student"} as ${getSubmissionStatusDisplay(nextStatus).toLowerCase()}.`;
-    persistState();
+    try {
+      const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
+      replaceSubmissionInState(savedSubmission);
+      ui.selectedReviewSubmissionId = savedSubmission.id;
+      ui.notice = `Marked ${savedSubmission._studentName || "student"} as ${getSubmissionStatusDisplay(nextStatus).toLowerCase()}.`;
+      persistState();
+    } catch (error) {
+      submission.status = previousStatus;
+      submission.teacherReview = previousReview;
+      ui.notice = `Could not update status: ${error.message}`;
+      console.error("Could not update status:", error);
+    }
     render();
     return;
   }
@@ -3958,16 +3975,25 @@ if (action === "select-assignment") {
       return;
     }
 
+    const previousStatus = submission.status;
+    const previousReview = createDefaultTeacherReview(submission.teacherReview);
     submission.status = "draft";
     submission.teacherReview = resetTeacherReviewForReopen(createDefaultTeacherReview(submission.teacherReview));
     submission.updatedAt = new Date().toISOString();
 
-    const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
-    replaceSubmissionInState(savedSubmission);
-    ui.selectedReviewSubmissionId = savedSubmission.id;
-    ui.reopenSubmissionPrompt = null;
-    ui.notice = `Reopened ${savedSubmission._studentName || "student"} for editing and resubmission.`;
-    persistState();
+    try {
+      const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
+      replaceSubmissionInState(savedSubmission);
+      ui.selectedReviewSubmissionId = savedSubmission.id;
+      ui.reopenSubmissionPrompt = null;
+      ui.notice = `Reopened ${savedSubmission._studentName || "student"} for editing and resubmission.`;
+      persistState();
+    } catch (error) {
+      submission.status = previousStatus;
+      submission.teacherReview = previousReview;
+      ui.notice = `Could not reopen submission: ${error.message}`;
+      console.error("Could not reopen submission:", error);
+    }
     render();
     return;
   }
@@ -5321,14 +5347,15 @@ function renderTeacherWorkspace() {
           </div>
           <button class="button-ghost" data-action="refresh-assignment-statuses" style="font-size:0.82rem;">Refresh statuses</button>
         </div>
-        <div class="teacher-ready-card" style="margin-bottom:16px;">
-          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px;">
+        <details class="teacher-ready-card" style="margin-bottom:16px;">
+          <summary style="cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
             <div>
               <p class="mini-label" style="margin-bottom:4px;">Class list</p>
-              <p class="subtle">Students currently enrolled in ${escapeHtml(currentClasses.find((c) => c.id === currentClassId)?.name || "this class")}.</p>
+              <p class="subtle" style="margin-bottom:0;">Students currently enrolled in ${escapeHtml(currentClasses.find((c) => c.id === currentClassId)?.name || "this class")}.</p>
             </div>
             <span class="pill">${classRoster.length} student${classRoster.length === 1 ? "" : "s"}</span>
-          </div>
+          </summary>
+          <div style="margin-top:12px;">
           ${classRoster.length
             ? `<div style="display:grid;gap:8px;">
                 ${classRoster.map((member, index) => `
@@ -5346,7 +5373,8 @@ function renderTeacherWorkspace() {
               </div>`
             : `<div class="empty-state compact-empty"><h3>No students yet</h3><p>Invite students to this class to start building the roster.</p></div>`
           }
-        </div>
+          </div>
+        </details>
         ${
           !assignments.length
             ? `<div class="empty-state" style="padding:36px 28px;">

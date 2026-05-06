@@ -241,7 +241,10 @@ function formatDeadline(deadlineValue) {
 }
 
 async function sendEmail({ to, subject, html, text, idempotencyKey }) {
-  if (!canSendNotificationEmails() || !to) return { skipped: true };
+  if (!canSendNotificationEmails() || !to) {
+    console.warn(`Email skipped for "${subject || 'untitled email'}": ${to ? 'email configuration missing' : 'recipient missing'}`);
+    return { skipped: true };
+  }
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -261,7 +264,19 @@ async function sendEmail({ to, subject, html, text, idempotencyKey }) {
   if (!response.ok) {
     throw new Error(payload?.message || payload?.error || `Email send failed with status ${response.status}`);
   }
+  const recipientCount = Array.isArray(to) ? to.length : 1;
+  console.info(`Email sent for "${subject}" to ${recipientCount} recipient${recipientCount === 1 ? "" : "s"}.`);
   return payload;
+}
+
+async function waitForNotifications(label, promises = []) {
+  const results = await Promise.allSettled(promises.filter(Boolean));
+  results.forEach((result) => {
+    if (result.status === 'rejected') {
+      console.error(`${label} failed:`, result.reason?.message || result.reason);
+    }
+  });
+  return results;
 }
 
 async function getAuthUserEmailMap(userIds = []) {
@@ -1568,11 +1583,13 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
         .select('*, profiles(id, name)')
         .single());
       if (error) return res.status(400).json({ error: error.message });
-      notifyTeacherAboutStudentSubmission({
-        assignment: accessibleAssignment,
-        submission: data,
-        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-      }).catch((emailError) => console.error('Teacher submission notification email failed:', emailError));
+      await waitForNotifications('Teacher submission notification email', [
+        notifyTeacherAboutStudentSubmission({
+          assignment: accessibleAssignment,
+          submission: data,
+          baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+        }),
+      ]);
       return res.json({ submission: data });
     }
 
@@ -1587,11 +1604,13 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
       .select('*, profiles(id, name)')
       .single());
     if (error) return res.status(400).json({ error: error.message });
-    notifyTeacherAboutStudentSubmission({
-      assignment: accessibleAssignment,
-      submission: data,
-      baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-    }).catch((emailError) => console.error('Teacher submission notification email failed:', emailError));
+    await waitForNotifications('Teacher submission notification email', [
+      notifyTeacherAboutStudentSubmission({
+        assignment: accessibleAssignment,
+        submission: data,
+        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+      }),
+    ]);
     res.json({ submission: data });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1634,18 +1653,20 @@ app.put('/api/assignments/:assignmentId/students/:studentId/submission', async (
         .select('*, profiles(id, name)')
         .single());
       if (updateError) return res.status(400).json({ error: updateError.message });
-      notifyStudentAboutGradedSubmission({
-        assignment: ownedAssignment,
-        submission: updated,
-        previousTeacherReview: data.teacher_review,
-        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-      }).catch((emailError) => console.error('Grade notification email failed:', emailError));
-      notifyStudentAboutReopenedSubmission({
-        assignment: ownedAssignment,
-        previousSubmission: data,
-        submission: updated,
-        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-      }).catch((emailError) => console.error('Reopen notification email failed:', emailError));
+      await waitForNotifications('Student review notification email', [
+        notifyStudentAboutGradedSubmission({
+          assignment: ownedAssignment,
+          submission: updated,
+          previousTeacherReview: data.teacher_review,
+          baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+        }),
+        notifyStudentAboutReopenedSubmission({
+          assignment: ownedAssignment,
+          previousSubmission: data,
+          submission: updated,
+          baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+        }),
+      ]);
       return res.json({ submission: updated });
     }
 
@@ -1661,18 +1682,20 @@ app.put('/api/assignments/:assignmentId/students/:studentId/submission', async (
       .single());
 
     if (createError) return res.status(400).json({ error: createError.message });
-    notifyStudentAboutGradedSubmission({
-      assignment: ownedAssignment,
-      submission: created,
-      previousTeacherReview: null,
-      baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-    }).catch((emailError) => console.error('Grade notification email failed:', emailError));
-    notifyStudentAboutReopenedSubmission({
-      assignment: ownedAssignment,
-      previousSubmission: null,
-      submission: created,
-      baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-    }).catch((emailError) => console.error('Reopen notification email failed:', emailError));
+    await waitForNotifications('Student review notification email', [
+      notifyStudentAboutGradedSubmission({
+        assignment: ownedAssignment,
+        submission: created,
+        previousTeacherReview: null,
+        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+      }),
+      notifyStudentAboutReopenedSubmission({
+        assignment: ownedAssignment,
+        previousSubmission: null,
+        submission: created,
+        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+      }),
+    ]);
     res.json({ submission: created });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1705,18 +1728,20 @@ app.patch('/api/submissions/:id', async (req, res) => {
       .single());
     if (error) return res.status(400).json({ error: error.message });
     if (ownedAssignment) {
-      notifyStudentAboutGradedSubmission({
-        assignment: ownedAssignment,
-        submission: data,
-        previousTeacherReview: submission.teacher_review,
-        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-      }).catch((emailError) => console.error('Grade notification email failed:', emailError));
-      notifyStudentAboutReopenedSubmission({
-        assignment: ownedAssignment,
-        previousSubmission: submission,
-        submission: data,
-        baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
-      }).catch((emailError) => console.error('Reopen notification email failed:', emailError));
+      await waitForNotifications('Student review notification email', [
+        notifyStudentAboutGradedSubmission({
+          assignment: ownedAssignment,
+          submission: data,
+          previousTeacherReview: submission.teacher_review,
+          baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+        }),
+        notifyStudentAboutReopenedSubmission({
+          assignment: ownedAssignment,
+          previousSubmission: submission,
+          submission: data,
+          baseUrl: getConfiguredPublicBaseUrl() || getRequestBaseUrl(req),
+        }),
+      ]);
     }
     res.json({ submission: data });
   } catch (error) {

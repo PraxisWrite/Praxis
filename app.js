@@ -56,6 +56,14 @@ function isAdminTeacherView() {
   return ui.role === "admin" && currentProfile?.role === "admin" && ui.adminViewingAsTeacher;
 }
 
+function isSubmissionDebugEnabled() {
+  try {
+    return new URLSearchParams(window.location.search).get("debug") === "submission";
+  } catch (_) {
+    return false;
+  }
+}
+
 const BASE_ERROR_CODES = [
   { code: "CS",  label: "Comma splice: two complete sentences joined with only a comma" },
   { code: "RO",  label: "Run-on: two or more sentences run together without correct punctuation" },
@@ -160,6 +168,7 @@ const ui = {
   gradeSubmitting: false,
   pendingFinalScoreOverride: null,
   reopenSubmissionPrompt: null,
+  latestSubmissionDebug: null,
 };
 
 let state = { assignments: [], submissions: [], users: [] };
@@ -1596,6 +1605,7 @@ function resetAppShellState() {
   ui.adminTeachers = [];
   ui.adminClassDetail = null;
   ui.adminSelectedAssignmentId = null;
+  ui.latestSubmissionDebug = null;
   ui.notice = "";
 }
 async function bootApp(profile) {
@@ -2026,12 +2036,29 @@ async function loadStudentSubmissionForAssignment(assignmentId) {
       state.submissions.push(mapped);
     }
     reconcileStudentStepAfterSubmissionRefresh(index >= 0 ? state.submissions[index] : mapped);
+    if (isSubmissionDebugEnabled()) {
+      await loadSubmissionDebugState(assignmentId);
+    }
     persistState();
     return index >= 0 ? state.submissions[index] : mapped;
   } catch (error) {
     console.error("Could not load student submission:", error.message, error);
     ui.notice = "We couldn't refresh your work from the server just now. Showing your saved device copy.";
     return localSubmission;
+  }
+}
+
+async function loadSubmissionDebugState(assignmentId = ui.selectedStudentAssignmentId) {
+  if (!assignmentId || currentProfile?.role !== "student") return null;
+  try {
+    const result = await Auth.apiFetch(`/api/debug/submission-state?assignmentId=${encodeURIComponent(assignmentId)}`);
+    ui.latestSubmissionDebug = result?.error
+      ? { error: result.error, checkedAt: new Date().toISOString() }
+      : result;
+    return ui.latestSubmissionDebug;
+  } catch (error) {
+    ui.latestSubmissionDebug = { error: error.message, checkedAt: new Date().toISOString() };
+    return ui.latestSubmissionDebug;
   }
 }
 
@@ -2890,6 +2917,12 @@ if (action === "switch-class") {
       rememberStudentStep(getStudentStepForSubmission(loaded || getStudentSubmission()), ui.selectedStudentAssignmentId);
       render();
     });
+    return;
+  }
+
+  if (action === "refresh-submission-debug") {
+    await loadSubmissionDebugState(ui.selectedStudentAssignmentId);
+    render();
     return;
   }
 
@@ -5958,11 +5991,62 @@ function renderStudentWorkspace() {
                     ${assignment.chatTimeLimit > 0 ? `<span class="pill">⏱ ${assignment.chatTimeLimit} min chat</span>` : ""}
                   </div>
                 </div>
+                ${renderSubmissionDebugPanel(assignment, submission)}
                 ${renderStudentStep(assignment, submission)}
               `
         }
       </div>
     </section>
+  `;
+}
+
+function summarizeLocalSubmissionForDebug(submission) {
+  if (!submission) return null;
+  const review = submission.teacherReview || {};
+  return {
+    id: submission.id || null,
+    assignmentId: submission.assignmentId || null,
+    studentId: submission.studentId || null,
+    status: submission.status || null,
+    submittedAt: submission.submittedAt || null,
+    updatedAt: submission.updatedAt || null,
+    locked: isStudentSubmissionLocked(submission),
+    renderedStep: ui.studentStep,
+    teacherReview: {
+      status: review.status || null,
+      savedAt: review.savedAt || null,
+      finalScore: review.finalScore ?? null,
+      finalNotesLength: String(review.finalNotes || "").length,
+      rowScoresCount: safeArray(review.rowScores).length,
+      annotationsCount: safeArray(review.annotations).length,
+    },
+  };
+}
+
+function renderSubmissionDebugPanel(assignment, submission) {
+  if (!isSubmissionDebugEnabled()) return "";
+  const localSummary = summarizeLocalSubmissionForDebug(submission);
+  const serverSummary = ui.latestSubmissionDebug || { note: "Server debug has not loaded yet." };
+  return `
+    <details class="teacher-ready-card" open style="border-color:#f59e0b;background:#fff7ed;margin:14px 0;">
+      <summary style="cursor:pointer;font-weight:800;color:#9a3412;">Submission debug</summary>
+      <p class="subtle" style="margin:8px 0;">Temporary diagnostic. This shows what the student UI is rendering locally and what the server reports for the selected assignment.</p>
+      <div class="pill-row" style="margin-bottom:8px;">
+        <span class="pill">Assignment: ${escapeHtml(assignment?.id || "")}</span>
+        <span class="pill">Selected: ${escapeHtml(ui.selectedStudentAssignmentId || "")}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;">
+        <div>
+          <p class="mini-label">Local client state</p>
+          <pre style="white-space:pre-wrap;word-break:break-word;font-size:0.75rem;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;">${escapeHtml(JSON.stringify(localSummary, null, 2))}</pre>
+        </div>
+        <div>
+          <p class="mini-label">Server debug response</p>
+          <pre style="white-space:pre-wrap;word-break:break-word;font-size:0.75rem;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;">${escapeHtml(JSON.stringify(serverSummary, null, 2))}</pre>
+        </div>
+      </div>
+      <button class="button-ghost" data-action="refresh-submission-debug" style="margin-top:10px;">Refresh debug</button>
+    </details>
   `;
 }
 

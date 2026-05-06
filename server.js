@@ -1524,6 +1524,97 @@ app.get('/api/assignments/:assignmentId/my-submission', async (req, res) => {
   }
 });
 
+function summarizeSubmissionForDebug(submission = null) {
+  if (!submission) return null;
+  const review = submission.teacher_review || submission.teacherReview || {};
+  const rowScores = Array.isArray(review.rowScores || review.row_scores) ? (review.rowScores || review.row_scores) : [];
+  const annotations = Array.isArray(review.annotations) ? review.annotations : [];
+  return {
+    id: submission.id || null,
+    assignment_id: submission.assignment_id || submission.assignmentId || null,
+    student_id: submission.student_id || submission.studentId || null,
+    status: submission.status || null,
+    submitted_at: submission.submitted_at || submission.submittedAt || null,
+    updated_at: submission.updated_at || submission.updatedAt || null,
+    teacher_review: {
+      status: review.status || null,
+      savedAt: review.savedAt || review.saved_at || null,
+      finalScore: review.finalScore ?? review.final_score ?? null,
+      finalNotesLength: String(review.finalNotes || review.final_notes || '').length,
+      rowScoresCount: rowScores.length,
+      annotationsCount: annotations.length,
+    },
+    finalTextLength: String(submission.final_text || submission.finalText || '').length,
+    draftTextLength: String(submission.draft_text || submission.draftText || '').length,
+  };
+}
+
+app.get('/api/debug/submission-state', async (req, res) => {
+  try {
+    const user = await getUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const profile = await getProfile(user.id);
+    if (!profile) return res.status(409).json({ error: ACCOUNT_SETUP_INCOMPLETE_MESSAGE });
+
+    const assignmentId = String(req.query.assignmentId || '').trim();
+    if (!assignmentId) return res.status(400).json({ error: 'assignmentId required' });
+
+    const readClient = getRequestScopedSupabase(req);
+    let targetStudentId = String(req.query.studentId || '').trim();
+    let assignment = null;
+
+    if (profile.role === 'student') {
+      targetStudentId = user.id;
+      assignment = await ensureStudentCanAccessAssignment(assignmentId, targetStudentId, readClient);
+      if (!assignment) return res.status(403).json({ error: 'You do not have access to this assignment.' });
+    } else if (profile.role === 'teacher' || profile.role === 'admin') {
+      if (!targetStudentId) return res.status(400).json({ error: 'studentId required for teacher debug' });
+      assignment = await ensureTeacherOwnsAssignment(assignmentId, user.id, readClient);
+      if (!assignment) return res.status(403).json({ error: 'You can only debug submissions for your own assignments.' });
+    } else {
+      return res.status(403).json({ error: 'Unsupported role for debug endpoint.' });
+    }
+
+    const scopedResult = await readClient
+      .from('submissions')
+      .select('*')
+      .eq('assignment_id', assignmentId)
+      .eq('student_id', targetStudentId)
+      .maybeSingle();
+
+    const rawResult = await supabase
+      .from('submissions')
+      .select('*')
+      .eq('assignment_id', assignmentId)
+      .eq('student_id', targetStudentId)
+      .maybeSingle();
+
+    if (scopedResult.error) return res.status(400).json({ error: scopedResult.error.message });
+    if (rawResult.error) return res.status(400).json({ error: rawResult.error.message });
+
+    res.json({
+      checkedAt: new Date().toISOString(),
+      viewer: {
+        id: user.id,
+        role: profile.role,
+      },
+      assignment: {
+        id: assignment.id,
+        title: assignment.title,
+        status: assignment.status,
+        class_id: assignment.class_id,
+      },
+      targetStudentId,
+      requestScoped: summarizeSubmissionForDebug(scopedResult.data),
+      rawServer: summarizeSubmissionForDebug(rawResult.data),
+      studentVisibleNormalized: summarizeSubmissionForDebug(normalizeStudentVisibleSubmission(rawResult.data)),
+    });
+  } catch (error) {
+    console.error('Debug submission-state failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Submit student's own work atomically
 app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
   try {

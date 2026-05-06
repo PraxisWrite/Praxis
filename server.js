@@ -12,6 +12,8 @@ const {
   teacherReviewWasNewlySaved,
 } = require('./notification-utils');
 const {
+  createOpenTeacherReview,
+  normalizeStudentVisibleSubmission,
   sanitizeStudentSubmissionPayload,
   sanitizeTeacherSubmissionPayload,
 } = require('./submission-sanitizer');
@@ -1477,7 +1479,7 @@ app.get('/api/student/submissions', async (req, res) => {
       .in('assignment_id', assignmentIds);
     if (error) return res.status(400).json({ error: error.message });
 
-    res.json({ submissions: data || [] });
+    res.json({ submissions: (data || []).map(normalizeStudentVisibleSubmission) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1516,7 +1518,7 @@ app.get('/api/assignments/:assignmentId/my-submission', async (req, res) => {
     } else if (error) {
       return res.status(400).json({ error: error.message });
     }
-    res.json({ submission: data });
+    res.json({ submission: normalizeStudentVisibleSubmission(data) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1539,6 +1541,7 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
       ...payload,
       status: 'submitted',
       submitted_at: submittedAt,
+      teacher_review: createOpenTeacherReview(),
       updated_at: new Date().toISOString(),
     };
 

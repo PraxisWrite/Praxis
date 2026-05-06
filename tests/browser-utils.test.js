@@ -175,6 +175,40 @@ test("teacher submission writes can update review status and teacher review", ()
   assert.equal(sanitized.teacher_review.finalScore, 20);
 });
 
+test("student-visible reopened submissions cannot expose stale graded review data", () => {
+  const visible = submissionSanitizer.normalizeStudentVisibleSubmission({
+    id: "submission-1",
+    status: "draft",
+    teacher_review: {
+      status: "graded",
+      savedAt: "2026-05-01T10:00:00.000Z",
+      finalScore: 20,
+      finalNotes: "Old grade",
+      annotations: [{ id: "old-note" }],
+    },
+  });
+
+  assert.equal(visible.status, "draft");
+  assert.equal(visible.teacher_review.status, "ungraded");
+  assert.equal(visible.teacher_review.savedAt, null);
+  assert.equal(visible.teacher_review.finalScore, "");
+  assert.deepEqual(visible.teacher_review.annotations, []);
+});
+
+test("submitted student payload clears old review data for resubmission", () => {
+  const openReview = submissionSanitizer.createOpenTeacherReview({
+    status: "graded",
+    savedAt: "2026-05-01T10:00:00.000Z",
+    finalScore: 20,
+    finalNotes: "Old grade",
+  });
+
+  assert.equal(openReview.status, "ungraded");
+  assert.equal(openReview.savedAt, null);
+  assert.equal(openReview.finalScore, "");
+  assert.equal(openReview.finalNotes, "");
+});
+
 test("rubric mismatch regression uses parsed criteria total instead of stale declared total", () => {
   const parsedRubric = rubricUtils.normalizeRubricSchema({
     title: "Pilot mismatch rubric",

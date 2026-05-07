@@ -2036,7 +2036,7 @@ async function requireAdmin(req, res) {
 }
 
 function isMissingProfileFlagColumn(error) {
-  return Boolean(error?.message && /is_test_account|exclude_from_writing_behavior|column .* does not exist/i.test(error.message));
+  return Boolean(error?.message && /is_test_account|column .* does not exist/i.test(error.message));
 }
 
 function addDefaultProfileFlags(profile) {
@@ -2044,7 +2044,6 @@ function addDefaultProfileFlags(profile) {
   return {
     ...profile,
     is_test_account: Boolean(profile.is_test_account),
-    exclude_from_writing_behavior: Boolean(profile.exclude_from_writing_behavior),
   };
 }
 
@@ -2055,7 +2054,7 @@ app.get('/api/admin/teachers', async (req, res) => {
     const readClient = getRequestScopedSupabase(req);
     let { data, error } = await readClient
       .from('profiles')
-      .select('id, name, role, created_at, is_test_account, exclude_from_writing_behavior')
+      .select('id, name, role, created_at, is_test_account')
       .in('role', ['teacher', 'admin'])
       .order('created_at', { ascending: false });
     if (error && isMissingProfileFlagColumn(error)) {
@@ -2105,7 +2104,7 @@ app.get('/api/admin/teachers/:teacherId/classes', async (req, res) => {
     const readClient = getRequestScopedSupabase(req);
     let { data: classes, error } = await readClient
       .from('classes')
-      .select('*, class_members(student_id, profiles(id, name, is_test_account, exclude_from_writing_behavior))')
+      .select('*, class_members(student_id, profiles(id, name, is_test_account))')
       .eq('teacher_id', req.params.teacherId)
       .order('created_at', { ascending: false });
     if (error && isMissingProfileFlagColumn(error)) {
@@ -2136,7 +2135,7 @@ app.get('/api/admin/classes/:classId/detail', async (req, res) => {
     if (!user) return;
     const readClient = getRequestScopedSupabase(req);
     const assignPromise = readClient.from('assignments').select('*').eq('class_id', req.params.classId).order('created_at', { ascending: false });
-    let memberPromise = readClient.from('class_members').select('student_id, profiles(id, name, is_test_account, exclude_from_writing_behavior)').eq('class_id', req.params.classId);
+    let memberPromise = readClient.from('class_members').select('student_id, profiles(id, name, is_test_account)').eq('class_id', req.params.classId);
     let [assignData, memberData] = await Promise.all([
       assignPromise,
       memberPromise
@@ -2173,18 +2172,23 @@ app.patch('/api/admin/students/:studentId/flags', async (req, res) => {
     const user = await requireAdmin(req, res);
     if (!user) return;
     const isTestAccount = Boolean(req.body?.isTestAccount);
-    const excludeFromWritingBehavior = Boolean(req.body?.excludeFromWritingBehavior || isTestAccount);
     const { data, error } = await supabase
       .from('profiles')
       .update({
         is_test_account: isTestAccount,
-        exclude_from_writing_behavior: excludeFromWritingBehavior,
       })
       .eq('id', req.params.studentId)
       .eq('role', 'student')
-      .select('id, name, role, is_test_account, exclude_from_writing_behavior')
+      .select('id, name, role, is_test_account')
       .maybeSingle();
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      if (isMissingProfileFlagColumn(error)) {
+        return res.status(400).json({
+          error: 'Admin test-account flags are not active yet. Apply the latest profile admin flags migration, then try again.',
+        });
+      }
+      return res.status(400).json({ error: error.message });
+    }
     if (!data) return res.status(404).json({ error: 'Student profile not found.' });
     res.json({ profile: data });
   } catch (error) {

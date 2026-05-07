@@ -1369,6 +1369,9 @@ function createDefaultTeacherReview(review = {}) {
     annotations: Array.isArray(review?.annotations) ? review.annotations : [],
     savedAt: review?.savedAt || null,
     acceptedAt: review?.acceptedAt || null,
+    writingBehaviourExcluded: Boolean(review?.writingBehaviourExcluded),
+    writingBehaviourExcludedAt: review?.writingBehaviourExcludedAt || null,
+    writingBehaviourExclusionReason: review?.writingBehaviourExclusionReason || "",
   };
 }
 
@@ -2038,6 +2041,9 @@ function mapServerSubmission(serverSubmission) {
       annotations: serverSubmission?.teacher_review?.annotations,
       savedAt: serverSubmission?.teacher_review?.savedAt,
       acceptedAt: serverSubmission?.teacher_review?.acceptedAt,
+      writingBehaviourExcluded: Boolean(serverSubmission?.teacher_review?.writingBehaviourExcluded),
+      writingBehaviourExcludedAt: serverSubmission?.teacher_review?.writingBehaviourExcludedAt || null,
+      writingBehaviourExclusionReason: serverSubmission?.teacher_review?.writingBehaviourExclusionReason || "",
     }),
     selfAssessment: serverSubmission?.self_assessment || {},
     chatHistory: Array.isArray(serverSubmission?.chat_history) ? serverSubmission.chat_history : [],
@@ -3228,31 +3234,19 @@ if (action === "admin-select-assignment") {
     return;
   }
 
-  if (action === "admin-toggle-test-student" || action === "admin-toggle-writing-exclusion") {
+  if (action === "admin-toggle-test-student") {
     const studentId = target.dataset.studentId;
     if (!studentId || !ui.adminClassDetail) return;
     const member = safeArray(ui.adminClassDetail.members).find((item) => item?.id === studentId);
     if (!member) return;
     const currentlyTest = Boolean(member.is_test_account);
-    const currentlyExcluded = Boolean(member.exclude_from_writing_behavior);
-    let nextTest = currentlyTest;
-    let nextExcluded = currentlyExcluded;
-    if (action === "admin-toggle-test-student") {
-      nextTest = !currentlyTest;
-      nextExcluded = nextTest ? true : false;
-    } else {
-      nextExcluded = !currentlyExcluded;
-      if (!nextExcluded) {
-        nextTest = false;
-      }
-    }
+    const nextTest = !currentlyTest;
     ui.adminStudentFlagSavingId = studentId;
     render();
     const data = await Auth.apiFetch(`/api/admin/students/${studentId}/flags`, {
       method: "PATCH",
       body: JSON.stringify({
         isTestAccount: nextTest,
-        excludeFromWritingBehavior: nextExcluded,
       }),
     });
     if (data.error) {
@@ -3266,10 +3260,8 @@ if (action === "admin-select-assignment") {
       ui.adminClassDetail = refreshed;
     }
     ui.notice = nextTest
-      ? "Student marked as a test student and excluded from writing behaviour data."
-      : nextExcluded
-        ? "Student excluded from writing behaviour data."
-        : "Student included in writing behaviour data.";
+      ? "Student marked as a test account. Their submissions will be ignored by future writing behaviour analytics."
+      : "Student unmarked as a test account.";
     ui.adminStudentFlagSavingId = null;
     render();
     return;
@@ -3948,6 +3940,35 @@ if (action === "select-assignment") {
           document.getElementById("suggested-grade-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       });
+    return;
+  }
+
+  if (action === "toggle-submission-behaviour-exclusion") {
+    const submission = getSelectedReviewSubmission();
+    const assignment = getSelectedAssignment();
+    if (!submission || !assignment) return;
+    submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
+    const previousReview = createDefaultTeacherReview(submission.teacherReview);
+    const nextFlag = !submission.teacherReview.writingBehaviourExcluded;
+    submission.teacherReview.writingBehaviourExcluded = nextFlag;
+    submission.teacherReview.writingBehaviourExcludedAt = nextFlag ? new Date().toISOString() : null;
+    submission.teacherReview.writingBehaviourExclusionReason = nextFlag
+      ? "Teacher flagged this submission from the grading screen."
+      : "";
+    ui.notice = nextFlag
+      ? "Submission flagged. Future writing behaviour analytics should ignore this submission."
+      : "Submission flag removed.";
+    render();
+    try {
+      const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
+      replaceSubmissionInState(savedSubmission);
+      ui.selectedReviewSubmissionId = savedSubmission.id;
+      persistState();
+    } catch (error) {
+      submission.teacherReview = previousReview;
+      ui.notice = `Could not update submission flag: ${error.message}`;
+    }
+    render();
     return;
   }
 
@@ -5048,10 +5069,7 @@ function renderAdminTeacherDetail() {
 function renderAdminStudentDataFlags(member) {
   const flags = [];
   if (member?.is_test_account) {
-    flags.push(`<span class="warning-pill">Test student</span>`);
-  }
-  if (member?.exclude_from_writing_behavior) {
-    flags.push(`<span class="pill">Excluded from writing behaviour data</span>`);
+    flags.push(`<span class="warning-pill" title="Admin-only marker for fake/demo/test accounts. Future writing behaviour analytics should ignore this student.">Test account</span>`);
   }
   return flags.length ? `<div class="pill-row" style="margin-top:8px;">${flags.join("")}</div>` : "";
 }
@@ -5060,25 +5078,52 @@ function renderAdminStudentFlagControls(member) {
   const saving = ui.adminStudentFlagSavingId === member?.id;
   return `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-      <button class="button-ghost" data-action="admin-toggle-test-student" data-student-id="${escapeAttribute(member?.id || "")}" ${saving ? "disabled" : ""} style="font-size:0.78rem;">
-        ${saving ? "Saving…" : member?.is_test_account ? "Unmark test student" : "Mark as test student"}
+      <button class="button-ghost" data-action="admin-toggle-test-student" data-student-id="${escapeAttribute(member?.id || "")}" ${saving ? "disabled" : ""} title="Admin-only marker for fake/demo/test accounts. This is not for suspected cheating on one assignment." style="font-size:0.78rem;">
+        ${saving ? "Saving…" : member?.is_test_account ? "Unmark test account" : "Mark as test account"}
       </button>
-      <button class="button-ghost" data-action="admin-toggle-writing-exclusion" data-student-id="${escapeAttribute(member?.id || "")}" ${saving ? "disabled" : ""} style="font-size:0.78rem;">
-        ${saving ? "Saving…" : member?.exclude_from_writing_behavior ? "Include in writing data" : "Exclude from writing data"}
-      </button>
+      <span style="font-size:0.76rem;color:var(--muted);align-self:center;" title="Use this only for fake/demo/test accounts. To flag cheating or bad behaviour data for one assignment, use Flag submission in the teacher grading screen.">?</span>
     </div>
   `;
 }
 
 function renderAdminWritingBehaviourCard(submission, member, assignmentTitle = "") {
-  if (member?.exclude_from_writing_behavior) {
+  const review = submission?.teacher_review || submission?.teacherReview || {};
+  if (member?.is_test_account || review?.writingBehaviourExcluded) {
     return `
       <div style="padding:12px;border:1px dashed var(--line);border-radius:12px;background:#fbfdff;color:var(--muted);font-size:0.85rem;">
-        Writing behaviour data excluded for this student${member?.is_test_account ? " because they are marked as a test student" : ""}.
+        Writing behaviour data excluded ${member?.is_test_account ? "because this is marked as a test account" : "because this submission was flagged by the teacher"}.
       </div>
     `;
   }
   return renderFluencyCard(submission, assignmentTitle);
+}
+
+function renderSubmissionBehaviourFlagPanel(submission) {
+  const review = createDefaultTeacherReview(submission?.teacherReview);
+  const isFlagged = Boolean(review.writingBehaviourExcluded);
+  return `
+    <div style="margin-bottom:16px;padding:12px;border:1px solid ${isFlagged ? "#d46a7b" : "var(--line)"};border-radius:12px;background:${isFlagged ? "#fff5f7" : "#fafaf8"};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+          <p class="mini-label" style="margin-bottom:4px;">Writing behaviour analytics</p>
+          <p style="margin:0;color:var(--muted);font-size:0.84rem;line-height:1.5;">
+            ${isFlagged
+              ? `This submission is flagged and should be ignored by future writing behaviour analytics.`
+              : `Flag only this submission if its writing behaviour looks unreliable, cheated, or unsuitable for future analytics.`}
+          </p>
+          ${isFlagged ? `<p style="margin:6px 0 0;font-size:0.78rem;color:#9b3651;">Flagged ${escapeHtml(formatDateTime(review.writingBehaviourExcludedAt))}${review.writingBehaviourExclusionReason ? ` · ${escapeHtml(review.writingBehaviourExclusionReason)}` : ""}</p>` : ""}
+        </div>
+        <button
+          class="${isFlagged ? "button-ghost" : "button-secondary"}"
+          data-action="toggle-submission-behaviour-exclusion"
+          title="This affects only this assignment submission, not the whole student account. Use admin's test-account flag for fake/demo accounts."
+          style="font-size:0.82rem;"
+        >
+          ${isFlagged ? "Unflag submission" : "Flag submission"}
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 function renderAdminClassDetail() {
@@ -5887,6 +5932,7 @@ function renderTeacherGrading(assignment, submission) {
           </div>
           
           ${renderEmailDebugPanel(assignment, submission)}
+          ${renderSubmissionBehaviourFlagPanel(submission)}
           ${renderWritingBehaviour(submission, assignment)}
           ${renderPasteEvidencePanel(submission)}
           ${renderWritingTimeNote(submission)}

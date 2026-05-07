@@ -1471,10 +1471,49 @@ function getTeacherReviewRowsForExport(assignment, submission) {
   });
 }
 
+function getSubmissionStudentName(submission) {
+  const studentId = submission?.studentId || submission?.student_id || "";
+  return String(
+    submission?._studentName ||
+    currentClassMembers.find((member) => member?.id === studentId)?.name ||
+    getUserById(studentId)?.name ||
+    (currentProfile?.role === "student" && currentProfile?.id === studentId ? currentProfile.name : "") ||
+    "Student"
+  ).trim() || "Student";
+}
+
+function getTeacherFinalScoreForDisplay(assignment, submission) {
+  const rubricTotal = calculateTeacherReviewSummary(assignment, submission).totalScore;
+  const savedFinalScore = submission?.teacherReview?.finalScore;
+  return savedFinalScore !== "" && savedFinalScore != null ? savedFinalScore : rubricTotal;
+}
+
+function getAnnotationCodeMeaning(annotation) {
+  const code = String(annotation?.code || "").trim();
+  if (code === "NOTE") return "Teacher note";
+  return String(annotation?.label || getErrorCodeLabel(code) || "").trim();
+}
+
+function getAnnotationLegendRows(annotations) {
+  const seen = new Set();
+  return safeArray(annotations)
+    .map((annotation) => {
+      const code = String(annotation?.code || "").trim();
+      const meaning = getAnnotationCodeMeaning(annotation);
+      return { code, meaning };
+    })
+    .filter(({ code, meaning }) => {
+      if (!code || !meaning || seen.has(code)) return false;
+      seen.add(code);
+      return true;
+    });
+}
+
 function buildLmsGradeText(assignment, submission) {
-  const studentName = submission._studentName || getUserById(submission.studentId)?.name || "Student";
+  const studentName = getSubmissionStudentName(submission);
   const rows = getTeacherReviewRowsForExport(assignment, submission);
-  const total = calculateTeacherReviewSummary(assignment, submission).totalScore;
+  const rubricTotal = calculateTeacherReviewSummary(assignment, submission).totalScore;
+  const total = getTeacherFinalScoreForDisplay(assignment, submission);
   const maxScore = rows.reduce((sum, row) => sum + row.maxPoints, 0);
   const annotations = safeArray(submission.teacherReview?.annotations);
   const lines = [
@@ -1486,6 +1525,10 @@ function buildLmsGradeText(assignment, submission) {
     ...rows.map((row) => `- ${row.criterion}: ${row.selectedLabel ? `${row.selectedLabel} (${row.selectedPoints}/${row.maxPoints})${row.selectedDescription ? ` — ${row.selectedDescription}` : ""}` : `Not scored (0/${row.maxPoints})`}`),
   ];
 
+  if (String(total) !== String(rubricTotal)) {
+    lines.push(`Rubric subtotal: ${rubricTotal}/${maxScore}`);
+  }
+
   if (submission.teacherReview?.finalNotes) {
     lines.push("", "Teacher feedback:", submission.teacherReview.finalNotes.trim());
   }
@@ -1494,7 +1537,7 @@ function buildLmsGradeText(assignment, submission) {
     lines.push(
       "",
       "Annotation comments:",
-      ...annotations.map((annotation, index) => `- ${getAnnotationDisplayLabel(annotation, index)}: "${annotation.selectedText}"${annotation.note ? ` — ${annotation.note}` : ""}`)
+      ...annotations.map((annotation, index) => `- ${getAnnotationDisplayLabel(annotation, index)}: "${annotation.selectedText}"${getAnnotationCodeMeaning(annotation) ? ` — ${getAnnotationCodeMeaning(annotation)}` : ""}${annotation.note ? ` — ${annotation.note}` : ""}`)
     );
   }
 
@@ -2803,7 +2846,13 @@ if (action === "generate-teacher-assist") {
     }
     submission.teacherReview = submission.teacherReview || {};
     submission.teacherReview.annotations = submission.teacherReview.annotations || [];
-    submission.teacherReview.annotations.push({ id: uid("ann"), code, selectedText: annotationText, note });
+    submission.teacherReview.annotations.push({
+      id: uid("ann"),
+      code,
+      label: getAnnotationCodeMeaning({ code }),
+      selectedText: annotationText,
+      note,
+    });
     ui.lastAnnotationSelection = annotationText;
     preserveTeacherTextScroll(() => {
       persistState();
@@ -9131,10 +9180,10 @@ function renderAnnotatedText(submission, options = {}) {
 }
 
 function downloadStudentWork(assignment, submission) {
-  const student = getUserById(submission.studentId);
-  const studentName = student?.name || "Student";
+  const studentName = getSubmissionStudentName(submission);
   const reviewRows = getTeacherReviewRowsForExport(assignment, submission);
-  const totalScore = calculateTeacherReviewSummary(assignment, submission).totalScore;
+  const rubricScore = calculateTeacherReviewSummary(assignment, submission).totalScore;
+  const totalScore = getTeacherFinalScoreForDisplay(assignment, submission);
   const maxScore = reviewRows.reduce((sum, row) => sum + row.maxPoints, 0);
   const currentStatus = submission.status || submission.teacherReview?.status || "not_started";
   const chatLines = (submission.chatHistory || []).map((m) => `
@@ -9161,6 +9210,7 @@ function downloadStudentWork(assignment, submission) {
   const pasteCount = events.filter(e => e.type === "paste").length;
   const flaggedCount = events.filter((entry) => isPasteLikeWritingEvent(entry)).length;
   const totalChars = events.reduce((sum, e) => sum + Math.abs(e.delta || 0), 0);
+  const annotationLegendRows = getAnnotationLegendRows(annotations);
   const eventSummary = `
     <tr><td>Insertions</td><td>${insertCount} events</td></tr>
     <tr><td>Deletions</td><td>${deleteCount} events</td></tr>
@@ -9171,8 +9221,7 @@ function downloadStudentWork(assignment, submission) {
 
   const rubricLines = reviewRows.map((row) => `
     <tr>
-      <td>${escapeHtml(row.criterion)}</td>
-      <td>${escapeHtml(row.description || "—")}</td>
+      <td>${escapeHtml(row.criterion)}${row.description ? `<div style="margin-top:4px;color:#667063;font-size:.82rem;">${escapeHtml(row.description)}</div>` : ""}</td>
       <td>${escapeHtml(row.selectedLabel || "Not scored")}${row.selectedDescription ? `<div style="margin-top:4px;color:#667063;">${escapeHtml(row.selectedDescription)}</div>` : ""}</td>
       <td>${row.selectedPoints}/${row.maxPoints}</td>
     </tr>`).join("");
@@ -9237,12 +9286,13 @@ function downloadStudentWork(assignment, submission) {
 
 <h2>Teacher grade summary</h2>
 <p><strong>Total score:</strong> ${totalScore}/${maxScore}</p>
+${String(totalScore) !== String(rubricScore) ? `<p><strong>Rubric subtotal:</strong> ${rubricScore}/${maxScore}</p>` : ""}
 ${submission.teacherReview?.finalNotes ? `<p><strong>Overall feedback:</strong> ${escapeHtml(submission.teacherReview.finalNotes)}</p>` : ""}
 
 <h2>Rubric breakdown</h2>
 <table>
-  <thead><tr><th>Criterion</th><th>Description</th><th>Selected band</th><th>Score</th></tr></thead>
-  <tbody>${rubricLines || "<tr><td colspan='4'>No rubric available.</td></tr>"}</tbody>
+  <thead><tr><th>Criterion</th><th>Selected band</th><th>Score</th></tr></thead>
+  <tbody>${rubricLines || "<tr><td colspan='3'>No rubric available.</td></tr>"}</tbody>
 </table>
 
 <h2>1 — Coaching conversation</h2>
@@ -9262,8 +9312,18 @@ ${chatLines || "<p><em>No conversation recorded.</em></p>"}
 
 	${annotations.length ? `
 	<h2>Teacher annotations</h2>
+	${annotationLegendRows.length ? `
 	<table>
-	  <thead><tr><th>Code</th><th>Selected text</th><th>Note</th></tr></thead>
+	  <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+	  <tbody>${annotationLegendRows.map(({ code, meaning }) => `
+	    <tr>
+	      <td><strong>${escapeHtml(code)}</strong></td>
+	      <td>${escapeHtml(meaning)}</td>
+	    </tr>`).join("")}
+	  </tbody>
+	</table>` : ""}
+	<table>
+	  <thead><tr><th>Code</th><th>Selected text</th><th>Comment</th></tr></thead>
 	  <tbody>${annotations.map((ann, i) => `
 	    <tr id="sheet-comment-${escapeAttribute(ann.id)}" class="annotation-row" onclick="scrollToAnnotation('${escapeAttribute(ann.id)}')" title="Jump to highlighted text">
 	      <td><strong>${escapeHtml(getAnnotationDisplayLabel(ann, i))}</strong></td>

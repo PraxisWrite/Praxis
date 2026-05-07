@@ -3250,7 +3250,9 @@ if (action === "admin-select-assignment") {
       }),
     });
     if (data.error) {
-      ui.notice = `Could not update student flags: ${data.error}`;
+      ui.notice = data.needsMigration
+        ? "Test account labels need one Supabase migration before they can save. Apply the PR 165 profile admin flags migration, then try again."
+        : `Could not update student flags: ${data.error}`;
       ui.adminStudentFlagSavingId = null;
       render();
       return;

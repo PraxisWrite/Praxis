@@ -17,9 +17,25 @@ const {
   sanitizeStudentSubmissionPayload,
   sanitizeTeacherSubmissionPayload,
 } = require('./submission-sanitizer');
+const {
+  getCanonicalRedirectTarget,
+  getConfiguredBaseUrl,
+} = require('./canonical-url-utils');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const app = express();
+app.use((req, res, next) => {
+  const redirectTarget = getCanonicalRedirectTarget({
+    method: req.method,
+    host: req.headers['x-forwarded-host'] || req.headers.host,
+    originalUrl: req.originalUrl || req.url,
+    configuredBase: getConfiguredBaseUrl(),
+  });
+  if (redirectTarget) {
+    return res.redirect(308, redirectTarget);
+  }
+  return next();
+});
 app.use(express.static(__dirname));
 app.use(express.json({ limit: '10mb' }))
 

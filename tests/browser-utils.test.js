@@ -8,6 +8,7 @@ const lineNumberUtils = require("../line-number-utils.js");
 const notificationUtils = require("../notification-utils.js");
 const submissionUtils = require("../submission-utils.js");
 const submissionSanitizer = require("../submission-sanitizer.js");
+const canonicalUrlUtils = require("../canonical-url-utils.js");
 const submissionRegressionFixture = require("./fixtures/submission-regression-fixture.js");
 
 global.window = global.window || {};
@@ -97,6 +98,48 @@ test("notification utils normalize password reset redirects", () => {
   assert.equal(
     notificationUtils.appendResetQuery("https://auizero-production.up.railway.app"),
     "https://auizero-production.up.railway.app/?reset=1"
+  );
+});
+
+test("canonical URL utils redirect old public hosts to configured app domain", () => {
+  assert.equal(
+    canonicalUrlUtils.getCanonicalRedirectTarget({
+      method: "GET",
+      host: "auizero-production.up.railway.app",
+      originalUrl: "/class?x=1",
+      configuredBase: "https://praxiswrite.com",
+    }),
+    "https://praxiswrite.com/class?x=1"
+  );
+
+  assert.equal(
+    canonicalUrlUtils.getCanonicalRedirectTarget({
+      method: "GET",
+      host: "praxiswrite.com",
+      originalUrl: "/class?x=1",
+      configuredBase: "https://praxiswrite.com",
+    }),
+    ""
+  );
+
+  assert.equal(
+    canonicalUrlUtils.getCanonicalRedirectTarget({
+      method: "GET",
+      host: "auizero-production.up.railway.app",
+      originalUrl: "/api/auth/me",
+      configuredBase: "https://praxiswrite.com",
+    }),
+    ""
+  );
+
+  assert.equal(
+    canonicalUrlUtils.getCanonicalRedirectTarget({
+      method: "GET",
+      host: "localhost:3000",
+      originalUrl: "/",
+      configuredBase: "https://praxiswrite.com",
+    }),
+    ""
   );
 });
 

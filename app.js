@@ -179,6 +179,9 @@ const ui = {
   adminClassDetail: null,
   adminSelectedAssignmentId: null,
   adminStudentFlagSavingId: null,
+  adminCefrBenchmarks: null,
+  adminCefrBenchmarksLoading: false,
+  adminCefrBenchmarksError: null,
   gradeSuggestionLoading: false,
   gradeSubmitting: false,
   studentSubmitting: false,
@@ -1803,9 +1806,28 @@ async function refreshWorkspaceAfterAccountSecurity() {
   render();
 }
 
+async function loadAdminCefrBenchmarks() {
+  ui.adminCefrBenchmarksLoading = true;
+  ui.adminCefrBenchmarksError = null;
+  render();
+  try {
+    const data = await Auth.apiFetch('/api/admin/writing-process/benchmarks');
+    if (data.error) {
+      ui.adminCefrBenchmarksError = data.error;
+    } else {
+      ui.adminCefrBenchmarks = data.byLevel || {};
+    }
+  } catch (err) {
+    ui.adminCefrBenchmarksError = err.message || 'Failed to load benchmark data';
+  }
+  ui.adminCefrBenchmarksLoading = false;
+  render();
+}
+
 async function loadAdminData() {
   const data = await Auth.apiFetch('/api/admin/teachers');
   ui.adminTeachers = data.teachers || [];
+  loadAdminCefrBenchmarks();
 }
 
 async function refreshAdminClassDetail({ keepNotice = false, silent = false } = {}) {
@@ -5090,6 +5112,107 @@ function renderAdminWorkspace() {
   return renderAdminTeacherList();
 }
 
+function renderAdminCefrBenchmarkPanel() {
+  const CEFR_LEVELS = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  const BENCHMARKS = window.PraxisWritingProcess?.PRELIMINARY_COHORTS || {
+    A0: { typingRate: [45, 115], longPauses: [18, 58], localRevisions: [2, 18], productProcessRatio: [0.62, 0.94], pasteShare: [0, 0.18] },
+    A1: { typingRate: [55, 125], longPauses: [15, 52], localRevisions: [3, 20], productProcessRatio: [0.60, 0.94], pasteShare: [0, 0.18] },
+    A2: { typingRate: [70, 145], longPauses: [10, 42], localRevisions: [4, 24], productProcessRatio: [0.58, 0.93], pasteShare: [0, 0.16] },
+    B1: { typingRate: [85, 170], longPauses: [6, 32], localRevisions: [6, 30], productProcessRatio: [0.55, 0.92], pasteShare: [0, 0.14] },
+    B2: { typingRate: [105, 205], longPauses: [4, 26], localRevisions: [8, 35], productProcessRatio: [0.52, 0.91], pasteShare: [0, 0.12] },
+    C1: { typingRate: [120, 235], longPauses: [3, 20], localRevisions: [10, 40], productProcessRatio: [0.50, 0.90], pasteShare: [0, 0.10] },
+    C2: { typingRate: [130, 255], longPauses: [2, 18], localRevisions: [12, 45], productProcessRatio: [0.48, 0.90], pasteShare: [0, 0.10] },
+  };
+
+  const METRIC_LABELS = {
+    typingRate:            { label: 'Typing rate', unit: 'chars/min' },
+    longPausesPer100w:     { label: 'Long pauses', unit: 'per 100w' },
+    localRevisionsPer100w: { label: 'Local revisions', unit: 'per 100w' },
+    productProcessRatio:   { label: 'Product/process ratio', unit: '' },
+    pasteShare:            { label: 'Paste share', unit: '' },
+  };
+
+  function statusDot(measured, range) {
+    if (measured === null || measured === undefined || !range) return '<span style="color:var(--muted);">—</span>';
+    const [lo, hi] = range;
+    if (measured < lo) return '<span title="Below benchmark range" style="color:#c0392b;">▼</span>';
+    if (measured > hi) return '<span title="Above benchmark range" style="color:#e67e22;">▲</span>';
+    return '<span title="Within benchmark range" style="color:#27ae60;">✓</span>';
+  }
+
+  function fmt(v, unit) {
+    if (v === null || v === undefined) return '<span style="color:var(--muted);">no data</span>';
+    if (unit === '') return String(v);
+    return `${v} <span style="color:var(--muted);font-size:0.78rem;">${unit}</span>`;
+  }
+
+  if (ui.adminCefrBenchmarksLoading) {
+    return `<div style="padding:16px;border:1px solid var(--line);border-radius:14px;background:#fafaf8;margin-bottom:24px;color:var(--muted);font-size:0.9rem;">Loading writing process benchmark data…</div>`;
+  }
+
+  if (ui.adminCefrBenchmarksError) {
+    return `<div style="padding:16px;border:1px solid #e8b4b8;border-radius:14px;background:#fff8fa;margin-bottom:24px;font-size:0.85rem;color:#9b3651;">Could not load benchmark data: ${escapeHtml(ui.adminCefrBenchmarksError)}</div>`;
+  }
+
+  if (!ui.adminCefrBenchmarks) return '';
+
+  const byLevel = ui.adminCefrBenchmarks;
+  const levelsWithData = CEFR_LEVELS.filter(l => byLevel[l]);
+
+  if (!levelsWithData.length) {
+    return `<div style="padding:16px;border:1px solid var(--line);border-radius:14px;background:#fafaf8;margin-bottom:24px;color:var(--muted);font-size:0.9rem;">No writing process data yet across any class.</div>`;
+  }
+
+  const metricKeys = Object.keys(METRIC_LABELS);
+
+  return `
+    <details open style="margin-bottom:24px;border:1px solid var(--line);border-radius:14px;background:#fff;">
+      <summary style="cursor:pointer;padding:14px 16px;font-weight:700;font-size:1rem;list-style:none;display:flex;align-items:center;justify-content:space-between;">
+        <span>Writing Process — CEFR Benchmark Comparison</span>
+        <span class="pill" style="font-weight:400;font-size:0.8rem;">All classes · ${levelsWithData.length} level${levelsWithData.length !== 1 ? 's' : ''} with data</span>
+      </summary>
+      <div style="padding:0 16px 16px;overflow-x:auto;">
+        <p style="margin:0 0 12px;font-size:0.83rem;color:var(--muted);">Median measured values (included submissions only, ≥50 words) vs. placeholder benchmarks. ✓ = within range, ▼ = below, ▲ = above.</p>
+        <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--line);">
+              <th style="text-align:left;padding:6px 10px;color:var(--muted);font-weight:600;">Metric</th>
+              ${levelsWithData.map(l => {
+                const d = byLevel[l];
+                return `<th style="text-align:center;padding:6px 10px;min-width:90px;">
+                  <span style="font-weight:700;">${escapeHtml(l)}</span>
+                  <br><span style="font-size:0.74rem;color:var(--muted);font-weight:400;">${d.included} incl. / ${d.total} total</span>
+                </th>`;
+              }).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${metricKeys.map((key, rowIndex) => {
+              const { label, unit } = METRIC_LABELS[key];
+              const bg = rowIndex % 2 === 0 ? '#fafaf8' : '#fff';
+              return `
+                <tr style="border-bottom:1px solid var(--line);background:${bg};">
+                  <td style="padding:8px 10px;font-weight:600;white-space:nowrap;">${escapeHtml(label)}</td>
+                  ${levelsWithData.map(l => {
+                    const measured = byLevel[l]?.measured?.[key];
+                    const range = BENCHMARKS[l]?.[key === 'longPausesPer100w' ? 'longPauses' : key === 'localRevisionsPer100w' ? 'localRevisions' : key];
+                    const rangeText = range ? `<br><span style="color:var(--muted);font-size:0.75rem;">bench: ${range[0]}–${range[1]}</span>` : '';
+                    return `<td style="text-align:center;padding:8px 10px;">
+                      <span>${statusDot(measured, range)} ${fmt(measured, unit)}</span>
+                      ${rangeText}
+                    </td>`;
+                  }).join('')}
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        <p style="margin:12px 0 0;font-size:0.75rem;color:var(--muted);">Benchmarks are placeholder values bootstrapped from L2 literature. Replace with Praxis cohort data once sample sizes are sufficient.</p>
+      </div>
+    </details>
+  `;
+}
+
 function renderAdminTeacherList() {
   const teachers = ui.adminTeachers || [];
   return `
@@ -5098,6 +5221,7 @@ function renderAdminTeacherList() {
         <h2 style="margin:0;">Admin — All Teachers</h2>
         <button class="button-secondary" data-action="admin-view-as-teacher">Switch to my teacher view</button>
       </div>
+     ${renderAdminCefrBenchmarkPanel()}
       ${teachers.length === 0
         ? `<div class="empty-state"><p>No teachers found.</p></div>`
         : `<div class="assignment-list">

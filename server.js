@@ -2267,6 +2267,164 @@ function isStudentProfile(profile) {
   return String(profile?.role || '').trim().toLowerCase() === 'student';
 }
 
+app.get('/api/admin/writing-process/benchmarks', async (req, res) => {
+  try {
+    const user = await requireAdmin(req, res);
+    if (!user) return;
+    const readClient = getRequestScopedSupabase(req);
+
+    // Get all assignments with language level
+    const { data: assignments, error: assignError } = await readClient
+      .from('assignments')
+      .select('id, language_level, class_id');
+    if (assignError) return res.status(400).json({ error: assignError.message });
+
+    // Get all submissions with writing events
+    const assignmentIds = (assignments || []).map(a => a.id);
+    if (!assignmentIds.length) return res.json({ byLevel: {} });
+
+    const { data: submissions, error: subError } = await readClient
+      .from('submissions')
+      .select('id, assignment_id, student_id, writing_events, teacher_review, final_text, draft_text')
+      .in('assignment_id', assignmentIds);
+    if (subError) return res.status(400).json({ error: subError.message });
+
+    // Get test accounts so we can exclude them
+    let { data: profiles, error: profError } = await readClient
+      .from('profiles')
+      .select('id, is_test_account')
+      .eq('is_test_account', true);
+    if (profError && isMissingProfileFlagColumn(profError)) {
+      profiles = [];
+      profError = null;
+    }
+    if (profError) return res.status(400).json({ error: profError.message });
+
+    const testAccountIds = new Set((profiles || []).map(p => p.id));
+
+    // Build a map of assignmentId -> language_level
+    const levelByAssignment = {};
+    for (const a of (assignments || [])) {
+      levelByAssignment[a.id] = (a.language_level || 'B1').trim().toUpperCase();
+    }
+
+    // Group included submission metrics by CEFR level
+    const byLevel = {};
+    for (const sub of (submissions || [])) {
+      const level = levelByAssignment[sub.assignment_id] || 'B1';
+      const isTestAccount = testAccountIds.has(sub.student_id);
+      const review = sub.teacher_review || {};
+      const isExcluded = isTestAccount || Boolean(review.writingBehaviourExcluded);
+
+      if (!byLevel[level]) {
+        byLevel[level] = {
+          level,
+          total: 0,
+          included: 0,
+          excluded: 0,
+          typingRates: [],
+          longPausesPer100w: [],
+          localRevisionsPer100w: [],
+          productProcessRatios: [],
+          pasteShares: [],
+        };
+      }
+
+      byLevel[level].total += 1;
+
+      if (isExcluded) {
+        byLevel[level].excluded += 1;
+        continue;
+      }
+
+      byLevel[level].included += 1;
+
+      // Compute basic metrics inline (no dependency on writing-process module server-side)
+      const events = (sub.writing_events || []).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      const finalText = sub.final_text || sub.draft_text || '';
+      const finalWords = finalText.trim().split(/\s+/).filter(Boolean).length;
+      if (finalWords < 50) continue;
+
+      const insertedChars = events.reduce((s, e) => s + String(e.insertedText || '').length, 0);
+      const finalChars = finalText.length;
+
+      // Typing rate
+      const times = events.map(e => Date.parse(e.timestamp)).filter(Number.isFinite);
+      if (times.length >= 2) {
+        const activeMinutes = Math.max(0.25, (times[times.length - 1] - times[0]) / 60000);
+        byLevel[level].typingRates.push(Math.round(insertedChars / activeMinutes));
+      }
+
+      // Product/process ratio
+      if (insertedChars > 0) {
+        byLevel[level].productProcessRatios.push(Math.min(1, finalChars / insertedChars));
+      }
+
+      // Paste share
+      const pasteChars = events
+        .filter(e => e.type === 'paste' || e.flagged)
+        .reduce((s, e) => s + String(e.insertedText || '').length, 0);
+      byLevel[level].pasteShares.push(Math.min(1, pasteChars / Math.max(1, finalChars)));
+
+      // Long pauses (>= 2000ms gaps in keystroke log)
+      // Approximate from event timestamps: gaps >= 2000ms
+      let longPauses = 0;
+      for (let i = 1; i < times.length; i++) {
+        if (times[i] - times[i - 1] >= 2000) longPauses++;
+      }
+      byLevel[level].longPausesPer100w.push((longPauses / Math.max(1, finalWords)) * 100);
+
+      // Local revisions (delete/replace events in groups of 4–50 chars)
+      const deleteEvents = events.filter(e => e.type === 'delete' || e.type === 'replace');
+      let localRevisions = 0;
+      let groupChars = 0;
+      let lastDeleteTime = null;
+      for (const e of deleteEvents) {
+        const chars = String(e.removedText || '').length || Math.abs(Number(e.delta || 0));
+        const t = Date.parse(e.timestamp);
+        if (lastDeleteTime && (t - lastDeleteTime) > 700) {
+          if (groupChars >= 4 && groupChars <= 50) localRevisions++;
+          groupChars = 0;
+        }
+        groupChars += chars;
+        lastDeleteTime = t;
+      }
+      if (groupChars >= 4 && groupChars <= 50) localRevisions++;
+      byLevel[level].localRevisionsPer100w.push((localRevisions / Math.max(1, finalWords)) * 100);
+    }
+
+    // Compute medians and ranges per level
+    const median = arr => {
+      if (!arr.length) return null;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    };
+    const round1 = v => v !== null ? Math.round(v * 10) / 10 : null;
+
+    const result = {};
+    for (const [level, data] of Object.entries(byLevel)) {
+      result[level] = {
+        level,
+        total: data.total,
+        included: data.included,
+        excluded: data.excluded,
+        measured: {
+          typingRate: round1(median(data.typingRates)),
+          longPausesPer100w: round1(median(data.longPausesPer100w)),
+          localRevisionsPer100w: round1(median(data.localRevisionsPer100w)),
+          productProcessRatio: round1(median(data.productProcessRatios)),
+          pasteShare: round1(median(data.pasteShares)),
+        },
+      };
+    }
+
+    res.json({ byLevel: result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/admin/teachers', async (req, res) => {
   try {
     const user = await requireAdmin(req, res);

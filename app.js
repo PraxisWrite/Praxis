@@ -218,6 +218,7 @@ function getSavedStudentAssignmentId(profile = currentProfile, classId = current
   const preferences = loadActiveStudentAssignmentPreferences();
   return preferences[key] || null;
 }
+window.getSavedStudentAssignmentId = getSavedStudentAssignmentId;
 
 function saveStudentAssignmentId(assignmentId, profile = currentProfile, classId = currentClassId) {
   const key = getStudentAssignmentPreferenceKey(profile, classId);
@@ -230,6 +231,7 @@ function saveStudentAssignmentId(assignmentId, profile = currentProfile, classId
   }
   saveActiveStudentAssignmentPreferences(preferences);
 }
+window.saveStudentAssignmentId = saveStudentAssignmentId;
 
 function getActiveClassPreferenceKey(profile = currentProfile) {
   if (!profile?.id || !profile?.role) return "";
@@ -4775,277 +4777,6 @@ function getTextOperation(previousText, nextText) {
   };
 }
 
-function getAssignments() {
-  return state.assignments;
-}
-
-function getPublishedAssignments() {
-  return state.assignments.filter((a) => a.status === "published" && (!a.classId || a.classId === currentClassId));
-}
-if (typeof window !== "undefined") window.getPublishedAssignments = getPublishedAssignments;
-function getSelectedAssignment() {
-  return state.assignments.find((assignment) => assignment.id === ui.selectedAssignmentId) || null;
-}
-
-function getStudentAssignment() {
-  return state.assignments.find((assignment) =>
-    assignment.id === ui.selectedStudentAssignmentId &&
-    assignment.status === "published" &&
-    (!assignment.classId || assignment.classId === currentClassId)
-  ) || null;
-}
-if (typeof window !== "undefined") window.getStudentAssignment = getStudentAssignment;
-function getStudentSubmissionForAssignment(assignmentId, studentId = ui.activeUserId) {
-  if (!assignmentId || !studentId) return null;
-  return state.submissions.find((submission) => submission.assignmentId === assignmentId && submission.studentId === studentId) || null;
-}
-
-function getStudentAssignmentBuckets() {
-  const publishedAssignments = getPublishedAssignments();
-  const current = [];
-  const submitted = [];
-if (typeof window !== "undefined") window.getStudentAssignmentBuckets = getStudentAssignmentBuckets;
-  publishedAssignments.forEach((assignment) => {
-    const submission = getStudentSubmissionForAssignment(assignment.id);
-    const status = submission?.status || "draft";
-    const hasSubmitted = status !== "draft" && (SubmissionUtils.isSubmissionSubmitted(submission) || ["late", "missing"].includes(status));
-    const bucketItem = {
-      assignment,
-      submission,
-      status,
-      isGraded: SubmissionUtils.isSubmissionGraded(submission),
-    };
-    if (hasSubmitted) {
-      submitted.push(bucketItem);
-    } else {
-      current.push(bucketItem);
-    }
-  });
-
-  return { current, submitted };
-}
-
-function getAssignmentSubmissions(assignmentId) {
-  return state.submissions.filter((submission) => submission.assignmentId === assignmentId);
-}
-
-function getSubmissionCountsForAssignment(assignmentId, roster = currentClassMembers) {
-  return SubmissionUtils.getAssignmentSubmissionCounts(getAssignmentSubmissions(assignmentId), roster);
-}
-window.getSubmissionCountsForAssignment = getSubmissionCountsForAssignment;
-
-function getReviewRoster(assignmentId = ui.selectedAssignmentId) {
-  if (currentClassMembers.length) {
-    return currentClassMembers
-      .filter((member) => member?.id !== currentProfile?.id)
-      .map((member) => ({
-        id: member.id,
-        name: member.name || "Student",
-      }));
-  }
-
-  const seen = new Set();
-  return getAssignmentSubmissions(assignmentId)
-    .filter((submission) => {
-      if (seen.has(submission.studentId)) return false;
-      seen.add(submission.studentId);
-      return true;
-    })
-    .map((submission) => ({
-      id: submission.studentId,
-      name: submission._studentName || getUserById(submission.studentId)?.name || "Student",
-    }));
-}
-window.getReviewRoster = getReviewRoster;
-
-function getReviewSubmissionForStudent(studentId, assignmentId = ui.selectedAssignmentId) {
-  return state.submissions.find((submission) => submission.assignmentId === assignmentId && submission.studentId === studentId) || null;
-}
-
-function ensureTeacherReviewSubmission(assignmentId, studentId) {
-  if (!assignmentId || !studentId) return null;
-  const existing = getReviewSubmissionForStudent(studentId, assignmentId);
-  if (existing) return existing;
-
-  const placeholder = createEmptySubmission(assignmentId, studentId);
-  placeholder.id = `pending-review-${assignmentId}-${studentId}`;
-  placeholder.status = "not_started";
-  placeholder.startedAt = null;
-  placeholder.updatedAt = new Date().toISOString();
-  placeholder._studentName = currentClassMembers.find((member) => member.id === studentId)?.name || getUserById(studentId)?.name || "Student";
-  state.submissions.push(placeholder);
-  return placeholder;
-}
-
-function getSelectedReviewStudent() {
-  return getReviewRoster().find((student) => student.id === ui.selectedReviewStudentId) || null;
-}
-
-function getSelectedReviewSubmission() {
-  if (ui.selectedReviewStudentId) {
-    return ensureTeacherReviewSubmission(ui.selectedAssignmentId, ui.selectedReviewStudentId);
-  }
-  const selected = state.submissions.find((submission) => submission.id === ui.selectedReviewSubmissionId) || null;
-  if (selected) {
-    ui.selectedReviewStudentId = selected.studentId;
-  }
-  return selected;
-}
-window.getSelectedReviewSubmission = getSelectedReviewSubmission;
-
-function getStudentSubmission() {
-  if (!ui.selectedStudentAssignmentId || !ui.activeUserId) {
-    return null;
-  }
-
-  return state.submissions.find((submission) => submission.assignmentId === ui.selectedStudentAssignmentId && submission.studentId === ui.activeUserId) || null;
-}
-if (typeof window !== "undefined") window.getStudentSubmission = getStudentSubmission;
-function rememberStudentStep(step, assignmentId = ui.selectedStudentAssignmentId) {
-  const nextStep = clamp(Number(step || 1), 1, 4);
-  ui.studentStep = nextStep;
-  if (!assignmentId) return nextStep;
-  ui.studentStepOverrides = ui.studentStepOverrides || {};
-  ui.studentStepOverrides[assignmentId] = nextStep;
-  return nextStep;
-}
-
-function getRememberedStudentStep(assignmentId = ui.selectedStudentAssignmentId) {
-  if (!assignmentId) return null;
-  const remembered = Number(ui.studentStepOverrides?.[assignmentId] || 0);
-  return remembered >= 1 && remembered <= 4 ? remembered : null;
-}
-
-function getStudentStepForSubmission(submission) {
-  if (isStudentSubmissionLocked(submission)) return 4;
-  const hasFinalWork = Boolean(
-    submission?.finalText?.trim() ||
-    submission?.reflections?.improved?.trim() ||
-    safeArray(submission?.selfAssessment?.rowScores).length
-  );
-  if (hasFinalWork) return 3;
-  const hasDraftWork = Boolean(
-    submission?.draftText?.trim() ||
-    safeArray(submission?.writingEvents).length ||
-    safeArray(submission?.feedbackHistory).length
-  );
-  if (hasDraftWork) return 2;
-  return 1;
-}
-
-function isStudentSubmissionLocked(submission) {
-  const status = String(submission?.status || "").trim().toLowerCase();
-  if (status === "draft" || status === "returned" || status === "reopened") {
-    return false;
-  }
-  return status === "submitted" || Boolean(submission?.teacherReview?.savedAt);
-}
-if (typeof window !== "undefined") window.isStudentSubmissionLocked = isStudentSubmissionLocked;
-function reconcileStudentStepAfterSubmissionRefresh(submission) {
-  if (!submission?.assignmentId || submission.studentId !== ui.activeUserId) return;
-  if (isStudentSubmissionLocked(submission)) return;
-  const status = String(submission.status || "").trim().toLowerCase();
-  if (!["draft", "returned", "reopened"].includes(status)) return;
-  const rememberedStep = getRememberedStudentStep(submission.assignmentId);
-  if (rememberedStep === 4) {
-    ui.studentStepOverrides = ui.studentStepOverrides || {};
-    ui.studentStepOverrides[submission.assignmentId] = getStudentStepForSubmission(submission);
-  }
-  if (ui.selectedStudentAssignmentId === submission.assignmentId && ui.studentStep === 4) {
-    ui.studentStep = getStudentStepForSubmission(submission);
-  }
-}
-
-function ensureStudentSubmission() {
-  const existing = getStudentSubmission();
-  if (existing) {
-    return existing;
-  }
-
-  if (!ui.selectedStudentAssignmentId || !ui.activeUserId) {
-    return null;
-  }
-
-  const submission = createEmptySubmission(ui.selectedStudentAssignmentId, ui.activeUserId);
-  state.submissions.push(submission);
-  persistState();
-  return submission;
-}
-
-function hydrateSelections() {
-  if (!state.assignments.some((assignment) => assignment.id === ui.selectedAssignmentId)) {
-    ui.selectedAssignmentId = state.assignments[0]?.id || null;
-  }
-
-  const published = getPublishedAssignments();
-  if (!published.some((assignment) => assignment.id === ui.selectedStudentAssignmentId)) {
-    const buckets = getStudentAssignmentBuckets();
-    const savedAssignmentId = getSavedStudentAssignmentId();
-    const preferredCurrentId = buckets.current[0]?.assignment?.id || null;
-    const preferredSubmittedId = buckets.submitted[0]?.assignment?.id || null;
-    const nextAssignmentId = published.some((assignment) => assignment.id === savedAssignmentId)
-      ? savedAssignmentId
-      : (preferredCurrentId || preferredSubmittedId || published[0]?.id || null);
-    ui.selectedStudentAssignmentId = nextAssignmentId;
-  }
-
-  if (ui.selectedStudentAssignmentId) {
-    saveStudentAssignmentId(ui.selectedStudentAssignmentId);
-  }
-
-  ui.studentStep = clamp(ui.studentStep, 1, 4);
-  const studentSubmission = ensureStudentSubmission();
-  if (studentSubmission) {
-    const rememberedStep = getRememberedStudentStep(ui.selectedStudentAssignmentId);
-    const derivedStep = getStudentStepForSubmission(studentSubmission);
-    ui.studentStep = isStudentSubmissionLocked(studentSubmission) ? derivedStep : (rememberedStep || derivedStep);
-  }
-
-  const reviewRoster = getReviewRoster(ui.selectedAssignmentId);
-  if (!reviewRoster.some((student) => student.id === ui.selectedReviewStudentId)) {
-    ui.selectedReviewStudentId = reviewRoster[0]?.id || null;
-  }
-
-  ui.selectedReviewSubmissionId = ui.selectedReviewStudentId
-    ? getReviewSubmissionForStudent(ui.selectedReviewStudentId, ui.selectedAssignmentId)?.id || null
-    : null;
-}
-
-function getSubmissionStatusDisplay(status) {
-  const labels = {
-    not_started: "Not started",
-    draft: "In progress",
-    submitted: "Submitted",
-    late: "Late",
-    missing: "Missing",
-    graded: "Graded",
-  };
-  return labels[status] || titleCase(String(status || "").replaceAll("_", " "));
-}
-window.getSubmissionStatusDisplay = getSubmissionStatusDisplay;
-
-function canMarkLateOrMissing(assignment) {
-  if (!assignment?.deadline) return false;
-  return Date.now() > Date.parse(assignment.deadline);
-}
-window.canMarkLateOrMissing = canMarkLateOrMissing;
-
-function getNextReviewStudentId(currentStudentId, assignmentId = ui.selectedAssignmentId) {
-  const roster = getReviewRoster(assignmentId);
-  const index = roster.findIndex((student) => student.id === currentStudentId);
-  if (index === -1 || index === roster.length - 1) return null;
-  return roster[index + 1]?.id || null;
-}
-window.getNextReviewStudentId = getNextReviewStudentId;
-
-function getPreviousReviewStudentId(currentStudentId, assignmentId = ui.selectedAssignmentId) {
-  const roster = getReviewRoster(assignmentId);
-  const index = roster.findIndex((student) => student.id === currentStudentId);
-  if (index <= 0) return null;
-  return roster[index - 1]?.id || null;
-}
-window.getPreviousReviewStudentId = getPreviousReviewStudentId;
-
 function formatCompactDuration(ms) {
   const totalSeconds = Math.max(0, Math.round(Number(ms || 0) / 1000));
   if (totalSeconds < 60) return `${totalSeconds} sec`;
@@ -6761,6 +6492,7 @@ function createEmptySubmission(assignmentId, studentId) {
     submittedAt: null,
   };
 }
+window.createEmptySubmission = createEmptySubmission;
 
 function createBlankState() {
   return {

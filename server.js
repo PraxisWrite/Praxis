@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
@@ -23,19 +23,24 @@ const {
 const {
   getCanonicalRedirectTarget,
   getConfiguredBaseUrl,
+  getSafeRedirectPath,
 } = require('./canonical-url-utils');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const app = express();
+app.disable("x-powered-by");
+
 app.use((req, res, next) => {
+  const redirectPath = getSafeRedirectPath(req.originalUrl || req.url);
   const redirectTarget = getCanonicalRedirectTarget({
     method: req.method,
     host: req.headers['x-forwarded-host'] || req.headers.host,
-    originalUrl: req.originalUrl || req.url,
+    originalUrl: redirectPath,
     configuredBase: getConfiguredBaseUrl(),
   });
   if (redirectTarget) {
-    return res.redirect(308, redirectTarget);
+    res.set('Location', redirectTarget);
+    return res.status(308).end();
   }
   return next();
 });
@@ -252,11 +257,11 @@ function clampNumber(value, { min = 0, max = 1, fallback = null } = {}) {
 
 function escapeHtmlEmail(value = '') {
   return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replaceAll("'", '&#39;');
 }
 
 function formatDeadline(deadlineValue) {

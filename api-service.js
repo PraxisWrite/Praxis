@@ -9,11 +9,12 @@
   const { safeArray } = root.CoreUtils;
 
   function apiFetch(path, options = {}) {
-    if (!root.Auth?.apiFetch) {
-      throw new Error("ApiService missing dependency: window.Auth.apiFetch");
-    }
-    return root.Auth.apiFetch(path, options);
+  const authClient = root.Auth || (typeof Auth !== "undefined" ? Auth : null);
+  if (!authClient?.apiFetch) {
+    throw new Error("ApiService missing dependency: Auth.apiFetch");
   }
+  return authClient.apiFetch(path, options);
+}
 
   function hasServerId(id) {
     return Boolean(id) && !String(id).startsWith("submission-") && !String(id).startsWith("pending-review-");

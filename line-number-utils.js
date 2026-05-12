@@ -1,3 +1,7 @@
+function isWhitespace(char) {
+  return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f";
+}
+
 (function initLineNumberUtils(global, factory) {
   const utils = factory();
   if (global) {
@@ -9,10 +13,6 @@
 })(
   typeof window !== "undefined" ? window : globalThis,
   function lineNumberUtilsFactory() {
-    function isWhitespace(char) {
-      return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f";
-    }
-
     function isWhitespaceOnly(value) {
       const text = String(value || "");
       if (!text.length) return false;

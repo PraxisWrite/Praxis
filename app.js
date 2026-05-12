@@ -309,10 +309,10 @@ async function resolveTeacherStartingClass(profile, classes) {
   }
 
   const assignmentResults = await Promise.allSettled(
-    classes.map((cls) => Auth.apiFetch(`/api/classes/${cls.id}/assignments`))
+    classes.map((cls) => window.ApiService.loadClassAssignments(cls.id))
   );
   const classAssignments = assignmentResults.map((result) => (
-    result.status === "fulfilled" ? safeArray(result.value?.assignments) : []
+    result.status === "fulfilled" ? safeArray(result.value) : []
   ));
   return chooseBestTeacherClassId(classes, classAssignments, preferredClassId);
 }
@@ -710,11 +710,8 @@ function calculateTeacherReviewSummary(assignment, submission, rowScores = submi
 async function syncTeacherReviewToServer(submission) {
   if (!submission?.id || String(submission.id).startsWith("submission-")) return;
   try {
-    await Auth.apiFetch(`/api/submissions/${submission.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        teacher_review: submission.teacherReview,
-      }),
+    await window.ApiService.patchSubmission(submission.id, {
+      teacher_review: submission.teacherReview,
     });
   } catch (error) {
     console.error("Could not sync teacher review:", error.message, error);
@@ -722,33 +719,7 @@ async function syncTeacherReviewToServer(submission) {
 }
 
 async function upsertTeacherReviewSubmission(assignment, submission) {
-  if (!assignment?.id || !submission?.studentId) {
-    throw new Error("Missing assignment or student for review save.");
-  }
-
-  if (submission.id && !String(submission.id).startsWith("submission-") && !String(submission.id).startsWith("pending-review-")) {
-    const result = await Auth.apiFetch(`/api/submissions/${submission.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        status: submission.status,
-        teacher_review: submission.teacherReview,
-      }),
-    });
-    if (result?.error) throw new Error(result.error);
-    if (!result?.submission) throw new Error("Server did not return the saved submission.");
-    return mapServerSubmission(result.submission);
-  }
-
-  const result = await Auth.apiFetch(`/api/assignments/${assignment.id}/students/${submission.studentId}/submission`, {
-    method: "PUT",
-    body: JSON.stringify(buildSubmissionServerPayload(submission, {
-      teacher_review: submission.teacherReview,
-    })),
-  });
-
-  if (result?.error) throw new Error(result.error);
-  if (!result?.submission) throw new Error("Server did not return the saved submission.");
-  return mapServerSubmission(result.submission);
+  return window.ApiService.saveTeacherReviewSubmission(assignment, submission);
 }
 
 function replaceSubmissionInState(nextSubmission) {

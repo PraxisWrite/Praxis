@@ -63,6 +63,105 @@
     return cleaned || fallback;
   }
 
+  const SHARED_RUBRIC_PART_RE = /\b(topic sentence|supporting (?:sentence|sentences|idea|ideas|detail|details)|concluding sentence|transitions?|unity|coherence)\b/i;
+
+  function rubricScoreSignature(criterion = {}) {
+    return safeArray(criterion?.levels)
+      .map((level) => Number(level?.score ?? level?.points ?? 0))
+      .join("|");
+  }
+
+  function criterionLooksLikeSharedPart(criterion = {}) {
+    const haystack = [
+      criterion?.name,
+      ...safeArray(criterion?.levels).map((level) => level?.description),
+    ].join(" ");
+    return SHARED_RUBRIC_PART_RE.test(String(haystack || ""));
+  }
+
+  function findMatchingCriterionLevel(criterion = {}, targetLevel = {}, fallbackIndex = 0) {
+    const levels = safeArray(criterion?.levels);
+    return levels.find((level) => Number(level?.score ?? level?.points ?? 0) === Number(targetLevel?.score ?? targetLevel?.points ?? 0))
+      || levels[fallbackIndex]
+      || null;
+  }
+
+  function deriveMergedCriterionName(group = []) {
+    const names = group.map((criterion) => String(criterion?.name || "").trim()).filter(Boolean);
+    const joined = names.join(" ").toLowerCase();
+    if (
+      /topic sentence/.test(joined) &&
+      /supporting (sentence|sentences|idea|ideas|detail|details)/.test(joined) &&
+      /concluding sentence/.test(joined)
+    ) {
+      return "Organization, unity and coherence";
+    }
+    return names.join(" / ") || "Combined criterion";
+  }
+
+  function mergeSharedRubricCriterionGroup(group = []) {
+    if (!group.length) return null;
+    if (group.length === 1) return group[0];
+
+    const template = group[0];
+    const name = deriveMergedCriterionName(group);
+    return {
+      id: slugifyRubricId(name, template.id || "criterion"),
+      name,
+      minScore: template.minScore,
+      maxScore: template.maxScore,
+      levels: safeArray(template.levels).map((level, levelIndex) => {
+        const description = group
+          .map((criterion) => {
+            const matchedLevel = findMatchingCriterionLevel(criterion, level, levelIndex);
+            const descriptor = String(matchedLevel?.description || "").trim();
+            if (!descriptor) return "";
+            const partName = String(criterion?.name || "").trim();
+            return partName ? `${partName}: ${descriptor}` : descriptor;
+          })
+          .filter(Boolean)
+          .join("\n");
+
+        return {
+          ...level,
+          description: description || level.description,
+        };
+      }),
+    };
+  }
+
+  function coalesceSharedRubricCriteria(criteria = [], totalPoints = 0, { mergeAdjacentSharedParts = false } = {}) {
+    const merged = [];
+    for (let index = 0; index < criteria.length; index += 1) {
+      const current = criteria[index];
+      const signature = rubricScoreSignature(current);
+      const group = [current];
+
+      while (index + 1 < criteria.length) {
+        const next = criteria[index + 1];
+        const totalWouldOverflow = totalPoints > 0 && merged
+          .concat(group)
+          .concat(next)
+          .reduce((sum, criterion) => sum + Number(criterion?.maxScore || 0), 0) > totalPoints;
+        if (
+          signature &&
+          signature === rubricScoreSignature(next) &&
+          criterionLooksLikeSharedPart(current) &&
+          criterionLooksLikeSharedPart(next) &&
+          (totalWouldOverflow || mergeAdjacentSharedParts)
+        ) {
+          group.push(next);
+          index += 1;
+          continue;
+        }
+        break;
+      }
+
+      merged.push(mergeSharedRubricCriterionGroup(group));
+    }
+    return merged.filter(Boolean);
+  }
+
   function wordCount(text) {
     return (String(text || "").trim().match(/\b[\w'-]+\b/g) || []).length;
   }
@@ -107,6 +206,12 @@
     isAsciiAlphaNumeric,
     trimHyphens,
     slugifyRubricId,
+    rubricScoreSignature,
+    criterionLooksLikeSharedPart,
+    findMatchingCriterionLevel,
+    deriveMergedCriterionName,
+    mergeSharedRubricCriterionGroup,
+    coalesceSharedRubricCriteria,
     wordCount,
     trimTo,
     clamp,

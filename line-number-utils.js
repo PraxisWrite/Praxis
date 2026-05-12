@@ -2,6 +2,67 @@ function isWhitespace(char) {
   return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f";
 }
 
+function isWhitespaceOnly(value) {
+  const text = String(value || "");
+  if (!text.length) return false;
+  for (const char of text) {
+    if (!isWhitespace(char)) return false;
+  }
+  return true;
+}
+
+function trimEndWhitespace(value) {
+  const text = String(value || "");
+  let end = text.length;
+  while (end > 0 && isWhitespace(text[end - 1])) end -= 1;
+  return text.slice(0, end);
+}
+
+function countLeadingWhitespace(value) {
+  const text = String(value || "");
+  let count = 0;
+  while (count < text.length && isWhitespace(text[count])) count += 1;
+  return count;
+}
+
+function splitLineTokens(logicalLine = "") {
+  const tokens = [];
+  let start = 0;
+  while (start < logicalLine.length) {
+    const startsWithWhitespace = isWhitespace(logicalLine[start]);
+    let end = start + 1;
+    while (end < logicalLine.length && isWhitespace(logicalLine[end]) === startsWithWhitespace) {
+      end += 1;
+    }
+    if (!startsWithWhitespace) {
+      while (end < logicalLine.length && isWhitespace(logicalLine[end])) {
+        end += 1;
+      }
+    }
+    tokens.push(logicalLine.slice(start, end));
+    start = end;
+  }
+  return tokens;
+}
+
+function splitTokenToFitWidth(token, measureText, maxWidth) {
+  const pieces = [];
+  let current = "";
+  for (const char of String(token || "")) {
+    const candidate = current + char;
+    if (current && measureText(candidate) > maxWidth) {
+      pieces.push(current);
+      current = char;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) {
+    pieces.push(current);
+  }
+  return pieces.length ? pieces : [String(token || "")];
+}
+
 (function initLineNumberUtils(global, factory) {
   const utils = factory();
   if (global) {
@@ -13,67 +74,6 @@ function isWhitespace(char) {
 })(
   typeof window !== "undefined" ? window : globalThis,
   function lineNumberUtilsFactory() {
-    function isWhitespaceOnly(value) {
-      const text = String(value || "");
-      if (!text.length) return false;
-      for (const char of text) {
-        if (!isWhitespace(char)) return false;
-      }
-      return true;
-    }
-
-    function trimEndWhitespace(value) {
-      const text = String(value || "");
-      let end = text.length;
-      while (end > 0 && isWhitespace(text[end - 1])) end -= 1;
-      return text.slice(0, end);
-    }
-
-    function countLeadingWhitespace(value) {
-      const text = String(value || "");
-      let count = 0;
-      while (count < text.length && isWhitespace(text[count])) count += 1;
-      return count;
-    }
-
-    function splitLineTokens(logicalLine = "") {
-      const tokens = [];
-      let start = 0;
-      while (start < logicalLine.length) {
-        const startsWithWhitespace = isWhitespace(logicalLine[start]);
-        let end = start + 1;
-        while (end < logicalLine.length && isWhitespace(logicalLine[end]) === startsWithWhitespace) {
-          end += 1;
-        }
-        if (!startsWithWhitespace) {
-          while (end < logicalLine.length && isWhitespace(logicalLine[end])) {
-            end += 1;
-          }
-        }
-        tokens.push(logicalLine.slice(start, end));
-        start = end;
-      }
-      return tokens;
-    }
-
-    function splitTokenToFitWidth(token, measureText, maxWidth) {
-      const pieces = [];
-      let current = "";
-      for (const char of String(token || "")) {
-        const candidate = current + char;
-        if (current && measureText(candidate) > maxWidth) {
-          pieces.push(current);
-          current = char;
-        } else {
-          current = candidate;
-        }
-      }
-      if (current) {
-        pieces.push(current);
-      }
-      return pieces.length ? pieces : [String(token || "")];
-    }
-
     function buildWrappedLineEntries(text = "", metrics = {}, measureText = (value) => String(value || "").length) {
       const value = String(text || "");
       if (!metrics || !Number.isFinite(Number(metrics.width))) {

@@ -34,6 +34,17 @@ function getConfiguredBaseUrl(env = process.env) {
   );
 }
 
+function getSafeRedirectPath(originalUrl = "/") {
+  const raw = String(originalUrl || "/").trim();
+
+  if (!raw || /[\r\n]/.test(raw)) return "/";
+  if (!raw.startsWith("/")) return "/";
+  if (raw.startsWith("//")) return "/";
+  if (raw.startsWith("/\\")) return "/";
+
+  return raw;
+}
+
 function getCanonicalRedirectTarget({ method, host, originalUrl = "/", configuredBase }) {
   const verb = String(method || "GET").toUpperCase();
   if (verb !== "GET" && verb !== "HEAD") return "";
@@ -46,7 +57,7 @@ function getCanonicalRedirectTarget({ method, host, originalUrl = "/", configure
   const requestHost = normalizeHost(host);
   if (!canonicalHost || !requestHost || canonicalHost === requestHost) return "";
 
-  const path = String(originalUrl || "/").startsWith("/") ? String(originalUrl || "/") : `/${originalUrl}`;
+  const path = getSafeRedirectPath(originalUrl);
   if (path.startsWith("/api/")) return "";
 
   return `${base}${path}`;
@@ -55,6 +66,7 @@ function getCanonicalRedirectTarget({ method, host, originalUrl = "/", configure
 module.exports = {
   getCanonicalRedirectTarget,
   getConfiguredBaseUrl,
+  getSafeRedirectPath,
   isLocalHost,
   normalizeHost,
 };

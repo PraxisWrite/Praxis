@@ -40,15 +40,9 @@ function getSafeRedirectPath(originalUrl = "/") {
   if (!raw || /[\r\n]/.test(raw)) return "/";
   if (!raw.startsWith("/")) return "/";
   if (raw.startsWith("//")) return "/";
-  if (/^\/\\/.test(raw)) return "/";
+  if (raw.startsWith("/\\")) return "/";
 
-  try {
-    const parsed = new URL(raw, "https://canonical.local");
-    if (parsed.origin !== "https://canonical.local") return "/";
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-  } catch (_) {
-    return "/";
-  }
+  return raw;
 }
 
 function getCanonicalRedirectTarget({ method, host, originalUrl = "/", configuredBase }) {

@@ -278,8 +278,6 @@
       ui.teacherDraft.chatTimeLimit = Number(inferred.chatTimeLimit);
     } else if (Number.isFinite(Number(parsed.chatTimeLimit)) && Number(parsed.chatTimeLimit) >= 0) {
       ui.teacherDraft.chatTimeLimit = Number(parsed.chatTimeLimit);
-    } else if (ui.teacherDraft.disableChatbot) {
-      ui.teacherDraft.chatTimeLimit = -1;
     }
     if (Number.isFinite(Number(inferred.totalPoints)) && Number(inferred.totalPoints) > 0 && !ui.teacherDraft.uploadedRubricSchema?.criteria?.length) {
       ui.teacherDraft.totalPoints = Number(inferred.totalPoints);

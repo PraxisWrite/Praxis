@@ -9,11 +9,11 @@
   const { safeArray } = root.CoreUtils;
 
   function apiFetch(path, options = {}) {
-  const authClient = root.Auth || (typeof Auth !== "undefined" ? Auth : null);
-  if (!authClient?.apiFetch) {
-    throw new Error("ApiService missing dependency: Auth.apiFetch");
+  const authClient = root.Auth || (typeof Auth === "undefined" ? null : Auth);
+  if (authClient?.apiFetch) {
+    return authClient.apiFetch(path, options);
   }
-  return authClient.apiFetch(path, options);
+  throw new Error("ApiService missing dependency: Auth.apiFetch");
 }
 
   function hasServerId(id) {
@@ -244,4 +244,4 @@ async function deleteAssignment(assignmentId) {
   if (typeof module !== "undefined" && module.exports) {
     module.exports = ApiService;
   }
-})(typeof window !== "undefined" ? window : globalThis);
+})(typeof window === "undefined" ? globalThis : window);

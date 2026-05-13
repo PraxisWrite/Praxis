@@ -169,7 +169,7 @@
               <p class="subtle" style="font-size:0.8rem;margin:-4px 0 0;">${escapeHtml(window.AccountSecurity?.PASSWORD_REQUIREMENT_TEXT || "Use at least 8 characters and 1 number.")}</p>
               <div style="display:flex;gap:8px;">
                 <button type="button" data-auth-role="student" id="role-btn-student" style="flex:1;padding:10px;border:2px solid var(--accent);border-radius:10px;background:#e7eeff;font:inherit;font-weight:700;cursor:pointer;color:var(--accent-deep);">Student</button>
-                ${!joinClassId ? `<button type="button" data-auth-role="teacher" id="role-btn-teacher" style="flex:1;padding:10px;border:1px solid #ddd2c2;border-radius:10px;background:#fff;font:inherit;font-weight:700;cursor:pointer;color:#667063;">Teacher</button>` : ''}
+                ${joinClassId ? '' : `<button type="button" data-auth-role="teacher" id="role-btn-teacher" style="flex:1;padding:10px;border:1px solid #ddd2c2;border-radius:10px;background:#fff;font:inherit;font-weight:700;cursor:pointer;color:#667063;">Teacher</button>`}
                 </div>
               <button type="button" data-auth-action="signup" style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:white;border:none;border-radius:999px;padding:12px 24px;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 10px 24px rgba(63,109,246,0.24);">Create account</button>
               <p id="auth-signup-error" style="color:#b34949;font-size:0.85rem;margin:0;display:none;"></p>

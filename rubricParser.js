@@ -2,7 +2,7 @@ const fs = require('fs');
 const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 const fetch = require('node-fetch');
-const { coalesceSharedRubricCriteria, slugifyRubricId } = require('./core-utils');
+const { coalesceSharedRubricCriteria, rubricCriterionToMatrixRow, slugifyRubricId } = require('./core-utils');
 
 const SYSTEM_PROMPT = `
 You are an expert academic rubric parser.
@@ -124,23 +124,7 @@ function rubricSchemaToMatrix(schema = {}, fileName = 'Uploaded rubric') {
       ...normalized.notes,
       normalized.attribution,
     ].filter(Boolean),
-    rows: normalized.criteria.map((criterion) => ({
-      id: criterion.id,
-      section: '',
-      subcriterion: criterion.name,
-      name: criterion.name,
-      description: '',
-      points: Number(criterion.maxScore || 0),
-      pointsLabel: criterion.minScore !== criterion.maxScore
-        ? `${criterion.minScore} – ${criterion.maxScore} points`
-        : `${criterion.maxScore} points`,
-      levels: criterion.levels.map((level) => ({
-        id: level.id,
-        label: `${level.label} – ${level.score}`,
-        points: Number(level.score || 0),
-        description: level.description,
-      })),
-    })),
+    rows: normalized.criteria.map(rubricCriterionToMatrixRow),
   };
 }
 

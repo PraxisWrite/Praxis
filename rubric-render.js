@@ -7,17 +7,7 @@
 // for backward compatibility with existing app.js call sites.
 
 (function () {
-  function cleanLevelLabel(label = "") {
-    const raw = String(label || "").trim();
-    const separators = [" - ", " – "];
-    for (const separator of separators) {
-      const index = raw.lastIndexOf(separator);
-      if (index < 0) continue;
-      const suffix = raw.slice(index + separator.length).trim();
-      if (suffix && Number.isFinite(Number(suffix))) return raw.slice(0, index).trim();
-    }
-    return raw;
-  }
+  const cleanLevelLabel = cleanRubricLevelLabel;
 
   function getRubricUtils() {
     return (typeof window !== "undefined" && window.RubricUtils) || {};

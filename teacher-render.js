@@ -35,7 +35,7 @@
   }
 
   function renderTeacherAssignmentSettingsFields(ui, idPrefix) {
-    const { escapeHtml, escapeAttribute, titleCase, getVisibleChatTimeLimit } = window;
+    const { escapeHtml, escapeAttribute, titleCase, getVisibleChatTimeLimit } = globalThis.window;
     const { buildDeadlineTimeOptions, getDeadlineDatePart, getDeadlineTimePart } = window.DeadlineUtils;
     return `
       <div class="field-grid compact-grid">
@@ -450,7 +450,7 @@
 
   function renderTeacherReview(assignment, submissions) {
     const { currentClassMembers } = window.AppState;
-    const { escapeHtml, getReviewRoster, levelTheme } = window;
+    const { escapeHtml, getReviewRoster, levelTheme } = globalThis.window;
     const { getAssignmentSubmissionCounts, isSubmissionGraded } = window.SubmissionUtils;
     const { buildCriterionAnalytics } = window.ReviewUtils;
 
@@ -542,8 +542,8 @@
   }
 
   function renderTeacherReviewSubmissionCard(member, submission) {
-    const { escapeHtml, getPasteEvidenceItems, getSubmissionStatusDisplay } = window;
-    const { isSubmissionGraded } = window.SubmissionUtils;
+    const { escapeHtml, getPasteEvidenceItems, getSubmissionStatusDisplay } = globalThis.window;
+    const { isSubmissionGraded } = globalThis.window.SubmissionUtils;
     if (!submission) {
       return `
         <div class="submission-card simple-card">
@@ -595,7 +595,7 @@
   }
 
   function renderTeacherSubmissionStatusPanel(currentStatus, canReopenSubmission, deadlinePassed) {
-    const { escapeHtml, getSubmissionStatusDisplay } = window;
+    const { escapeHtml, getSubmissionStatusDisplay } = globalThis.window;
     return `
       <div style="margin-bottom:16px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fafaf8;">
         <p class="mini-label" style="margin-bottom:8px;">Submission status</p>
@@ -603,9 +603,14 @@
           ${["submitted", "late", "missing"].map((status) => {
             const isActive = currentStatus === status;
             const lateOrMissing = status !== "submitted";
-            const background = isActive ? (lateOrMissing ? "#fde7e7" : "#dff3e4") : "#fff";
-            const borderColor = isActive ? (lateOrMissing ? "#c56b6b" : "#4f8f68") : "var(--line)";
-            const color = isActive ? (lateOrMissing ? "#8a2f2f" : "#1f5c38") : "var(--ink)";
+            let background = "#fff";
+            let borderColor = "var(--line)";
+            let color = "var(--ink)";
+            if (isActive) {
+              background = lateOrMissing ? "#fde7e7" : "#dff3e4";
+              borderColor = lateOrMissing ? "#c56b6b" : "#4f8f68";
+              color = lateOrMissing ? "#8a2f2f" : "#1f5c38";
+            }
             return `<button class="button-ghost" data-action="set-review-status" data-status="${status}" style="background:${background};border-color:${borderColor};color:${color};">${escapeHtml(getSubmissionStatusDisplay(status))}</button>`;
           }).join("")}
           ${canReopenSubmission ? `<button class="button-secondary" data-action="open-reopen-submission-modal">Reopen for student</button>` : `<span class="pill">In progress</span>`}
@@ -618,8 +623,8 @@
   }
 
   function renderTeacherAnnotationPanel(submission) {
-    const { escapeHtml, escapeAttribute, getAnnotationDisplayLabel } = window;
-    const { getErrorCodes, getErrorCodeLabel, loadCustomErrorCodes } = window.AppConstants;
+    const { escapeHtml, escapeAttribute, getAnnotationDisplayLabel } = globalThis.window;
+    const { getErrorCodes, getErrorCodeLabel, loadCustomErrorCodes } = globalThis.window.AppConstants;
     return `
       <div style="margin-bottom:16px;">
         <div class="error-code-toolbar">
@@ -663,7 +668,6 @@
       renderEmailDebugPanel, renderSubmissionBehaviourFlagPanel, renderWritingBehaviour,
       renderPasteEvidencePanel, renderWritingTimeNote, renderStudentAiFeedbackEvidence,
       renderSuggestedGradePanel } = window;
-    const { getErrorCodeLabel } = window.AppConstants;
     const { calculateTeacherReviewSummary, getTeacherReviewRowScoreMap, getCriterionBands } = window.ReviewUtils;
 
     if (!submission) return `<div class="empty-state"><p>No submission selected.</p></div>`;

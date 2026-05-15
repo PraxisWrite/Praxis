@@ -25,27 +25,36 @@
   }
 
   function renderUpcomingStudentClasses(currentClasses, currentClassId, assignments) {
-    const { escapeHtml } = window;
+    const { escapeHtml } = globalThis.window;
     return `
       <div class="upcoming-section">
         <p class="mini-label" style="margin-bottom:10px;">Your classes & assignments</p>
         ${currentClasses.map((cls) => {
           const clsAssignments = assignments.filter((assignment) => assignment.status === "published" && assignment.classId === cls.id);
+          const assignmentRows = clsAssignments.length
+            ? clsAssignments.map((assignment) => {
+                const deadlineClass = new Date(assignment.deadline) < new Date() ? "warning-pill" : "pill";
+                const deadline = assignment.deadline
+                  ? `<span class="${deadlineClass}" style="font-size:0.75rem;">Due ${new Date(assignment.deadline).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span>`
+                  : "";
+                return `
+                  <div class="upcoming-assignment-row">
+                    <span>${escapeHtml(assignment.title)}</span>
+                    <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+                      ${deadline}
+                      <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${cls.id}" data-assignment-id="${assignment.id}">Start</button>
+                    </span>
+                  </div>
+                `;
+              }).join("")
+            : `<p class="subtle" style="font-size:0.85rem;margin:6px 0;">No published assignments yet.</p>`;
           return `
             <div class="upcoming-class-block">
               <div class="upcoming-class-header">
                 <strong>${escapeHtml(cls.name)}</strong>
                 ${cls.id !== currentClassId ? `<button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="switch-class" data-class-id="${cls.id}">Open</button>` : `<span class="pill">Current</span>`}
               </div>
-              ${clsAssignments.length ? clsAssignments.map((assignment) => `
-                <div class="upcoming-assignment-row">
-                  <span>${escapeHtml(assignment.title)}</span>
-                  <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-                    ${assignment.deadline ? `<span class="${new Date(assignment.deadline) < new Date() ? "warning-pill" : "pill"}" style="font-size:0.75rem;">Due ${new Date(assignment.deadline).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span>` : ""}
-                    <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${cls.id}" data-assignment-id="${assignment.id}">Start</button>
-                  </span>
-                </div>
-              `).join("") : `<p class="subtle" style="font-size:0.85rem;margin:6px 0;">No published assignments yet.</p>`}
+              ${assignmentRows}
             </div>
           `;
         }).join("")}
@@ -54,7 +63,7 @@
   }
 
   function renderStudentAssignmentOptions(assignments, assignmentBuckets, selectedAssignmentId) {
-    const { escapeHtml } = window;
+    const { escapeHtml } = globalThis.window;
     if (!assignments.length) return `<option value="">No assignments published yet</option>`;
     return `
       ${assignmentBuckets.current.length ? `
@@ -71,13 +80,14 @@
   }
 
   function renderStudentActiveAssignment(assignment, submission, studentStep) {
-    const { escapeHtml, renderRichTextHtml, renderSubmissionDebugPanel, renderStudentStep } = window;
+    const { escapeHtml, renderRichTextHtml, renderSubmissionDebugPanel, renderStudentStep } = globalThis.window;
+    const stepLabels = ["Get ideas", "Write draft", "Review & finalise", "Submit"];
     return `
       <div class="student-progress">
         ${[1, 2, 3, 4].map((step) => `
           <div class="progress-step ${studentStep === step ? "active" : studentStep > step ? "done" : ""}">
             <span>${step}</span>
-            <strong>${step === 1 ? "Get ideas" : step === 2 ? "Write draft" : step === 3 ? "Review & finalise" : "Submit"}</strong>
+            <strong>${stepLabels[step - 1]}</strong>
           </div>
         `).join("")}
       </div>
@@ -98,9 +108,9 @@
   }
 
   function renderStudentWorkspace() {
-    const { ui, state, currentClasses, currentClassId, currentProfile } = window.AppState;
+    const { ui, state, currentClasses, currentClassId, currentProfile } = globalThis.window.AppState;
     const { escapeHtml, getPublishedAssignments, getStudentAssignmentBuckets,
-      getUserById, getStudentSubmission, getStudentAssignment } = window;
+      getUserById, getStudentSubmission, getStudentAssignment } = globalThis.window;
 
     const assignments = getPublishedAssignments();
     const assignmentBuckets = getStudentAssignmentBuckets();
@@ -150,14 +160,20 @@
           </div>
         ` : ""}
         ${hasOtherGradedWork ? `<p class="subtle" style="margin-top:8px;font-size:0.84rem;">Open any assignment marked <strong>Graded</strong> to view your teacher's notes, rubric breakdown, and marked copy.</p>` : ""}
-        ${!assignments.length
-          ? `<div class="empty-state"><h3>Nothing here yet</h3><p>Your teacher hasn't published any assignments yet.</p></div>`
-          : !assignment || !submission
-            ? `<div class="empty-state"><h3>No assignment yet</h3><p>Choose an assignment from the dropdown above to get started.</p></div>`
-            : renderStudentActiveAssignment(assignment, submission, ui.studentStep)}
+        ${renderStudentWorkspaceBody(assignments, assignment, submission, ui.studentStep)}
       </div>
     </section>
   `;
+  }
+
+  function renderStudentWorkspaceBody(assignments, assignment, submission, studentStep) {
+    if (!assignments.length) {
+      return `<div class="empty-state"><h3>Nothing here yet</h3><p>Your teacher hasn't published any assignments yet.</p></div>`;
+    }
+    if (!assignment || !submission) {
+      return `<div class="empty-state"><h3>No assignment yet</h3><p>Choose an assignment from the dropdown above to get started.</p></div>`;
+    }
+    return renderStudentActiveAssignment(assignment, submission, studentStep);
   }
 
   function renderSubmissionDebugPanel(assignment, submission) {
@@ -227,7 +243,7 @@
   }
 
   function renderStudentIdeasStep(assignment, submission) {
-    const { escapeHtml, escapeAttribute, isChatDisabled, resumeActiveChatSession,
+    const { isChatDisabled, resumeActiveChatSession,
       isChatSessionExpired, getActiveChatElapsedMs, getOutlineFields, isOutlineComplete,
       persistState } = window;
     const { ui } = window.AppState;
@@ -279,7 +295,7 @@
   }
 
   function renderStudentIdeasChatPanel(assignment, submission, { chatHistory, chatDisabled, locked, timeExpired, ui }) {
-    const { escapeHtml } = window;
+    const { escapeHtml } = globalThis.window;
     if (locked) {
       return `
         <div style="background:#f5f5f3;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;">
@@ -332,7 +348,7 @@
   }
 
   function renderStudentOutlineCard(submission, outlineFields, locked) {
-    const { escapeHtml, escapeAttribute } = window;
+    const { escapeHtml, escapeAttribute } = globalThis.window;
     return `
       <div class="teacher-ready-card" style="margin-top:14px;${locked ? "opacity:0.55;pointer-events:none;" : ""}">
         <p class="mini-label">Build your outline</p>
@@ -367,8 +383,8 @@
   }
 
   function renderStudentFeedbackCard(entry) {
-    const { escapeHtml, safeArray, formatDateTime } = window;
-    const { getErrorCodes } = window.AppConstants;
+    const { escapeHtml, safeArray, formatDateTime } = globalThis.window;
+    const { getErrorCodes } = globalThis.window.AppConstants;
     const errorCodes = getErrorCodes();
     const items = safeArray(entry.items).map((item) => String(item || "").trim()).filter(Boolean);
     const matchingCodes = errorCodes.filter(({ code }) => items.some((item) => item.includes(`[${code}]`)));
@@ -436,7 +452,7 @@
   }
 
   function renderStudentReviewStep(assignment, submission) {
-    const { escapeHtml, safeArray, formatDateTime, wordCount } = window;
+    const { escapeHtml, safeArray, wordCount } = window;
     const { ui } = window.AppState;
     const { getStudentFeedbackButtonState } = window.AiAssistUtils;
 
@@ -494,12 +510,9 @@
   }
 
   function renderStudentFinalStep(assignment, submission) {
-    const { escapeHtml, escapeAttribute, formatDateTime, isStudentSubmissionLocked,
-      renderAnnotatedText, getTeacherReviewRowsForExport, getAnnotationDisplayLabel } = window;
-    const { getErrorCodeLabel } = window.AppConstants;
-    const { getRubricSchema, renderRubricSchemaLayout } = window;
+    const { isStudentSubmissionLocked, getTeacherReviewRowsForExport } = globalThis.window;
+    const { getRubricSchema } = window;
     const { getStudentSelfAssessmentRowScoreMap, getStudentSelfAssessmentCompletion } = window.ReviewUtils;
-    const { ui } = window.AppState;
 
     const selfAssessment = submission.selfAssessment || {};
     const rubricSchema = assignment.uploadedRubricSchema || assignment.rubricSchema || getRubricSchema(assignment.rubric, assignment.uploadedRubricName || assignment.title);
@@ -523,8 +536,8 @@
   }
 
   function renderStudentGradedFinalStep(submission, teacherReviewRows) {
-    const { escapeHtml, escapeAttribute, formatDateTime, renderAnnotatedText, getAnnotationDisplayLabel } = window;
-    const { getErrorCodeLabel } = window.AppConstants;
+    const { escapeHtml, escapeAttribute, formatDateTime, renderAnnotatedText, getAnnotationDisplayLabel } = globalThis.window;
+    const { getErrorCodeLabel } = globalThis.window.AppConstants;
     return `
       <div class="step-card wizard-card">
         <div class="step-head">
@@ -597,7 +610,7 @@
   }
 
   function renderStudentSubmittedFinalStep(submission) {
-    const { escapeHtml, formatDateTime } = window;
+    const { escapeHtml, formatDateTime } = globalThis.window;
     return `
       <div class="step-card wizard-card">
         <div class="step-head">
@@ -636,7 +649,8 @@
     selfAssessmentRowMap,
     selfAssessmentScore,
   }) {
-    const { escapeHtml, renderRubricSchemaLayout } = window;
+    const { escapeHtml, renderRubricSchemaLayout } = globalThis.window;
+    const { ui } = globalThis.window.AppState;
     return `
     <div class="step-card wizard-card">
       <div class="step-head">
@@ -680,7 +694,18 @@
         <button class="button" data-action="submit-final" ${ui.studentSubmitting || !selfAssessmentCompletion.isComplete ? "disabled" : ""} ${!selfAssessmentCompletion.isComplete ? "title='Rate yourself on all rubric items before submitting'" : ""}>${ui.studentSubmitting ? "Submitting…" : "Submit assignment"}</button>
       </div>
       ${ui.notice ? `<div class="notice" style="margin-top:12px;">${escapeHtml(ui.notice)}</div>` : ""}
-      ${submission.status === "submitted" ? `
+      ${renderStudentSelfAssessmentSubmissionSummary(assignment, submission)}
+    </div>
+  `;
+  }
+
+  function renderStudentSelfAssessmentSubmissionSummary(assignment, submission) {
+    const { escapeHtml, escapeAttribute, formatDateTime, getAnnotationDisplayLabel,
+      getTeacherReviewRowsForExport, renderAnnotatedText } = globalThis.window;
+    const { getErrorCodeLabel } = globalThis.window.AppConstants;
+    if (submission.status !== "submitted") return "";
+    const teacherReviewRows = getTeacherReviewRowsForExport(assignment, submission);
+    return `
         <div id="submitted-confirmation" class="submitted-banner" style="margin-top:16px;">
           <div class="submitted-icon">✓</div>
           <div>
@@ -706,9 +731,9 @@
             ${submission.teacherReview.finalNotes ? `
               <p style="white-space:pre-wrap;line-height:1.65;">${escapeHtml(submission.teacherReview.finalNotes)}</p>
             ` : ""}
-            ${getTeacherReviewRowsForExport(assignment, submission).length ? `
+            ${teacherReviewRows.length ? `
               <div style="display:grid;gap:8px;margin:12px 0 14px;">
-                ${getTeacherReviewRowsForExport(assignment, submission).map((row) => `
+                ${teacherReviewRows.map((row) => `
                   <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fbfdff;">
                     <div style="min-width:0;">
                       <strong style="display:block;margin-bottom:4px;">${escapeHtml(row.criterion)}</strong>
@@ -739,9 +764,7 @@
             ` : ""}
           </div>
         ` : ""}
-      ` : ""}
-    </div>
-  `;
+    `;
   }
 
   const StudentRender = {

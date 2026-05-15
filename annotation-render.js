@@ -210,71 +210,13 @@
     const annotations = submission?.teacherReview?.annotations || [];
     const pasteEvidenceItems = getPasteEvidenceItems(submission).filter((item) => item.canHighlight);
 
-    const highlights = [];
-    const pasteHighlights = [];
-    const searchStarts = new Map();
-
-    const findNextSequentialIndex = (needle) => {
-      if (!needle) return -1;
-      const start = Number(searchStarts.get(needle) || 0);
-      let idx = text.indexOf(needle, start);
-      if (idx === -1 && start > 0) {
-        idx = text.indexOf(needle);
-      }
-      if (idx !== -1) {
-        searchStarts.set(needle, idx + Math.max(needle.length, 1));
-      }
-      return idx;
-    };
-
-    for (const paste of pasteEvidenceItems) {
-      const pasteHighlight = {
-        id: paste.id,
-        start: paste.highlightStart,
-        end: paste.highlightEnd,
-        type: "paste",
-        annotationIds: [],
-        annotationCodes: [],
-        annotationLabels: [],
-      };
-      pasteHighlights.push(pasteHighlight);
-      highlights.push(pasteHighlight);
-    }
-
-    searchStarts.clear();
-    safeArray(annotations).forEach((ann, index) => {
-      const idx = findNextSequentialIndex(ann.selectedText);
-      if (idx !== -1) {
-        const end = idx + ann.selectedText.length;
-        const overlappingPastes = pasteHighlights.filter((range) => idx < range.end && end > range.start);
-        const overlapsPaste = overlappingPastes.length > 0;
-        const annotationLabel = getAnnotationDisplayLabel(ann, index);
-        overlappingPastes.forEach((paste) => {
-          paste.annotationIds.push(ann.id || uid("ann"));
-          paste.annotationCodes.push(ann.code);
-          paste.annotationLabels.push(annotationLabel);
-        });
-
-        highlights.push({
-          start: idx,
-          end,
-          code: ann.code,
-          label: annotationLabel,
-          type: "annotation",
-          id: ann.id || uid("ann"),
-          overlapsPaste,
-        });
-      }
-    });
+    const pasteHighlights = createPasteHighlights(pasteEvidenceItems);
+    const annotationHighlights = createAnnotationHighlights(text, annotations, pasteHighlights);
+    const highlights = [...pasteHighlights, ...annotationHighlights];
 
     if (!highlights.length) return escapeHtml(text);
 
-    highlights.sort((a, b) => {
-      if (a.start !== b.start) return a.start - b.start;
-      if (a.end !== b.end) return b.end - a.end;
-      if (a.type === b.type) return 0;
-      return a.type === "paste" ? -1 : 1;
-    });
+    highlights.sort(compareHighlights);
 
     let result = "";
     let cursor = 0;
@@ -316,6 +258,74 @@
 
     result += escapeHtml(text.slice(cursor));
     return result;
+  }
+
+  function createPasteHighlights(pasteEvidenceItems) {
+    return pasteEvidenceItems.map((paste) => ({
+      id: paste.id,
+      start: paste.highlightStart,
+      end: paste.highlightEnd,
+      type: "paste",
+      annotationIds: [],
+      annotationCodes: [],
+      annotationLabels: [],
+    }));
+  }
+
+  function createAnnotationHighlights(text, annotations, pasteHighlights) {
+    const searchStarts = new Map();
+    return safeArray(annotations)
+      .map((annotation, index) => createAnnotationHighlight(text, annotation, index, pasteHighlights, searchStarts))
+      .filter(Boolean);
+  }
+
+  function createAnnotationHighlight(text, annotation, index, pasteHighlights, searchStarts) {
+    const start = findNextSequentialIndex(text, annotation.selectedText, searchStarts);
+    if (start === -1) {
+      return null;
+    }
+
+    const end = start + annotation.selectedText.length;
+    const overlappingPastes = pasteHighlights.filter((range) => start < range.end && end > range.start);
+    const annotationLabel = getAnnotationDisplayLabel(annotation, index);
+    const annotationId = annotation.id || uid("ann");
+    for (const paste of overlappingPastes) {
+      paste.annotationIds.push(annotationId);
+      paste.annotationCodes.push(annotation.code);
+      paste.annotationLabels.push(annotationLabel);
+    }
+
+    return {
+      start,
+      end,
+      code: annotation.code,
+      label: annotationLabel,
+      type: "annotation",
+      id: annotationId,
+      overlapsPaste: overlappingPastes.length > 0,
+    };
+  }
+
+  function findNextSequentialIndex(text, needle, searchStarts) {
+    if (!needle) {
+      return -1;
+    }
+    const start = Number(searchStarts.get(needle) || 0);
+    let index = text.indexOf(needle, start);
+    if (index === -1 && start > 0) {
+      index = text.indexOf(needle);
+    }
+    if (index !== -1) {
+      searchStarts.set(needle, index + Math.max(needle.length, 1));
+    }
+    return index;
+  }
+
+  function compareHighlights(left, right) {
+    if (left.start !== right.start) return left.start - right.start;
+    if (left.end !== right.end) return right.end - left.end;
+    if (left.type === right.type) return 0;
+    return left.type === "paste" ? -1 : 1;
   }
 
   function renderTextWithPasteHighlights(text, writingEvents) {

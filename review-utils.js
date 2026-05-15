@@ -146,49 +146,61 @@
     const rubric = safeArray(assignment?.rubric);
     if (!rubric.length) return [];
 
-    return rubric.map((criterion) => {
-      const bands = getCriterionBands(criterion)
-        .slice()
-        .sort((a, b) => Number(b.points ?? 0) - Number(a.points ?? 0));
-      const counts = new Map(bands.map((band) => [band.id || `${criterion.id}-${band.points}`, 0]));
-      let gradedCount = 0;
-      let totalPoints = 0;
+    return rubric.map((criterion) => buildCriterionAnalyticsEntry(criterion, submissions));
+  }
 
-      safeArray(submissions).forEach((submission) => {
-        const rowMap = getTeacherReviewRowScoreMap(submission?.teacherReview?.rowScores);
-        const entry = rowMap.get(criterion.id);
-        if (!entry) return;
-        gradedCount += 1;
-        totalPoints += Number(entry.points ?? 0);
-        const matchingBand = bands.find((band) => (band.id || `${criterion.id}-${band.points}`) === entry.bandId)
-          || findClosestBand(criterion, entry.points);
-        if (matchingBand) {
-          const key = matchingBand.id || `${criterion.id}-${matchingBand.points}`;
-          counts.set(key, Number(counts.get(key) || 0) + 1);
-        }
-      });
+  function buildCriterionAnalyticsEntry(criterion, submissions) {
+    const bands = getCriterionBands(criterion)
+      .slice()
+      .sort((a, b) => Number(b.points ?? 0) - Number(a.points ?? 0));
+    const counts = new Map(bands.map((band) => [getCriterionBandKey(criterion, band), 0]));
+    const scoreSummary = summarizeCriterionScores(criterion, submissions, bands, counts);
 
-      const distribution = bands.map((band) => {
-        const key = band.id || `${criterion.id}-${band.points}`;
-        const count = Number(counts.get(key) || 0);
-        return {
-          id: key,
-          label: cleanLevelLabel(band.label || `${band.points}`),
-          points: Number(band.points ?? 0),
-          count,
-          share: gradedCount ? count / gradedCount : 0,
-        };
-      });
+    return {
+      criterionId: criterion.id,
+      criterionName: criterion.name || "Criterion",
+      gradedCount: scoreSummary.gradedCount,
+      averageScore: scoreSummary.gradedCount ? (scoreSummary.totalPoints / scoreSummary.gradedCount) : 0,
+      maxPoints: Number(criterion.points || 0),
+      distribution: bands.map((band) => buildCriterionDistributionEntry(criterion, band, counts, scoreSummary.gradedCount)),
+    };
+  }
 
-      return {
-        criterionId: criterion.id,
-        criterionName: criterion.name || "Criterion",
-        gradedCount,
-        averageScore: gradedCount ? (totalPoints / gradedCount) : 0,
-        maxPoints: Number(criterion.points || 0),
-        distribution,
-      };
+  function summarizeCriterionScores(criterion, submissions, bands, counts) {
+    let gradedCount = 0;
+    let totalPoints = 0;
+    safeArray(submissions).forEach((submission) => {
+      const entry = getTeacherReviewRowScoreMap(submission?.teacherReview?.rowScores).get(criterion.id);
+      if (!entry) return;
+      gradedCount += 1;
+      totalPoints += Number(entry.points ?? 0);
+      incrementCriterionBandCount(criterion, entry, bands, counts);
     });
+    return { gradedCount, totalPoints };
+  }
+
+  function incrementCriterionBandCount(criterion, entry, bands, counts) {
+    const matchingBand = bands.find((band) => getCriterionBandKey(criterion, band) === entry.bandId)
+      || findClosestBand(criterion, entry.points);
+    if (!matchingBand) return;
+    const key = getCriterionBandKey(criterion, matchingBand);
+    counts.set(key, Number(counts.get(key) || 0) + 1);
+  }
+
+  function buildCriterionDistributionEntry(criterion, band, counts, gradedCount) {
+    const key = getCriterionBandKey(criterion, band);
+    const count = Number(counts.get(key) || 0);
+    return {
+      id: key,
+      label: cleanLevelLabel(band.label || `${band.points}`),
+      points: Number(band.points ?? 0),
+      count,
+      share: gradedCount ? count / gradedCount : 0,
+    };
+  }
+
+  function getCriterionBandKey(criterion, band) {
+    return band.id || `${criterion.id}-${band.points}`;
   }
 
   window.ReviewUtils = {

@@ -82,10 +82,14 @@
   function renderStudentActiveAssignment(assignment, submission, studentStep) {
     const { escapeHtml, renderRichTextHtml, renderSubmissionDebugPanel, renderStudentStep } = globalThis.window;
     const stepLabels = ["Get ideas", "Write draft", "Review & finalise", "Submit"];
+    const getProgressStepClass = (step) => {
+      if (studentStep === step) return "active";
+      return studentStep > step ? "done" : "";
+    };
     return `
       <div class="student-progress">
         ${[1, 2, 3, 4].map((step) => `
-          <div class="progress-step ${studentStep === step ? "active" : studentStep > step ? "done" : ""}">
+          <div class="progress-step ${getProgressStepClass(step)}">
             <span>${step}</span>
             <strong>${stepLabels[step - 1]}</strong>
           </div>
@@ -452,9 +456,9 @@
   }
 
   function renderStudentReviewStep(assignment, submission) {
-    const { escapeHtml, safeArray, wordCount } = window;
-    const { ui } = window.AppState;
-    const { getStudentFeedbackButtonState } = window.AiAssistUtils;
+    const { escapeHtml, safeArray, wordCount } = globalThis.window;
+    const { ui } = globalThis.window.AppState;
+    const { getStudentFeedbackButtonState } = globalThis.window.AiAssistUtils;
 
     const feedbackEntries = safeArray(submission?.feedbackHistory);
     const feedbackLimit = Number(assignment?.feedbackRequestLimit ?? 3);
@@ -511,8 +515,8 @@
 
   function renderStudentFinalStep(assignment, submission) {
     const { isStudentSubmissionLocked, getTeacherReviewRowsForExport } = globalThis.window;
-    const { getRubricSchema } = window;
-    const { getStudentSelfAssessmentRowScoreMap, getStudentSelfAssessmentCompletion } = window.ReviewUtils;
+    const { getRubricSchema } = globalThis.window;
+    const { getStudentSelfAssessmentRowScoreMap, getStudentSelfAssessmentCompletion } = globalThis.window.ReviewUtils;
 
     const selfAssessment = submission.selfAssessment || {};
     const rubricSchema = assignment.uploadedRubricSchema || assignment.rubricSchema || getRubricSchema(assignment.rubric, assignment.uploadedRubricName || assignment.title);
@@ -705,6 +709,7 @@
     const { getErrorCodeLabel } = globalThis.window.AppConstants;
     if (submission.status !== "submitted") return "";
     const teacherReviewRows = getTeacherReviewRowsForExport(assignment, submission);
+    const teacherReviewRowsHtml = renderStudentTeacherReviewRows(teacherReviewRows);
     return `
         <div id="submitted-confirmation" class="submitted-banner" style="margin-top:16px;">
           <div class="submitted-icon">✓</div>
@@ -731,20 +736,7 @@
             ${submission.teacherReview.finalNotes ? `
               <p style="white-space:pre-wrap;line-height:1.65;">${escapeHtml(submission.teacherReview.finalNotes)}</p>
             ` : ""}
-            ${teacherReviewRows.length ? `
-              <div style="display:grid;gap:8px;margin:12px 0 14px;">
-                ${teacherReviewRows.map((row) => `
-                  <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fbfdff;">
-                    <div style="min-width:0;">
-                      <strong style="display:block;margin-bottom:4px;">${escapeHtml(row.criterion)}</strong>
-                      <span class="subtle" style="font-size:0.82rem;display:block;">${escapeHtml(row.selectedLabel || "Not scored")}</span>
-                      ${row.selectedDescription ? `<span class="subtle" style="font-size:0.8rem;display:block;margin-top:4px;line-height:1.5;">${escapeHtml(row.selectedDescription)}</span>` : ""}
-                    </div>
-                    <strong style="white-space:nowrap;">${row.selectedPoints}/${row.maxPoints}</strong>
-                  </div>
-                `).join("")}
-              </div>
-            ` : ""}
+            ${teacherReviewRowsHtml}
             ${submission.teacherReview.annotations?.length ? `
               <div style="margin-top:12px;">
                 <p class="mini-label">Marked copy</p>
@@ -764,6 +756,25 @@
             ` : ""}
           </div>
         ` : ""}
+    `;
+  }
+
+  function renderStudentTeacherReviewRows(teacherReviewRows) {
+    const { escapeHtml } = globalThis.window;
+    if (!teacherReviewRows.length) return "";
+    return `
+      <div style="display:grid;gap:8px;margin:12px 0 14px;">
+        ${teacherReviewRows.map((row) => `
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fbfdff;">
+            <div style="min-width:0;">
+              <strong style="display:block;margin-bottom:4px;">${escapeHtml(row.criterion)}</strong>
+              <span class="subtle" style="font-size:0.82rem;display:block;">${escapeHtml(row.selectedLabel || "Not scored")}</span>
+              ${row.selectedDescription ? `<span class="subtle" style="font-size:0.8rem;display:block;margin-top:4px;line-height:1.5;">${escapeHtml(row.selectedDescription)}</span>` : ""}
+            </div>
+            <strong style="white-space:nowrap;">${row.selectedPoints}/${row.maxPoints}</strong>
+          </div>
+        `).join("")}
+      </div>
     `;
   }
 

@@ -24,11 +24,83 @@
     };
   }
 
+  function renderUpcomingStudentClasses(currentClasses, currentClassId, assignments) {
+    const { escapeHtml } = window;
+    return `
+      <div class="upcoming-section">
+        <p class="mini-label" style="margin-bottom:10px;">Your classes & assignments</p>
+        ${currentClasses.map((cls) => {
+          const clsAssignments = assignments.filter((assignment) => assignment.status === "published" && assignment.classId === cls.id);
+          return `
+            <div class="upcoming-class-block">
+              <div class="upcoming-class-header">
+                <strong>${escapeHtml(cls.name)}</strong>
+                ${cls.id !== currentClassId ? `<button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="switch-class" data-class-id="${cls.id}">Open</button>` : `<span class="pill">Current</span>`}
+              </div>
+              ${clsAssignments.length ? clsAssignments.map((assignment) => `
+                <div class="upcoming-assignment-row">
+                  <span>${escapeHtml(assignment.title)}</span>
+                  <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+                    ${assignment.deadline ? `<span class="${new Date(assignment.deadline) < new Date() ? "warning-pill" : "pill"}" style="font-size:0.75rem;">Due ${new Date(assignment.deadline).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span>` : ""}
+                    <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${cls.id}" data-assignment-id="${assignment.id}">Start</button>
+                  </span>
+                </div>
+              `).join("") : `<p class="subtle" style="font-size:0.85rem;margin:6px 0;">No published assignments yet.</p>`}
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function renderStudentAssignmentOptions(assignments, assignmentBuckets, selectedAssignmentId) {
+    const { escapeHtml } = window;
+    if (!assignments.length) return `<option value="">No assignments published yet</option>`;
+    return `
+      ${assignmentBuckets.current.length ? `
+        <optgroup label="Current work">
+          ${assignmentBuckets.current.map(({ assignment }) => `<option value="${assignment.id}" ${selectedAssignmentId === assignment.id ? "selected" : ""}>${escapeHtml(assignment.title)}</option>`).join("")}
+        </optgroup>
+      ` : ""}
+      ${assignmentBuckets.submitted.length ? `
+        <optgroup label="Submitted work">
+          ${assignmentBuckets.submitted.map(({ assignment, isGraded }) => `<option value="${assignment.id}" ${selectedAssignmentId === assignment.id ? "selected" : ""}>${escapeHtml(assignment.title)}${isGraded ? " — Graded" : " — Awaiting review"}</option>`).join("")}
+        </optgroup>
+      ` : ""}
+    `;
+  }
+
+  function renderStudentActiveAssignment(assignment, submission, studentStep) {
+    const { escapeHtml, renderRichTextHtml, renderSubmissionDebugPanel, renderStudentStep } = window;
+    return `
+      <div class="student-progress">
+        ${[1, 2, 3, 4].map((step) => `
+          <div class="progress-step ${studentStep === step ? "active" : studentStep > step ? "done" : ""}">
+            <span>${step}</span>
+            <strong>${step === 1 ? "Get ideas" : step === 2 ? "Write draft" : step === 3 ? "Review & finalise" : "Submit"}</strong>
+          </div>
+        `).join("")}
+      </div>
+      <div class="student-card">
+        <p class="mini-label">Your task</p>
+        <h3>${escapeHtml(assignment.title)}</h3>
+        <div class="student-task">${renderRichTextHtml(assignment.prompt)}</div>
+        <div class="pill-row">
+          <span class="pill">${assignment.wordCountMin}-${assignment.wordCountMax} words</span>
+          <span class="pill">${submission.feedbackHistory.length}/${assignment.feedbackRequestLimit} feedback checks</span>
+          ${assignment.deadline ? `<span class="${new Date(assignment.deadline) < new Date() ? "warning-pill" : "pill"}">Due: ${escapeHtml(new Date(assignment.deadline).toLocaleDateString(undefined, {day:"numeric",month:"short",year:"numeric"}))}</span>` : ""}
+          ${assignment.chatTimeLimit > 0 ? `<span class="pill">⏱ ${assignment.chatTimeLimit} min chat</span>` : ""}
+        </div>
+      </div>
+      ${renderSubmissionDebugPanel(assignment, submission)}
+      ${renderStudentStep(assignment, submission)}
+    `;
+  }
+
   function renderStudentWorkspace() {
     const { ui, state, currentClasses, currentClassId, currentProfile } = window.AppState;
-    const { escapeHtml, escapeAttribute, getPublishedAssignments, getStudentAssignmentBuckets,
-      getUserById, getStudentSubmission, getStudentAssignment, renderStudentStep,
-      renderSubmissionDebugPanel, renderRichTextHtml } = window;
+    const { escapeHtml, getPublishedAssignments, getStudentAssignmentBuckets,
+      getUserById, getStudentSubmission, getStudentAssignment } = window;
 
     const assignments = getPublishedAssignments();
     const assignmentBuckets = getStudentAssignmentBuckets();
@@ -63,49 +135,11 @@
             <span><strong>${escapeHtml(currentClass.name)}</strong>${currentClass.teacher_name ? ` · ${escapeHtml(currentClass.teacher_name)}` : ""}</span>
           </div>
         ` : ""}
-        ${currentClasses.length > 0 && !assignment ? `
-          <div class="upcoming-section">
-            <p class="mini-label" style="margin-bottom:10px;">Your classes & assignments</p>
-            ${currentClasses.map(cls => {
-              const clsAssignments = state.assignments.filter(a => a.status === "published" && a.classId === cls.id);
-              return `
-                <div class="upcoming-class-block">
-                  <div class="upcoming-class-header">
-                    <strong>${escapeHtml(cls.name)}</strong>
-                    ${cls.id !== currentClassId ? `<button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="switch-class" data-class-id="${cls.id}">Open</button>` : `<span class="pill">Current</span>`}
-                  </div>
-                  ${clsAssignments.length ? clsAssignments.map(a => `
-                    <div class="upcoming-assignment-row">
-                      <span>${escapeHtml(a.title)}</span>
-                      <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-                        ${a.deadline ? `<span class="${new Date(a.deadline) < new Date() ? "warning-pill" : "pill"}" style="font-size:0.75rem;">Due ${new Date(a.deadline).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span>` : ""}
-                        <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${cls.id}" data-assignment-id="${a.id}">Start</button>
-                      </span>
-                    </div>
-                  `).join("") : `<p class="subtle" style="font-size:0.85rem;margin:6px 0;">No published assignments yet.</p>`}
-                </div>
-              `;
-            }).join("")}
-          </div>
-        ` : ""}
+        ${currentClasses.length > 0 && !assignment ? renderUpcomingStudentClasses(currentClasses, currentClassId, state.assignments) : ""}
         <div class="field">
           <label for="student-assignment-select">Choose assignment</label>
           <select id="student-assignment-select" aria-label="Select assignment">
-            ${assignments.length
-              ? `
-                ${assignmentBuckets.current.length ? `
-                  <optgroup label="Current work">
-                    ${assignmentBuckets.current.map(({ assignment: item }) => `<option value="${item.id}" ${ui.selectedStudentAssignmentId === item.id ? "selected" : ""}>${escapeHtml(item.title)}</option>`).join("")}
-                  </optgroup>
-                ` : ""}
-                ${assignmentBuckets.submitted.length ? `
-                  <optgroup label="Submitted work">
-                    ${assignmentBuckets.submitted.map(({ assignment: item, isGraded }) => `<option value="${item.id}" ${ui.selectedStudentAssignmentId === item.id ? "selected" : ""}>${escapeHtml(item.title)}${isGraded ? " — Graded" : " — Awaiting review"}</option>`).join("")}
-                  </optgroup>
-                ` : ""}
-              `
-              : `<option value="">No assignments published yet</option>`
-            }
+            ${renderStudentAssignmentOptions(assignments, assignmentBuckets, ui.selectedStudentAssignmentId)}
           </select>
         </div>
         ${assignments.length ? `
@@ -116,35 +150,11 @@
           </div>
         ` : ""}
         ${hasOtherGradedWork ? `<p class="subtle" style="margin-top:8px;font-size:0.84rem;">Open any assignment marked <strong>Graded</strong> to view your teacher's notes, rubric breakdown, and marked copy.</p>` : ""}
-        ${
-          !assignments.length
-            ? `<div class="empty-state"><h3>Nothing here yet</h3><p>Your teacher hasn't published any assignments yet.</p></div>`
-            : !assignment || !submission
-              ? `<div class="empty-state"><h3>No assignment yet</h3><p>Choose an assignment from the dropdown above to get started.</p></div>`
-              : `
-                <div class="student-progress">
-                  ${[1, 2, 3, 4].map((step) => `
-                    <div class="progress-step ${ui.studentStep === step ? "active" : ui.studentStep > step ? "done" : ""}">
-                      <span>${step}</span>
-                      <strong>${step === 1 ? "Get ideas" : step === 2 ? "Write draft" : step === 3 ? "Review & finalise" : "Submit"}</strong>
-                    </div>
-                  `).join("")}
-                </div>
-                <div class="student-card">
-                  <p class="mini-label">Your task</p>
-                  <h3>${escapeHtml(assignment.title)}</h3>
-                  <div class="student-task">${renderRichTextHtml(assignment.prompt)}</div>
-                  <div class="pill-row">
-                    <span class="pill">${assignment.wordCountMin}-${assignment.wordCountMax} words</span>
-                    <span class="pill">${submission.feedbackHistory.length}/${assignment.feedbackRequestLimit} feedback checks</span>
-                    ${assignment.deadline ? `<span class="${new Date(assignment.deadline) < new Date() ? "warning-pill" : "pill"}">Due: ${escapeHtml(new Date(assignment.deadline).toLocaleDateString(undefined, {day:"numeric",month:"short",year:"numeric"}))}</span>` : ""}
-                    ${assignment.chatTimeLimit > 0 ? `<span class="pill">⏱ ${assignment.chatTimeLimit} min chat</span>` : ""}
-                  </div>
-                </div>
-                ${renderSubmissionDebugPanel(assignment, submission)}
-                ${renderStudentStep(assignment, submission)}
-              `
-        }
+        ${!assignments.length
+          ? `<div class="empty-state"><h3>Nothing here yet</h3><p>Your teacher hasn't published any assignments yet.</p></div>`
+          : !assignment || !submission
+            ? `<div class="empty-state"><h3>No assignment yet</h3><p>Choose an assignment from the dropdown above to get started.</p></div>`
+            : renderStudentActiveAssignment(assignment, submission, ui.studentStep)}
       </div>
     </section>
   `;
@@ -236,7 +246,6 @@
     const hasEnoughChat = chatDisabled || submission.chatSkippedAt || chatHistory.length >= 2;
     const outlineFields = getOutlineFields(assignment, submission);
     const outlineComplete = isOutlineComplete(submission, assignment);
-    const chatCount = chatHistory.filter((msg) => msg.role === "user").length;
     if (timeExpired && !submission.chatExpiredAt) {
       submission.chatExpiredAt = new Date().toISOString();
       persistState();
@@ -253,7 +262,26 @@
           <p class="subtle">${chatDisabled ? "Your teacher has turned off the chatbot for this assignment. You can move straight to drafting when you are ready." : "Step 1: use the coach to build your outline and test your ideas. When you feel ready, click Next to move to drafting."}</p>
         </div>
       </div>
-      ${locked ? `
+      ${renderStudentIdeasChatPanel(assignment, submission, { chatHistory, chatDisabled, locked, timeExpired, ui })}
+      ${renderStudentOutlineCard(submission, outlineFields, locked)}
+      ${renderStudentIdeasNavigation({
+        chatDisabled,
+        hasEnoughChat,
+        locked,
+        minsRemaining,
+        outlineComplete,
+        secsRemaining,
+        timeExpired,
+        timeLimit,
+      })}
+    </div>
+  `;
+  }
+
+  function renderStudentIdeasChatPanel(assignment, submission, { chatHistory, chatDisabled, locked, timeExpired, ui }) {
+    const { escapeHtml } = window;
+    if (locked) {
+      return `
         <div style="background:#f5f5f3;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;">
           <p style="margin:0;font-size:0.88rem;color:var(--muted);">You've started your final version — the coach is no longer available. Your conversation is saved below for reference.</p>
         </div>
@@ -266,36 +294,46 @@
             `).join("")}
           </div>
         </div>
-      ` : chatDisabled ? `
+      `;
+    }
+    if (chatDisabled) {
+      return `
         <div class="teacher-ready-card">
           <p class="mini-label">Planning prompt</p>
           <p class="subtle" style="margin-bottom:10px;">Take a minute to jot down your main idea and one example you might use before you start drafting.</p>
           <textarea id="chat-skip-notes" class="chat-input" rows="3" placeholder="Optional: note your main idea here before you draft.">${escapeHtml(submission.outline?.partOne || "")}</textarea>
         </div>
-      ` : `
-        <div class="chatbot-window" id="chatbot-window">
-          ${chatHistory.length === 0 ? `
-            <div class="chat-message chat-assistant">
-              <div class="chat-bubble">Hello! I'm your writing coach. I won't write anything for you, but I'll ask you questions to help you think. Let's start outlining: What are your thoughts on the topic "${escapeHtml(assignment.title || "this assignment")}"?</div>
-            </div>
-          ` : chatHistory.map((msg) => `
-            <div class="chat-message chat-${escapeHtml(msg.role)}">
-              <div class="chat-bubble">${escapeHtml(msg.content)}</div>
-            </div>
-          `).join("")}
-          ${ui.chatLoading ? `
-            <div class="chat-message chat-assistant">
-              <div class="chat-bubble chat-loading"><span></span><span></span><span></span></div>
-            </div>
-          ` : ""}
-        </div>
-        ${!timeExpired ? `
-          <div class="chat-input-row">
-            <textarea id="chat-input" class="chat-input" placeholder="Type your answer here…" rows="2">${escapeHtml(ui.chatInput)}</textarea>
-            <button class="button" data-action="send-chat-message" ${ui.chatLoading ? "disabled" : ""}>Send</button>
+      `;
+    }
+    return `
+      <div class="chatbot-window" id="chatbot-window">
+        ${chatHistory.length === 0 ? `
+          <div class="chat-message chat-assistant">
+            <div class="chat-bubble">Hello! I'm your writing coach. I won't write anything for you, but I'll ask you questions to help you think. Let's start outlining: What are your thoughts on the topic "${escapeHtml(assignment.title || "this assignment")}"?</div>
           </div>
-        ` : `<div class="notice" style="margin-top:12px;">Your chat session has ended. Click Next to continue to your draft.</div>`}
-      `}
+        ` : chatHistory.map((msg) => `
+          <div class="chat-message chat-${escapeHtml(msg.role)}">
+            <div class="chat-bubble">${escapeHtml(msg.content)}</div>
+          </div>
+        `).join("")}
+        ${ui.chatLoading ? `
+          <div class="chat-message chat-assistant">
+            <div class="chat-bubble chat-loading"><span></span><span></span><span></span></div>
+          </div>
+        ` : ""}
+      </div>
+      ${!timeExpired ? `
+        <div class="chat-input-row">
+          <textarea id="chat-input" class="chat-input" placeholder="Type your answer here…" rows="2">${escapeHtml(ui.chatInput)}</textarea>
+          <button class="button" data-action="send-chat-message" ${ui.chatLoading ? "disabled" : ""}>Send</button>
+        </div>
+      ` : `<div class="notice" style="margin-top:12px;">Your chat session has ended. Click Next to continue to your draft.</div>`}
+    `;
+  }
+
+  function renderStudentOutlineCard(submission, outlineFields, locked) {
+    const { escapeHtml, escapeAttribute } = window;
+    return `
       <div class="teacher-ready-card" style="margin-top:14px;${locked ? "opacity:0.55;pointer-events:none;" : ""}">
         <p class="mini-label">Build your outline</p>
         <p class="subtle" style="margin:4px 0 12px;">Type the bones of your plan in your own words. This helps you start the draft and gives your teacher better evidence of your planning process.</p>
@@ -308,6 +346,11 @@
           `).join("")}
         </div>
       </div>
+    `;
+  }
+
+  function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, minsRemaining, outlineComplete, secsRemaining, timeExpired, timeLimit }) {
+    return `
       <div class="wizard-nav">
         ${locked || chatDisabled ? `<span></span>` : `
           <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-start;flex-wrap:wrap;">
@@ -320,8 +363,26 @@
         `}
         <button class="button" data-action="student-next-step" data-step="2" ${!hasEnoughChat || !outlineComplete ? "disabled title='Have a short coach conversation and complete the outline first'" : ""}>Next: Write Draft</button>
       </div>
-    </div>
-  `;
+    `;
+  }
+
+  function renderStudentFeedbackCard(entry) {
+    const { escapeHtml, safeArray, formatDateTime } = window;
+    const { getErrorCodes } = window.AppConstants;
+    const errorCodes = getErrorCodes();
+    const items = safeArray(entry.items).map((item) => String(item || "").trim()).filter(Boolean);
+    const matchingCodes = errorCodes.filter(({ code }) => items.some((item) => item.includes(`[${code}]`)));
+    return `
+      <div class="feedback-card">
+        <strong>${escapeHtml(formatDateTime(entry.timestamp))}</strong>
+        <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        ${matchingCodes.length ? `
+          <div class="error-code-key">
+            <p>Code key</p>
+            <dl>${matchingCodes.map(({ code, label }) => `<dt>${code}</dt><dd>${escapeHtml(label)}</dd>`).join("")}</dl>
+          </div>` : ""}
+      </div>
+    `;
   }
 
   function renderStudentDraftStep(assignment, submission) {
@@ -378,7 +439,6 @@
     const { escapeHtml, safeArray, formatDateTime, wordCount } = window;
     const { ui } = window.AppState;
     const { getStudentFeedbackButtonState } = window.AiAssistUtils;
-    const { getErrorCodes, getErrorCodeLabel } = window.AppConstants;
 
     const feedbackEntries = safeArray(submission?.feedbackHistory);
     const feedbackLimit = Number(assignment?.feedbackRequestLimit ?? 3);
@@ -406,21 +466,7 @@
       <div class="feedback-list">
         ${
           feedbackEntries.length
-            ? feedbackEntries.slice().reverse().map((entry) => {
-                const errorCodes = getErrorCodes();
-                const items = safeArray(entry.items).map((item) => String(item || "").trim()).filter(Boolean);
-                const hasCode = errorCodes.some(({code}) => items.some((item) => item.includes(`[${code}]`)));
-                return `
-                  <div class="feedback-card">
-                    <strong>${escapeHtml(formatDateTime(entry.timestamp))}</strong>
-                    <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
-                    ${hasCode ? `
-                      <div class="error-code-key">
-                        <p>Code key</p>
-                        <dl>${errorCodes.filter(({code}) => items.some((item) => item.includes(`[${code}]`))).map(({code, label}) => `<dt>${code}</dt><dd>${escapeHtml(label)}</dd>`).join("")}</dl>
-                      </div>` : ""}
-                  </div>`;
-              }).join("")
+            ? feedbackEntries.slice().reverse().map(renderStudentFeedbackCard).join("")
             : `<div class="empty-state compact-empty"><h3>No AI feedback yet</h3><p>Click "Get AI feedback" to get suggestions on your draft before you write your final version.</p></div>`
         }
       </div>
@@ -463,7 +509,23 @@
     const teacherReviewRows = getTeacherReviewRowsForExport(assignment, submission);
 
     if (isStudentSubmissionLocked(submission) && submission.teacherReview?.savedAt) {
-      return `
+      return renderStudentGradedFinalStep(submission, teacherReviewRows);
+    }
+    if (submission.status === "submitted") {
+      return renderStudentSubmittedFinalStep(submission);
+    }
+    return renderStudentSelfAssessmentFinalStep(assignment, submission, {
+      rubricSchema,
+      selfAssessmentCompletion,
+      selfAssessmentRowMap,
+      selfAssessmentScore,
+    });
+  }
+
+  function renderStudentGradedFinalStep(submission, teacherReviewRows) {
+    const { escapeHtml, escapeAttribute, formatDateTime, renderAnnotatedText, getAnnotationDisplayLabel } = window;
+    const { getErrorCodeLabel } = window.AppConstants;
+    return `
       <div class="step-card wizard-card">
         <div class="step-head">
           <div>
@@ -532,9 +594,11 @@
         </details>
       </div>
     `;
-    }
-    if (submission.status === "submitted") {
-      return `
+  }
+
+  function renderStudentSubmittedFinalStep(submission) {
+    const { escapeHtml, formatDateTime } = window;
+    return `
       <div class="step-card wizard-card">
         <div class="step-head">
           <div>
@@ -564,7 +628,15 @@
         </details>
       </div>
     `;
-    }
+  }
+
+  function renderStudentSelfAssessmentFinalStep(assignment, submission, {
+    rubricSchema,
+    selfAssessmentCompletion,
+    selfAssessmentRowMap,
+    selfAssessmentScore,
+  }) {
+    const { escapeHtml, renderRubricSchemaLayout } = window;
     return `
     <div class="step-card wizard-card">
       <div class="step-head">

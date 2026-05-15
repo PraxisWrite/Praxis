@@ -252,7 +252,10 @@
       : "";
     const overlayStyle = highlight.annotationCodes?.length ? "border:2px solid #5b2a86;" : "";
     const pasteAnchors = safeArray(highlight.annotationIds)
-      .map((id) => `<span id="${escapeAttribute(`${idPrefix}annotation-${id}`)}"></span>`)
+      .map((id) => {
+        const annotationAnchorId = `${idPrefix}annotation-${id}`;
+        return `<span id="${escapeAttribute(annotationAnchorId)}"></span>`;
+      })
       .join("");
     return `<mark id="${escapeAttribute(`${idPrefix}paste-highlight-${highlight.id}`)}" class="paste-highlight"${overlayIds} style="${overlayStyle}" title="${escapeAttribute(pasteTitle)}">${pasteAnchors}${segment}<sup style="font-size:0.7em;color:#9b4dca;font-weight:700;">PASTE</sup>${overlayCodes}</mark>`;
   }
@@ -260,8 +263,9 @@
   function renderAnnotationHighlight(highlight, segment, options) {
     const { annotationClickTarget, includeClickHandlers, idPrefix } = options;
     const markId = `${idPrefix}annotation-${highlight.id}`;
+    const clickTarget = annotationClickTarget === "annotation" ? "scrollToAnnotation" : "scrollToComment";
     const clickHandler = includeClickHandlers
-      ? ` onclick="${annotationClickTarget === "annotation" ? "scrollToAnnotation" : "scrollToComment"}('${escapeAttribute(highlight.id)}')"`
+      ? ` onclick="${clickTarget}('${escapeAttribute(highlight.id)}')"`
       : "";
     const styles = highlight.overlapsPaste
       ? "background:rgba(91,42,134,0.10);border:2px solid #5b2a86;color:inherit;border-radius:4px;padding:2px 4px;scroll-margin-top:120px;cursor:pointer;"

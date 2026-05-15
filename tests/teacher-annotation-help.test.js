@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-global.window = global.window || {};
+globalThis.window = globalThis.window || {};
 
 const teacherAnnotationHelp = require("../teacher-annotation-help.js");
 

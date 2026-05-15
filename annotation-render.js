@@ -257,7 +257,8 @@
         return `<span id="${escapeAttribute(annotationAnchorId)}"></span>`;
       })
       .join("");
-    return `<mark id="${escapeAttribute(`${idPrefix}paste-highlight-${highlight.id}`)}" class="paste-highlight"${overlayIds} style="${overlayStyle}" title="${escapeAttribute(pasteTitle)}">${pasteAnchors}${segment}<sup style="font-size:0.7em;color:#9b4dca;font-weight:700;">PASTE</sup>${overlayCodes}</mark>`;
+    const pasteHighlightId = `${idPrefix}paste-highlight-${highlight.id}`;
+    return `<mark id="${escapeAttribute(pasteHighlightId)}" class="paste-highlight"${overlayIds} style="${overlayStyle}" title="${escapeAttribute(pasteTitle)}">${pasteAnchors}${segment}<sup style="font-size:0.7em;color:#9b4dca;font-weight:700;">PASTE</sup>${overlayCodes}</mark>`;
   }
 
   function renderAnnotationHighlight(highlight, segment, options) {

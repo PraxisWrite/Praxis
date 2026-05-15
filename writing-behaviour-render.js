@@ -131,7 +131,7 @@
   }
 
   function renderModernWritingBehaviourPanel(submission, assignment) {
-    if (globalThis.window === undefined || !globalThis.window.PraxisWritingProcess?.renderTeacherPanel) {
+    if (!globalThis.window?.PraxisWritingProcess?.renderTeacherPanel) {
       return null;
     }
     requestProcessAnalysisSnapshot(submission);

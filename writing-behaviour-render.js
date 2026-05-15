@@ -165,13 +165,18 @@
   }
 
   function getWeightedWritingBehaviourScores(scores) {
-    return [
-      scores.scoreBurst !== null ? { score: scores.scoreBurst, weight: 2 } : null,
-      scores.scorePauses !== null ? { score: scores.scorePauses, weight: 2 } : null,
-      scores.scoreMicro !== null ? { score: scores.scoreMicro, weight: 1 } : null,
-      scores.scoreLocal !== null ? { score: scores.scoreLocal, weight: 2 } : null,
-      scores.scoreSubstantive !== null ? { score: scores.scoreSubstantive, weight: 1 } : null,
-    ].filter(Boolean);
+    const weightedScores = [];
+    addWeightedScore(weightedScores, scores.scoreBurst, 2);
+    addWeightedScore(weightedScores, scores.scorePauses, 2);
+    addWeightedScore(weightedScores, scores.scoreMicro, 1);
+    addWeightedScore(weightedScores, scores.scoreLocal, 2);
+    addWeightedScore(weightedScores, scores.scoreSubstantive, 1);
+    return weightedScores;
+  }
+
+  function addWeightedScore(weightedScores, score, weight) {
+    if (score === null) return;
+    weightedScores.push({ score, weight });
   }
 
   function getWritingBehaviourBandTheme(avg) {

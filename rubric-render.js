@@ -270,7 +270,7 @@
                     return `
                       <td style="padding:${compact ? 6 : 8}px;vertical-align:top;border-bottom:1px solid var(--line);">
                         ${clickable
-                          ? `<button class="button-ghost" data-action="select-rubric-band" data-criterion-id="${row.id}" data-band-id="${escapeAttribute(level.id)}" style="width:100%;min-height:100%;padding:${cellPadding}px;white-space:normal;text-align:left;background:${background};border-color:${border};">${content}</button>`
+                          ? `<button class="button-ghost" data-action="select-rubric-band" data-criterion-id="${escapeAttribute(row.id)}" data-band-id="${escapeAttribute(level.id)}" style="width:100%;min-height:100%;padding:${cellPadding}px;white-space:normal;text-align:left;background:${background};border-color:${border};">${content}</button>`
                           : `<div style="padding:${cellPadding}px;border:1px solid ${border};border-radius:10px;background:${background};min-height:${minHeight}px;">${content}</div>`
                         }
                       </td>

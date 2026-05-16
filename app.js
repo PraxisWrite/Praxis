@@ -6533,39 +6533,9 @@ function loadState(profile = currentProfile) {
 async function syncSubmissionToServer(submission) {
   if (!submission?.assignmentId || currentProfile?.role !== "student") return;
   try {
-    let serverId = looksLikeServerSubmissionId(submission.id) ? submission.id : null;
-    if (!serverId) {
-      const existing = await Auth.apiFetch(`/api/assignments/${submission.assignmentId}/my-submission`);
-      if (existing?.error) {
-        throw new Error(existing.error);
-      }
-      serverId = existing.submission?.id;
-      if (!serverId) {
-        throw new Error("Submission record was not created on the server.");
-      }
-    }
-    const payload = buildSubmissionServerPayload(submission);
-    let result = await Auth.apiFetch(`/api/submissions/${serverId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
-    if (result?.error && looksLikeServerSubmissionId(submission.id)) {
-      const existing = await Auth.apiFetch(`/api/assignments/${submission.assignmentId}/my-submission`);
-      if (!existing?.error && existing?.submission?.id) {
-        serverId = existing.submission.id;
-        result = await Auth.apiFetch(`/api/submissions/${serverId}`, {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        });
-      }
-    }
-    if (result?.error) {
-      throw new Error(result.error);
-    }
-    // Update local submission ID to match server
-    submission.id = serverId;
-    if (result?.submission) {
-      const mapped = mapServerSubmission(result.submission);
+    const mapped = await globalThis.ApiService.syncStudentSubmission(submission);
+    submission.id = mapped.id;
+    if (mapped) {
       const index = state.submissions.findIndex((entry) => entry.assignmentId === mapped.assignmentId && entry.studentId === mapped.studentId);
       if (index >= 0) {
         state.submissions[index] = mergeStudentSubmission(state.submissions[index], mapped);

@@ -6597,7 +6597,8 @@ function looksLikeServerSubmissionId(id) {
 
 async function submitStudentSubmissionToServer(submission) {
   if (!submission?.assignmentId || currentProfile?.role !== "student") return false;
-    try {
+
+  try {
     const mapped = await globalThis.ApiService.submitStudentSubmission(
       submission.assignmentId,
       submission,

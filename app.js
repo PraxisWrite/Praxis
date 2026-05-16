@@ -1496,10 +1496,10 @@ async function loadStudentSubmissionForAssignment(assignmentId) {
   if (!assignmentId) return null;
   const localSubmission = state.submissions.find((submission) => submission.assignmentId === assignmentId && submission.studentId === ui.activeUserId) || null;
   try {
-  const mapped = await window.ApiService.loadMySubmission(assignmentId);
-  if (!mapped) {
-    return localSubmission;
-  }
+    const mapped = await window.ApiService.loadMySubmission(assignmentId);
+    if (!mapped) {
+      return localSubmission;
+    }
     const index = state.submissions.findIndex((submission) => submission.assignmentId === mapped.assignmentId && submission.studentId === mapped.studentId);
     if (index >= 0) {
       state.submissions[index] = mergeStudentSubmission(state.submissions[index], mapped);

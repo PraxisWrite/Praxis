@@ -6597,20 +6597,15 @@ function looksLikeServerSubmissionId(id) {
 
 async function submitStudentSubmissionToServer(submission) {
   if (!submission?.assignmentId || currentProfile?.role !== "student") return false;
-  const payload = buildSubmissionServerPayload(submission, {
-    status: "submitted",
-    submitted_at: submission.submittedAt || new Date().toISOString(),
-  });
-
-  try {
-    const result = await Auth.apiFetch(`/api/assignments/${submission.assignmentId}/submit`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    if (result?.error || !result?.submission) {
-      throw new Error(result?.error || "Submission failed.");
-    }
-    const mapped = mapServerSubmission(result.submission);
+    try {
+    const mapped = await globalThis.ApiService.submitStudentSubmission(
+      submission.assignmentId,
+      submission,
+      {
+        status: "submitted",
+        submitted_at: submission.submittedAt || new Date().toISOString(),
+      }
+    );
     const index = state.submissions.findIndex((entry) => entry.assignmentId === mapped.assignmentId && entry.studentId === mapped.studentId);
     if (index >= 0) {
       state.submissions[index] = mergeStudentSubmission(state.submissions[index], mapped);

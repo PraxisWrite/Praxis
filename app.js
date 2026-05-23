@@ -1037,7 +1037,7 @@ async function loadAdminCefrBenchmarks() {
   ui.adminCefrBenchmarksError = null;
   render();
   try {
-    ui.adminCefrBenchmarks = await window.ApiService.loadAdminCefrBenchmarks();
+    ui.adminCefrBenchmarks = await globalThis.ApiService.loadAdminCefrBenchmarks();
   } catch (err) {
     ui.adminCefrBenchmarksError = err.message || 'Failed to load benchmark data';
   }
@@ -1053,7 +1053,7 @@ async function refreshStaleAdminProcessAnalyses() {
   ui.adminProcessRecomputeError = null;
   render();
 
-  adminProcessRecomputePromise = window.ApiService.recomputeStaleAdminProcessAnalyses({ limit: 50 })
+  adminProcessRecomputePromise = globalThis.ApiService.recomputeStaleAdminProcessAnalyses({ limit: 50 })
   .then(async (result) => {
     ui.adminProcessRecomputeResult = result;
     await loadAdminCefrBenchmarks();
@@ -1071,7 +1071,7 @@ async function refreshStaleAdminProcessAnalyses() {
 }
 
 async function loadAdminData() {
-  ui.adminTeachers = await window.ApiService.loadAdminTeachers();
+  ui.adminTeachers = await globalThis.ApiService.loadAdminTeachers();
   loadAdminCefrBenchmarks();
   refreshStaleAdminProcessAnalyses();
 }
@@ -1079,7 +1079,7 @@ async function loadAdminData() {
 async function refreshAdminClassDetail({ keepNotice = false, silent = false } = {}) {
   if (!ui.adminSelectedClassId) return;
   try {
-  const data = await window.ApiService.loadAdminClassDetail(ui.adminSelectedClassId);
+  const data = await globalThis.ApiService.loadAdminClassDetail(ui.adminSelectedClassId);
   ui.adminClassDetail = data;
   if (ui.adminSelectedAssignmentId && !safeArray(data.assignments).some((assignment) => assignment.id === ui.adminSelectedAssignmentId)) {
     ui.adminSelectedAssignmentId = null;
@@ -2537,7 +2537,7 @@ if (action === "admin-select-assignment") {
     ui.adminStudentFlagSavingId = studentId;
     render();
     try {
-  await window.ApiService.updateAdminStudentFlags(studentId, {
+  await globalThis.ApiService.updateAdminStudentFlags(studentId, {
     isTestAccount: nextTest,
   });
 } catch (error) {

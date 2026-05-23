@@ -400,6 +400,73 @@ async function deleteAssignment(assignmentId) {
     return safeArray(result?.members);
   }
 
+  async function createClass(name) {
+    const trimmed = typeof name === "string" ? name.trim() : "";
+    if (!trimmed) {
+      throw new Error("Missing class name.");
+    }
+
+    const result = await apiFetch("/api/classes", {
+      method: "POST",
+      body: JSON.stringify({ name: trimmed }),
+    });
+    if (result?.error) throw createApiError(result, "Failed to create class");
+    if (!result?.class) throw new Error("Server did not return the new class.");
+    return result.class;
+  }
+
+  async function deleteClass(classId) {
+    if (!classId) {
+      throw new Error("Missing class for delete.");
+    }
+
+    const result = await apiFetch(`/api/classes/${classId}`, { method: "DELETE" });
+    if (result?.error) throw createApiError(result, "Failed to delete class");
+    return result;
+  }
+
+  async function inviteStudent(classId, email) {
+    if (!classId) {
+      throw new Error("Missing class for invite.");
+    }
+    const trimmed = typeof email === "string" ? email.trim() : "";
+    if (!trimmed) {
+      throw new Error("Missing student email for invite.");
+    }
+
+    const result = await apiFetch(`/api/classes/${classId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ studentEmail: trimmed }),
+    });
+    if (result?.error) throw createApiError(result, "Failed to add student to class");
+    return result;
+  }
+
+  async function patchClassMember(classId, studentId, payload = {}) {
+    if (!classId || !studentId) {
+      throw new Error("Missing class or student for member update.");
+    }
+
+    const result = await apiFetch(`/api/classes/${classId}/members/${studentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload || {}),
+    });
+    if (result?.error) throw createApiError(result, "Failed to update class member");
+    return result;
+  }
+
+  async function removeClassMember(classId, studentId) {
+    if (!classId || !studentId) {
+      throw new Error("Missing class or student for member removal.");
+    }
+
+    const result = await apiFetch(`/api/classes/${classId}/members/${studentId}`, {
+      method: "DELETE",
+    });
+    if (result?.error) throw createApiError(result, "Failed to remove class member");
+    return result;
+  }
+
   const ApiService = {
     apiFetch,
     hasServerId,
@@ -431,6 +498,11 @@ async function deleteAssignment(assignmentId) {
     loadTeacherClasses,
     loadStudentClasses,
     loadClassMembers,
+    createClass,
+    deleteClass,
+    inviteStudent,
+    patchClassMember,
+    removeClassMember,
   };
 
   root.ApiService = ApiService;

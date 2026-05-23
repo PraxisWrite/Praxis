@@ -230,3 +230,133 @@ test("class read helpers throw server errors", async () => {
     /Class access denied/
   );
 });
+
+test("createClass posts the trimmed name and returns the new class", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    return { class: { id: "class-1", name: "Beginners" } };
+  });
+
+  const newClass = await apiService.createClass("  Beginners  ");
+
+  assert.deepEqual(newClass, { id: "class-1", name: "Beginners" });
+  assert.equal(calls[0].path, "/api/classes");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { name: "Beginners" });
+});
+
+test("createClass rejects empty names without calling the server", async () => {
+  let called = false;
+  const apiService = loadApiServiceWithFetch(async () => {
+    called = true;
+    return {};
+  });
+
+  await assert.rejects(() => apiService.createClass("   "), /Missing class name/);
+  assert.equal(called, false);
+});
+
+test("createClass surfaces server errors with the original message", async () => {
+  const apiService = loadApiServiceWithFetch(async () => ({
+    error: "Class name already in use",
+  }));
+
+  await assert.rejects(
+    () => apiService.createClass("Beginners"),
+    /Class name already in use/
+  );
+});
+
+test("deleteClass sends DELETE to the class endpoint", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    return { ok: true };
+  });
+
+  const result = await apiService.deleteClass("class-1");
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(calls[0].path, "/api/classes/class-1");
+  assert.equal(calls[0].options.method, "DELETE");
+});
+
+test("deleteClass throws when the server returns an error", async () => {
+  const apiService = loadApiServiceWithFetch(async () => ({
+    error: "Class not found",
+  }));
+
+  await assert.rejects(() => apiService.deleteClass("class-1"), /Class not found/);
+});
+
+test("inviteStudent posts the trimmed email to the class members endpoint", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    return { ok: true };
+  });
+
+  const result = await apiService.inviteStudent("class-1", "  student@example.com  ");
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(calls[0].path, "/api/classes/class-1/members");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { studentEmail: "student@example.com" });
+});
+
+test("inviteStudent surfaces server errors", async () => {
+  const apiService = loadApiServiceWithFetch(async () => ({
+    error: "No matching student account",
+  }));
+
+  await assert.rejects(
+    () => apiService.inviteStudent("class-1", "student@example.com"),
+    /No matching student account/
+  );
+});
+
+test("patchClassMember sends the supplied payload", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    return { profile: { id: "student-1", name: "Renamed" } };
+  });
+
+  const result = await apiService.patchClassMember("class-1", "student-1", { name: "Renamed" });
+
+  assert.deepEqual(result, { profile: { id: "student-1", name: "Renamed" } });
+  assert.equal(calls[0].path, "/api/classes/class-1/members/student-1");
+  assert.equal(calls[0].options.method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { name: "Renamed" });
+});
+
+test("removeClassMember sends DELETE to the member endpoint", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    return { ok: true };
+  });
+
+  const result = await apiService.removeClassMember("class-1", "student-1");
+
+  assert.deepEqual(result, { ok: true });
+  assert.equal(calls[0].path, "/api/classes/class-1/members/student-1");
+  assert.equal(calls[0].options.method, "DELETE");
+});
+
+test("class write helpers reject missing ids", async () => {
+  const apiService = loadApiServiceWithFetch(async () => ({}));
+
+  await assert.rejects(() => apiService.deleteClass(""), /Missing class for delete/);
+  await assert.rejects(() => apiService.inviteStudent("", "a@b.c"), /Missing class for invite/);
+  await assert.rejects(() => apiService.inviteStudent("class-1", ""), /Missing student email/);
+  await assert.rejects(
+    () => apiService.patchClassMember("", "student-1", {}),
+    /Missing class or student for member update/
+  );
+  await assert.rejects(
+    () => apiService.removeClassMember("class-1", ""),
+    /Missing class or student for member removal/
+  );
+});

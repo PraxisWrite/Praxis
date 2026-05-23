@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const crypto = require('node:crypto');
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
@@ -44,7 +45,7 @@ app.use((req, res, next) => {
   }
   return next();
 });
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }))
 
 const SUPABASE_SERVER_KEY =

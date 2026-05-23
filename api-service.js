@@ -298,6 +298,65 @@ async function deleteAssignment(assignmentId) {
     });
   }
 
+  function createApiError(result, fallbackMessage) {
+    const error = new Error(result?.error || fallbackMessage);
+    if (result && typeof result === "object") {
+      Object.assign(error, result);
+    }
+    return error;
+  }
+
+  async function loadAdminCefrBenchmarks() {
+    const result = await apiFetch("/api/admin/writing-process/benchmarks");
+    if (result?.error) throw createApiError(result, "Failed to load benchmark data");
+    return result?.byLevel || {};
+  }
+
+  async function recomputeStaleAdminProcessAnalyses({ limit = 50 } = {}) {
+    const result = await apiFetch("/api/admin/process-analytics/recompute-stale", {
+      method: "POST",
+      body: JSON.stringify({ limit }),
+    });
+    if (result?.error) throw createApiError(result, "Failed to update writing process analytics");
+    return result?.result || null;
+  }
+
+  async function loadAdminTeachers() {
+    const result = await apiFetch("/api/admin/teachers");
+    if (result?.error) throw createApiError(result, "Failed to load admin teachers");
+    return safeArray(result?.teachers);
+  }
+
+  async function loadAdminClassDetail(classId) {
+    if (!classId) {
+      throw new Error("Missing class for admin detail.");
+    }
+
+    const result = await apiFetch(`/api/admin/classes/${classId}/detail`);
+    if (result?.error) throw createApiError(result, "Failed to load admin class detail");
+    return {
+      ...result,
+      assignments: safeArray(result?.assignments),
+      members: safeArray(result?.members),
+      submissions: safeArray(result?.submissions),
+    };
+  }
+
+  async function updateAdminStudentFlags(studentId, flags = {}) {
+    if (!studentId) {
+      throw new Error("Missing student for admin flag update.");
+    }
+
+    const result = await apiFetch(`/api/admin/students/${studentId}/flags`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        isTestAccount: Boolean(flags.isTestAccount),
+      }),
+    });
+    if (result?.error) throw createApiError(result, "Failed to update student flags");
+    return result?.profile || null;
+  }
+
   const ApiService = {
     apiFetch,
     hasServerId,
@@ -319,6 +378,11 @@ async function deleteAssignment(assignmentId) {
     patchAssignment,
     setAssignmentStatus,
     deleteAssignment,
+    loadAdminCefrBenchmarks,
+    recomputeStaleAdminProcessAnalyses,
+    loadAdminTeachers,
+    loadAdminClassDetail,
+    updateAdminStudentFlags,
   };
 
   root.ApiService = ApiService;

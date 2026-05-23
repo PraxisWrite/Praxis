@@ -1218,7 +1218,7 @@ async function deleteCurrentClass() {
   const className = currentClasses.find(c => c.id === currentClassId)?.name || "this class";
   if (!confirm(`Delete "${className}"? This will permanently delete all assignments and submissions in this class. This cannot be undone.`)) return false;
   try {
-    await globalThis.ApiService.deleteClass(currentClassId);
+    await window.ApiService.deleteClass(currentClassId);
   } catch (error) {
     ui.notice = `Could not delete class: ${error.message}`;
     return false;
@@ -2364,7 +2364,7 @@ if (action === "switch-class") {
     }
     let newClass;
     try {
-      newClass = await globalThis.ApiService.createClass(name);
+      newClass = await window.ApiService.createClass(name);
     } catch (error) {
       ui.classModalError = error.message || "Could not create class.";
       render();
@@ -2386,7 +2386,7 @@ if (action === "switch-class") {
     const email = prompt("Student's email address:");
     if (!email) return;
     try {
-      await globalThis.ApiService.inviteStudent(currentClassId, email);
+      await window.ApiService.inviteStudent(currentClassId, email);
       ui.notice = "Student added. They can now log in and see published assignments for this class.";
     } catch (error) {
       ui.notice = `Could not add student: ${error.message || "unknown error"}`;
@@ -2401,7 +2401,7 @@ if (action === "switch-class") {
     const studentName = target.dataset.studentName || "this student";
     if (!studentId || !window.confirm(`Remove ${studentName} from this class?`)) return;
     try {
-      await globalThis.ApiService.removeClassMember(currentClassId, studentId);
+      await window.ApiService.removeClassMember(currentClassId, studentId);
       await loadTeacherClassContext(currentClassId);
       ui.notice = `${studentName} was removed from this class.`;
     } catch (error) {
@@ -2426,7 +2426,7 @@ if (action === "switch-class") {
     }
         let data;
     try {
-      data = await globalThis.ApiService.patchClassMember(currentClassId, studentId, { name: trimmed });
+      data = await window.ApiService.patchClassMember(currentClassId, studentId, { name: trimmed });
     } catch (error) {
       ui.notice = `Could not update student name: ${error.message || "unknown error"}`;
       render();

@@ -1213,6 +1213,30 @@ async function loadTeacherClassContext(classId) {
   persistState();
 }
 
+async function deleteCurrentClass() {
+  if (!currentClassId) return false;
+  const className = currentClasses.find(c => c.id === currentClassId)?.name || "this class";
+  if (!confirm(`Delete "${className}"? This will permanently delete all assignments and submissions in this class. This cannot be undone.`)) return false;
+  try {
+    await window.ApiService.deleteClass(currentClassId);
+  } catch (error) {
+    ui.notice = `Could not delete class: ${error.message}`;
+    return false;
+  }
+  currentClasses = currentClasses.filter(c => c.id !== currentClassId);
+  currentClassId = currentClasses[0]?.id || null;
+  if (currentClassId) {
+    await loadTeacherClassContext(currentClassId);
+  } else {
+    state.assignments = [];
+    state.submissions = [];
+    currentClassMembers = [];
+  }
+  saveActiveClassId(currentProfile, currentClassId);
+  ui.notice = `"${className}" was deleted.`;
+  return true;
+}
+
 async function refreshStudentClasses(preferredClassId = currentClassId) {
   currentClasses = await globalThis.ApiService.loadStudentClasses();
   if (preferredClassId && currentClasses.some((cls) => cls.id === preferredClassId)) {
@@ -2792,27 +2816,7 @@ if (action === "sign-out") {
   }
 
 if (action === "delete-class") {
-    if (!currentClassId) return;
-    const className = currentClasses.find(c => c.id === currentClassId)?.name || "this class";
-    if (!confirm(`Delete "${className}"? This will permanently delete all assignments and submissions in this class. This cannot be undone.`)) return;
-        try {
-      await window.ApiService.deleteClass(currentClassId);
-    } catch (error) {
-      ui.notice = `Could not delete class: ${error.message}`;
-      render();
-      return;
-    }
-    currentClasses = currentClasses.filter(c => c.id !== currentClassId);
-    currentClassId = currentClasses[0]?.id || null;
-    if (currentClassId) {
-      await loadTeacherClassContext(currentClassId);
-    } else {
-      state.assignments = [];
-      state.submissions = [];
-      currentClassMembers = [];
-    }
-    saveActiveClassId(currentProfile, currentClassId);
-    ui.notice = `"${className}" was deleted.`;
+    await deleteCurrentClass();
     render();
     return;
   }
@@ -3567,23 +3571,9 @@ if (target.id === "student-class-select") {
   }
 
   if (target.id === "class-select") {
-    if (target.value === "__delete__") {
+        if (target.value === "__delete__") {
       target.value = "";
-      if (!currentClassId) return;
-      const className = currentClasses.find(c => c.id === currentClassId)?.name || "this class";
-      if (!confirm(`Delete "${className}"? This will permanently delete all assignments and submissions in this class. This cannot be undone.`)) return;
-            try {
-        await window.ApiService.deleteClass(currentClassId);
-      } catch (error) {
-        ui.notice = `Could not delete class: ${error.message}`;
-        render();
-        return;
-      }
-      currentClasses = currentClasses.filter(c => c.id !== currentClassId);
-      currentClassId = currentClasses[0]?.id || null;
-      if (currentClassId) { await loadTeacherClassContext(currentClassId); } else { state.assignments = []; state.submissions = []; currentClassMembers = []; }
-      saveActiveClassId(currentProfile, currentClassId);
-      ui.notice = `"${className}" was deleted.`;
+      await deleteCurrentClass();
       render();
       return;
     }

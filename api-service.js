@@ -357,6 +357,27 @@ async function deleteAssignment(assignmentId) {
     return result?.profile || null;
   }
 
+  async function loadSubmissionDebugState(assignmentId, studentId = null) {
+    if (!assignmentId) {
+      throw new Error("Missing assignment for submission debug.");
+    }
+
+    const params = new URLSearchParams({ assignmentId });
+    if (studentId) {
+      params.set("studentId", studentId);
+    }
+    return apiFetch(`/api/debug/submission-state?${params.toString()}`);
+  }
+
+  async function loadSubmissionEmailDiagnosis(assignmentId, studentId) {
+    if (!assignmentId || !studentId) {
+      throw new Error("Missing assignment or student for email diagnosis.");
+    }
+
+    const params = new URLSearchParams({ assignmentId, studentId });
+    return apiFetch(`/api/notifications/diagnose-submission?${params.toString()}`);
+  }
+
   const ApiService = {
     apiFetch,
     hasServerId,
@@ -383,6 +404,8 @@ async function deleteAssignment(assignmentId) {
     loadAdminTeachers,
     loadAdminClassDetail,
     updateAdminStudentFlags,
+    loadSubmissionDebugState,
+    loadSubmissionEmailDiagnosis,
   };
 
   root.ApiService = ApiService;

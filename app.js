@@ -1037,12 +1037,7 @@ async function loadAdminCefrBenchmarks() {
   ui.adminCefrBenchmarksError = null;
   render();
   try {
-    const data = await Auth.apiFetch('/api/admin/writing-process/benchmarks');
-    if (data.error) {
-      ui.adminCefrBenchmarksError = data.error;
-    } else {
-      ui.adminCefrBenchmarks = data.byLevel || {};
-    }
+    ui.adminCefrBenchmarks = await globalThis.ApiService.loadAdminCefrBenchmarks();
   } catch (err) {
     ui.adminCefrBenchmarksError = err.message || 'Failed to load benchmark data';
   }
@@ -1058,18 +1053,11 @@ async function refreshStaleAdminProcessAnalyses() {
   ui.adminProcessRecomputeError = null;
   render();
 
-  adminProcessRecomputePromise = Auth.apiFetch('/api/admin/process-analytics/recompute-stale', {
-    method: 'POST',
-    body: JSON.stringify({ limit: 50 }),
+  adminProcessRecomputePromise = globalThis.ApiService.recomputeStaleAdminProcessAnalyses({ limit: 50 })
+  .then(async (result) => {
+    ui.adminProcessRecomputeResult = result;
+    await loadAdminCefrBenchmarks();
   })
-    .then(async (data) => {
-      if (data?.error) {
-        ui.adminProcessRecomputeError = data.error;
-      } else {
-        ui.adminProcessRecomputeResult = data.result || null;
-        await loadAdminCefrBenchmarks();
-      }
-    })
     .catch((error) => {
       ui.adminProcessRecomputeError = error.message || 'Failed to update writing process analytics';
     })
@@ -1083,21 +1071,15 @@ async function refreshStaleAdminProcessAnalyses() {
 }
 
 async function loadAdminData() {
-  const data = await Auth.apiFetch('/api/admin/teachers');
-  ui.adminTeachers = data.teachers || [];
+  ui.adminTeachers = await globalThis.ApiService.loadAdminTeachers();
   loadAdminCefrBenchmarks();
   refreshStaleAdminProcessAnalyses();
 }
 
 async function refreshAdminClassDetail({ keepNotice = false, silent = false } = {}) {
   if (!ui.adminSelectedClassId) return;
-  const data = await Auth.apiFetch(`/api/admin/classes/${ui.adminSelectedClassId}/detail`);
-  if (data.error) {
-    if (!silent) {
-      ui.notice = `Could not refresh admin class data: ${data.error}`;
-    }
-    return;
-  }
+  try {
+  const data = await globalThis.ApiService.loadAdminClassDetail(ui.adminSelectedClassId);
   ui.adminClassDetail = data;
   if (ui.adminSelectedAssignmentId && !safeArray(data.assignments).some((assignment) => assignment.id === ui.adminSelectedAssignmentId)) {
     ui.adminSelectedAssignmentId = null;
@@ -1105,6 +1087,11 @@ async function refreshAdminClassDetail({ keepNotice = false, silent = false } = 
   } else if (!keepNotice && !silent) {
     ui.notice = "Admin data refreshed.";
   }
+} catch (error) {
+  if (!silent) {
+    ui.notice = `Could not refresh admin class data: ${error.message}`;
+  }
+}
 }
 
 function stopAdminClassPolling() {
@@ -2549,20 +2536,18 @@ if (action === "admin-select-assignment") {
     const nextTest = !currentlyTest;
     ui.adminStudentFlagSavingId = studentId;
     render();
-    const data = await Auth.apiFetch(`/api/admin/students/${studentId}/flags`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        isTestAccount: nextTest,
-      }),
-    });
-    if (data.error) {
-      ui.notice = data.needsMigration
-        ? "Test account labels need one Supabase migration before they can save. Apply the PR 165 profile admin flags migration, then try again."
-        : `Could not update student flags: ${data.error}`;
-      ui.adminStudentFlagSavingId = null;
-      render();
-      return;
-    }
+    try {
+  await globalThis.ApiService.updateAdminStudentFlags(studentId, {
+    isTestAccount: nextTest,
+  });
+} catch (error) {
+  ui.notice = error.needsMigration
+    ? "Test account labels need one Supabase migration before they can save. Apply the PR 165 profile admin flags migration, then try again."
+    : `Could not update student flags: ${error.message}`;
+  ui.adminStudentFlagSavingId = null;
+  render();
+  return;
+}
     ui.notice = nextTest
       ? "Student marked as a test account. Their submissions will be ignored by future writing behaviour analytics."
       : "Student unmarked as a test account.";

@@ -2338,21 +2338,21 @@ if (action === "switch-class") {
       render();
       return;
     }
-    const data = await Auth.apiFetch('/api/classes', {
-      method: 'POST',
-      body: JSON.stringify({ name })
-    });
-    if (data.class) {
-      currentClasses.unshift(data.class);
-      await loadTeacherClassContext(data.class.id);
-      hydrateSelections();
-      ui.showClassModal = false;
-      ui.classModalName = "";
-      ui.classModalError = "";
-      ui.notice = `New class created: ${name}. You are now working in this class.`;
-    } else {
-      ui.classModalError = data.error || "Could not create class.";
+    let newClass;
+    try {
+      newClass = await window.ApiService.createClass(name);
+    } catch (error) {
+      ui.classModalError = error.message || "Could not create class.";
+      render();
+      return;
     }
+    currentClasses.unshift(newClass);
+    await loadTeacherClassContext(newClass.id);
+    hydrateSelections();
+    ui.showClassModal = false;
+    ui.classModalName = "";
+    ui.classModalError = "";
+    ui.notice = `New class created: ${name}. You are now working in this class.`;
     render();
     return;
   }
@@ -2361,14 +2361,11 @@ if (action === "switch-class") {
     if (!currentClassId) { alert("Select a class first."); return; }
     const email = prompt("Student's email address:");
     if (!email) return;
-    const data = await Auth.apiFetch(`/api/classes/${currentClassId}/members`, {
-      method: 'POST',
-      body: JSON.stringify({ studentEmail: email.trim() })
-    });
-    if (data.ok) {
+    try {
+      await window.ApiService.inviteStudent(currentClassId, email);
       ui.notice = "Student added. They can now log in and see published assignments for this class.";
-    } else {
-      ui.notice = `Could not add student: ${data.error || "unknown error"}`;
+    } catch (error) {
+      ui.notice = `Could not add student: ${error.message || "unknown error"}`;
     }
     render();
     return;
@@ -2379,14 +2376,12 @@ if (action === "switch-class") {
     const studentId = target.dataset.studentId;
     const studentName = target.dataset.studentName || "this student";
     if (!studentId || !window.confirm(`Remove ${studentName} from this class?`)) return;
-    const data = await Auth.apiFetch(`/api/classes/${currentClassId}/members/${studentId}`, {
-      method: "DELETE",
-    });
-    if (data.ok) {
+    try {
+      await window.ApiService.removeClassMember(currentClassId, studentId);
       await loadTeacherClassContext(currentClassId);
       ui.notice = `${studentName} was removed from this class.`;
-    } else {
-      ui.notice = `Could not remove student: ${data.error || "unknown error"}`;
+    } catch (error) {
+      ui.notice = `Could not remove student: ${error.message || "unknown error"}`;
     }
     render();
     return;
@@ -2405,16 +2400,20 @@ if (action === "switch-class") {
       render();
       return;
     }
-    const data = await Auth.apiFetch(`/api/classes/${currentClassId}/members/${studentId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ name: trimmed }),
-    });
+        let data;
+    try {
+      data = await window.ApiService.patchClassMember(currentClassId, studentId, { name: trimmed });
+    } catch (error) {
+      ui.notice = `Could not update student name: ${error.message || "unknown error"}`;
+      render();
+      return;
+    }
     if (data?.profile?.name) {
       updateStudentDisplayName(studentId, data.profile.name);
       persistState();
       ui.notice = `Updated student name to ${data.profile.name}.`;
     } else {
-      ui.notice = `Could not update student name: ${data?.error || "unknown error"}`;
+      ui.notice = "Could not update student name: unknown error";
     }
     render();
     return;
@@ -2796,9 +2795,10 @@ if (action === "delete-class") {
     if (!currentClassId) return;
     const className = currentClasses.find(c => c.id === currentClassId)?.name || "this class";
     if (!confirm(`Delete "${className}"? This will permanently delete all assignments and submissions in this class. This cannot be undone.`)) return;
-    const result = await Auth.apiFetch(`/api/classes/${currentClassId}`, { method: 'DELETE' });
-    if (result.error) {
-      ui.notice = `Could not delete class: ${result.error}`;
+        try {
+      await window.ApiService.deleteClass(currentClassId);
+    } catch (error) {
+      ui.notice = `Could not delete class: ${error.message}`;
       render();
       return;
     }
@@ -3572,8 +3572,13 @@ if (target.id === "student-class-select") {
       if (!currentClassId) return;
       const className = currentClasses.find(c => c.id === currentClassId)?.name || "this class";
       if (!confirm(`Delete "${className}"? This will permanently delete all assignments and submissions in this class. This cannot be undone.`)) return;
-      const result = await Auth.apiFetch(`/api/classes/${currentClassId}`, { method: "DELETE" });
-      if (result.error) { ui.notice = `Could not delete class: ${result.error}`; render(); return; }
+            try {
+        await window.ApiService.deleteClass(currentClassId);
+      } catch (error) {
+        ui.notice = `Could not delete class: ${error.message}`;
+        render();
+        return;
+      }
       currentClasses = currentClasses.filter(c => c.id !== currentClassId);
       currentClassId = currentClasses[0]?.id || null;
       if (currentClassId) { await loadTeacherClassContext(currentClassId); } else { state.assignments = []; state.submissions = []; currentClassMembers = []; }

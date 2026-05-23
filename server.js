@@ -382,7 +382,7 @@ async function getAuthUserEmailMap(userIds = []) {
         emailMap.set(userId, data.user.email);
       }
     } catch (error) {
-      console.error(`Could not load auth email for user ${userId}:`, error.message || error);
+      console.error('Could not load auth email for user %s:', userId, error.message || error);
     }
   }));
 

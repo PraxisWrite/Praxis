@@ -163,3 +163,33 @@ test("updateAdminStudentFlags preserves migration metadata on API errors", async
     }
   );
 });
+
+test("loadSubmissionDebugState builds a scoped debug query", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    return { assignmentId: "assignment 1", studentId: "student 1" };
+  });
+
+  const result = await apiService.loadSubmissionDebugState("assignment 1", "student 1");
+
+  assert.deepEqual(result, { assignmentId: "assignment 1", studentId: "student 1" });
+  assert.deepEqual(calls.map(({ path }) => path), [
+    "/api/debug/submission-state?assignmentId=assignment+1&studentId=student+1",
+  ]);
+});
+
+test("loadSubmissionEmailDiagnosis builds the notification diagnosis query", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    return { emailEnabled: true };
+  });
+
+  const result = await apiService.loadSubmissionEmailDiagnosis("assignment-1", "student-1");
+
+  assert.deepEqual(result, { emailEnabled: true });
+  assert.deepEqual(calls.map(({ path }) => path), [
+    "/api/notifications/diagnose-submission?assignmentId=assignment-1&studentId=student-1",
+  ]);
+});

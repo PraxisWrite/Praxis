@@ -193,3 +193,40 @@ test("loadSubmissionEmailDiagnosis builds the notification diagnosis query", asy
     "/api/notifications/diagnose-submission?assignmentId=assignment-1&studentId=student-1",
   ]);
 });
+
+test("class read helpers load teacher classes, student classes, and members", async () => {
+  const calls = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    calls.push({ path, options });
+    if (path === "/api/classes") {
+      return { classes: [{ id: "teacher-class" }] };
+    }
+    if (path === "/api/student/classes") {
+      return { classes: [{ id: "student-class" }] };
+    }
+    if (path === "/api/classes/class-1/members") {
+      return { members: [{ id: "student-1" }] };
+    }
+    throw new Error(`Unexpected path: ${path}`);
+  });
+
+  assert.deepEqual(await apiService.loadTeacherClasses(), [{ id: "teacher-class" }]);
+  assert.deepEqual(await apiService.loadStudentClasses(), [{ id: "student-class" }]);
+  assert.deepEqual(await apiService.loadClassMembers("class-1"), [{ id: "student-1" }]);
+  assert.deepEqual(calls.map(({ path }) => path), [
+    "/api/classes",
+    "/api/student/classes",
+    "/api/classes/class-1/members",
+  ]);
+});
+
+test("class read helpers throw server errors", async () => {
+  const apiService = loadApiServiceWithFetch(async () => ({
+    error: "Class access denied",
+  }));
+
+  await assert.rejects(
+    () => apiService.loadClassMembers("class-1"),
+    /Class access denied/
+  );
+});

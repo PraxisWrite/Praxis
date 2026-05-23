@@ -971,9 +971,7 @@ async function bootApp(profile) {
     state.submissions = [];
     currentClassMembers = [];
     try {
-      const data = await Auth.apiFetch('/api/classes');
-      if (data?.error) throw new Error(data.error);
-      currentClasses = data.classes || [];
+      currentClasses = await globalThis.ApiService.loadTeacherClasses();
       currentClassId = await resolveTeacherStartingClass(profile, currentClasses);
       if (currentClassId) {
         await loadTeacherClassContext(currentClassId);
@@ -1162,7 +1160,7 @@ async function loadTeacherClassContext(classId) {
   let assignData = null;
   try {
     [membersData, assignData] = await Promise.all([
-      Auth.apiFetch(`/api/classes/${currentClassId}/members`),
+      globalThis.ApiService.loadClassMembers(currentClassId),
       Auth.apiFetch(`/api/classes/${currentClassId}/assignments`)
     ]);
   } catch (error) {
@@ -1184,7 +1182,7 @@ async function loadTeacherClassContext(classId) {
     return;
   }
 
-  currentClassMembers = membersData.members || [];
+  currentClassMembers = membersData || [];
   const raw = safeArray(assignData.assignments);
   state.submissions = [];
   state.assignments = raw.map((a) => normalizeAssignment({
@@ -1216,8 +1214,7 @@ async function loadTeacherClassContext(classId) {
 }
 
 async function refreshStudentClasses(preferredClassId = currentClassId) {
-  const data = await Auth.apiFetch('/api/student/classes');
-  currentClasses = data.classes || [];
+  currentClasses = await globalThis.ApiService.loadStudentClasses();
   if (preferredClassId && currentClasses.some((cls) => cls.id === preferredClassId)) {
     currentClassId = preferredClassId;
   } else {
@@ -1519,11 +1516,11 @@ async function loadReviewDataForAssignment(assignmentId) {
   if (!assignmentId || !currentClassId) return [];
 
   const [membersData, submissions] = await Promise.all([
-    Auth.apiFetch(`/api/classes/${currentClassId}/members`),
+    globalThis.ApiService.loadClassMembers(currentClassId),
     globalThis.ApiService.loadAssignmentSubmissions(assignmentId),
   ]);
 
-  currentClassMembers = membersData.members || [];
+  currentClassMembers = membersData || [];
 
   state.submissions = state.submissions.filter((s) => s.assignmentId !== assignmentId);
   submissions.forEach((submission) => {

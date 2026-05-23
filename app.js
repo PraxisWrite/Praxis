@@ -1425,7 +1425,7 @@ async function loadStudentSubmissionForAssignment(assignmentId) {
 async function loadSubmissionDebugState(assignmentId = ui.selectedStudentAssignmentId) {
   if (!assignmentId || currentProfile?.role !== "student") return null;
   try {
-    const result = await Auth.apiFetch(`/api/debug/submission-state?assignmentId=${encodeURIComponent(assignmentId)}`);
+    const result = await globalThis.ApiService.loadSubmissionDebugState(assignmentId);
     ui.latestSubmissionDebug = result?.error
       ? { error: result.error, checkedAt: new Date().toISOString() }
       : result;
@@ -1439,8 +1439,7 @@ async function loadSubmissionDebugState(assignmentId = ui.selectedStudentAssignm
 async function loadEmailDebugState(assignmentId = ui.selectedAssignmentId, studentId = ui.selectedReviewStudentId) {
   if (!assignmentId || !studentId || !(currentProfile?.role === "teacher" || isAdminTeacherView())) return null;
   try {
-    const params = new URLSearchParams({ assignmentId, studentId });
-    const result = await Auth.apiFetch(`/api/notifications/diagnose-submission?${params.toString()}`);
+    const result = await globalThis.ApiService.loadSubmissionEmailDiagnosis(assignmentId, studentId);
     ui.latestEmailDebug = result?.error
       ? { error: result.error, checkedAt: new Date().toISOString() }
       : result;

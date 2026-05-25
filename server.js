@@ -1,12 +1,13 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const crypto = require('node:crypto');
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
 const { parseRubricBuffer, parseRubricText } = require('./rubricParser');
-const { analyzeSubmission } = require('./writing-process/analyze');
-const { ANALYSIS_VERSION } = require('./writing-process/types');
+const { analyzeSubmission } = require('./public/writing-process/analyze');
+const { ANALYSIS_VERSION } = require('./public/writing-process/types');
 const {
   appendResetQuery,
   getTeacherReviewSavedAt,
@@ -44,7 +45,7 @@ app.use((req, res, next) => {
   }
   return next();
 });
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '10mb' }))
 
 const SUPABASE_SERVER_KEY =

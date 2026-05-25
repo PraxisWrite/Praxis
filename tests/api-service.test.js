@@ -2,10 +2,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 function loadApiServiceWithFetch(apiFetch) {
-  delete require.cache[require.resolve("../api-service.js")];
+  delete require.cache[require.resolve("../public/api-service.js")];
   globalThis.CoreUtils = { safeArray: (value) => Array.isArray(value) ? value : [] };
   globalThis.Auth = { apiFetch };
-  return require("../api-service.js");
+  return require("../public/api-service.js");
 }
 
 function createSubmission(overrides = {}) {

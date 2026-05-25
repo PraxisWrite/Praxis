@@ -1,25 +1,25 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const deadlineUtils = require("../deadline-utils.js");
-const storageUtils = require("../storage-utils.js");
-const aiAssistUtils = require("../ai-assist-utils.js");
-const lineNumberUtils = require("../line-number-utils.js");
+const deadlineUtils = require("../public/deadline-utils.js");
+const storageUtils = require("../public/storage-utils.js");
+const aiAssistUtils = require("../public/ai-assist-utils.js");
+const lineNumberUtils = require("../public/line-number-utils.js");
 const notificationUtils = require("../notification-utils.js");
-const submissionUtils = require("../submission-utils.js");
+const submissionUtils = require("../public/submission-utils.js");
 const submissionSanitizer = require("../submission-sanitizer.js");
 const canonicalUrlUtils = require("../canonical-url-utils.js");
-const adminUtils = require("../admin-utils.js");
-const writingProcessTypes = require("../writing-process/types.js");
-const writingProcessEvents = require("../writing-process/events.js");
-const writingProcessAnalyze = require("../writing-process/analyze.js");
-const writingProcessAdmin = require("../writing-process/admin.js");
+const adminUtils = require("../public/admin-utils.js");
+const writingProcessTypes = require("../public/writing-process/types.js");
+const writingProcessEvents = require("../public/writing-process/events.js");
+const writingProcessAnalyze = require("../public/writing-process/analyze.js");
+const writingProcessAdmin = require("../public/writing-process/admin.js");
 const submissionRegressionFixture = require("./fixtures/submission-regression-fixture.js");
 
 global.window = global.window || {};
-require("../rubric-utils.js");
-require("../review-utils.js");
-require("../paste-evidence-utils.js");
+require("../public/rubric-utils.js");
+require("../public/review-utils.js");
+require("../public/paste-evidence-utils.js");
 
 const rubricUtils = global.window.RubricUtils;
 const reviewUtils = global.window.ReviewUtils;

@@ -41,7 +41,11 @@
   function bindAuthScreenEvents(joinClassId = null) {
     const { appEl, authUiState } = window.AppState;
     authUiState.signupRole = "student";
-    setAuthTab("signin");
+    const initialTab = globalThis.location.hash === "#signup" ? "signup" : "signin";
+    if (initialTab === "signup") {
+      globalThis.history.replaceState(null, "", globalThis.location.pathname + globalThis.location.search);
+    }
+    setAuthTab(initialTab);
     setAuthSignupRole("student");
 
     appEl.querySelectorAll("[data-auth-tab]").forEach((button) => {

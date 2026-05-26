@@ -2,7 +2,7 @@ const fs = require('fs');
 const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 const fetch = require('node-fetch');
-const { coalesceSharedRubricCriteria, rubricCriterionToMatrixRow, slugifyRubricId } = require('./core-utils');
+const { coalesceSharedRubricCriteria, rubricCriterionToMatrixRow, slugifyRubricId } = require('./public/core-utils');
 
 const SYSTEM_PROMPT = `
 You are an expert academic rubric parser.

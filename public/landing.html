@@ -62,6 +62,7 @@
         color: var(--ink);
       }
       .nav-logo img { width: 30px; height: 30px; border-radius: 7px; }
+      .logo-accent { color: var(--accent-deep); }
       .nav-actions { display: flex; gap: 10px; align-items: center; }
 
       .btn {
@@ -468,6 +469,22 @@
         line-height: 1.3;
         transition: background 0.35s, border-color 0.35s, color 0.35s, transform 0.25s;
         opacity: 0;
+        cursor: pointer;
+      }
+      .rubric-cell-score { font-weight: 700; font-size: 1.1em; }
+      .rubric-cell-desc {
+        font-size: 0.68em;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        line-height: 1.4;
+        margin-top: 0;
+        transition: max-height 0.35s ease, opacity 0.3s ease, margin-top 0.3s;
+      }
+      .rubric-cell.lit.expanded .rubric-cell-desc {
+        max-height: 80px;
+        opacity: 1;
+        margin-top: 4px;
       }
       .rubric-row.head .rubric-cell {
         background: var(--surface-soft);
@@ -543,16 +560,16 @@
         transition: background 0.3s;
       }
       .annot {
-        background: var(--annot);
-        color: var(--annot-ink);
         border-radius: 4px;
         padding: 1px 4px;
         position: relative;
-        opacity: 0;
-        transition: opacity 0.35s ease;
+        transition: background 0.35s ease, color 0.35s ease;
       }
-      .annot.in { opacity: 1; }
-      .annot.paste-mark {
+      .annot.in {
+        background: var(--annot);
+        color: var(--annot-ink);
+      }
+      .annot.paste-mark.in {
         background: rgba(155,77,202,0.18);
         color: inherit;
         border-bottom: 2px solid var(--violet);
@@ -565,8 +582,11 @@
         color: var(--accent-deep);
         margin-left: 3px;
         vertical-align: super;
+        opacity: 0;
+        transition: opacity 0.35s ease;
       }
-      .annot.paste-mark .annot-code { color: var(--violet); }
+      .annot.in .annot-code { opacity: 1; }
+      .annot.paste-mark.in .annot-code { color: var(--violet); }
       .annot-tip {
         position: absolute;
         bottom: calc(100% + 6px);
@@ -599,6 +619,29 @@
         font-family: "SFMono-Regular", Menlo, monospace;
         margin-right: 4px;
       }
+
+      /* ─── Teacher note (annotation demo) ─── */
+      .teacher-note {
+        margin-top: 16px;
+        background: var(--accent-soft);
+        border: 1px solid #b8ccf8;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: "Avenir Next", system-ui, sans-serif;
+        font-size: 0.84rem;
+        opacity: 0;
+        transition: opacity 0.4s;
+      }
+      .teacher-note.in { opacity: 1; }
+      .tn-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--accent-deep);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 5px;
+      }
+      .tn-text { color: var(--ink); line-height: 1.5; }
 
       /* ─── DEMO 5: AI assistance ─── */
       .ai-grid {
@@ -740,7 +783,7 @@
       <nav class="nav-bar">
         <a href="/" class="nav-logo">
           <img src="favicon-64.png" alt="praxis logo" />
-          praxis
+          <span>pr<span class="logo-accent">a</span>x<span class="logo-accent">i</span>s</span>
         </a>
         <div class="nav-actions">
           <a href="/index.html" class="btn btn-ghost">Sign in</a>
@@ -870,6 +913,7 @@
             <span class="annot-btn paste-btn" id="btn-PASTE">PASTE</span>
           </div>
           <div class="annot-mock" id="annot-mock"></div>
+          <div class="teacher-note" id="annot-teacher-note"></div>
           <div class="annot-key">
             <span class="annot-key-item"><strong>CS</strong>Comma splice</span>
             <span class="annot-key-item"><strong>SP</strong>Spelling</span>
@@ -923,7 +967,7 @@
     <footer>
       <a href="/" class="nav-logo" style="font-size:1rem;font-weight:700;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px;">
         <img src="favicon-64.png" alt="" width="22" height="22" style="border-radius:5px;" />
-        praxis
+        <span>pr<span class="logo-accent">a</span>x<span class="logo-accent">i</span>s</span>
       </a>
       <p>Built for English language teachers.</p>
       <a href="/index.html">Sign in</a>
@@ -1102,11 +1146,43 @@
       ];
       const bandLabels = ['Excellent','Good','Satisfactory','Needs work'];
       const bandClass  = ['excellent','good','satisfactory','needswork'];
+      const rubricDescriptors = [
+        [
+          "Addresses all aspects of the task with a well-developed, nuanced position.",
+          "Addresses the task with a clear position; minor aspects underdeveloped.",
+          "Partially addresses the task; position sometimes unclear.",
+          "Minimally addresses the task; position difficult to identify."
+        ],
+        [
+          "Logically organised with clear progression; ideas are well-linked throughout.",
+          "Generally well organised; occasional lapses in cohesion.",
+          "Some organisation visible; links between ideas inconsistent.",
+          "Limited organisation; progression of ideas hard to follow."
+        ],
+        [
+          "Flexible use of a wide lexical range; very rare errors.",
+          "Good range of vocabulary; some inaccuracies but meaning clear.",
+          "Adequate range; errors sometimes affect meaning.",
+          "Limited range; frequent errors that impede communication."
+        ],
+        [
+          "Wide range of structures used accurately; very rare errors.",
+          "Mix of simple and complex structures; mostly accurate.",
+          "Frequent errors in complex structures; simple sentences more reliable.",
+          "Very limited structures; errors frequently impede meaning."
+        ]
+      ];
 
       async function runRubric(host) {
         const phase    = host.querySelector('#rub-phase');
         const totalWrap = host.querySelector('#rubric-total-wrap');
         const totalEl  = host.querySelector('#rubric-total');
+
+        phase.addEventListener('click', (e) => {
+          const cell = e.target.closest('.rubric-cell.lit');
+          if (!cell) return;
+          cell.classList.toggle('expanded');
+        });
 
         async function phaseUpload() {
           clear(phase);
@@ -1155,13 +1231,15 @@
           bandLabels.forEach((lbl) => head.appendChild(make('div', 'rubric-cell', lbl)));
           grid.appendChild(head);
 
-          const rows = rubricCriteria.map((c) => {
+          const rows = rubricCriteria.map((c, cIdx) => {
             const row = make('div', 'rubric-row');
             row.appendChild(make('div', 'rubric-criterion', c.name));
             c.scores.forEach((s, i) => {
-              const cell = make('div', 'rubric-cell', String(s));
+              const cell = make('div', 'rubric-cell');
               cell.dataset.band = bandClass[i];
               cell.dataset.score = String(s);
+              cell.appendChild(make('div', 'rubric-cell-score', String(s)));
+              cell.appendChild(make('div', 'rubric-cell-desc', rubricDescriptors[cIdx][i]));
               row.appendChild(cell);
             });
             grid.appendChild(row);
@@ -1187,7 +1265,13 @@
             sum += Number.parseInt(cells[pick].dataset.score, 10);
             totalEl.textContent = sum + ' / 20';
           }
-          await sleep(3000);
+          await sleep(700);
+          const lastCells = rows[rows.length - 1].querySelectorAll('.rubric-cell');
+          const demoCell = lastCells[rubricCriteria[rows.length - 1].pick];
+          if (demoCell) demoCell.classList.add('expanded');
+          await sleep(2200);
+          if (demoCell) demoCell.classList.remove('expanded');
+          await sleep(800);
         }
 
         const loop = async () => {
@@ -1275,11 +1359,32 @@
           }
         }
 
+        async function typeTeacherNote(noteEl) {
+          const label = make('div', 'tn-label', 'Teacher comment · Rania M.');
+          const textEl = make('div', 'tn-text');
+          clear(noteEl);
+          noteEl.appendChild(label);
+          noteEl.appendChild(textEl);
+          noteEl.classList.add('in');
+          const note = "You have some good ideas here, Rania. Watch your sentence boundaries — sentences 1 and 2 need a full stop or a linking word. Also check ‘double-edged sword’ before your next draft.";
+          let typed = '';
+          for (const ch of note) {
+            if (!host._alive) return;
+            typed += ch;
+            textEl.textContent = typed;
+            await sleep(18);
+          }
+        }
+
         const loop = async () => {
+          const noteEl = host.querySelector('#annot-teacher-note');
           while (host._alive) {
             buildPara();
+            if (noteEl) { noteEl.classList.remove('in'); clear(noteEl); }
             await sleep(600);
             await runOnce(applyMark);
+            if (!host._alive) return;
+            if (noteEl) await typeTeacherNote(noteEl);
             if (!host._alive) return;
             await sleep(800);
             await runOnce(flashTip);
@@ -1294,10 +1399,10 @@
 
       /* ── DEMO 5: AI assistance ── */
       const aiFeedback = [
-        { icon: 'check', text: "Your position is clearly stated in the introduction." },
-        { icon: 'check', text: "The essay structure follows your outline well." },
-        { icon: 'suggest', text: "Body paragraph 2: add a specific example or statistic to strengthen your argument." },
-        { icon: 'suggest', text: "3 grammar areas flagged — check your annotations below." },
+        { icon: 'check',   text: "Good position statement — your opinion on tourism is clear from sentence 1." },
+        { icon: 'suggest', text: "Sentence 2: 'Tourist bring money' — 'tourist' needs a plural -s, and the verb needs to agree with it. What should it say?" },
+        { icon: 'suggest', text: "Paragraph 2 is a good start, but you only say 'local jobs'. Can you name one specific job or place in Agadir to make this stronger?" },
+        { icon: 'suggest', text: "Sentence 5 is very long. Try ending it after 'annually' and starting a new sentence — it will be much easier to read." },
       ];
       const aiScores = [
         { name: 'Task response', score: 4, max: 5 },
@@ -1305,7 +1410,7 @@
         { name: 'Vocabulary',    score: 4, max: 5 },
         { name: 'Grammar',       score: 3, max: 5 },
       ];
-      const aiCommentFull = "Clear argument with good structure. Body paragraph 2 would benefit from more specific evidence. Grammar mostly accurate with some recurring errors in subject–verb agreement.";
+      const aiCommentFull = "Rania demonstrates a clear position and generally logical organisation. Subject–verb agreement errors recur across the essay (notably sentences 2 and 6). Vocabulary is largely appropriate for B1+ but over-relies on high-frequency items. Recommend explicit focus on complex noun phrases before the next draft.";
 
       function fillScoreRow(row, runningTotal) {
         row.classList.add('in');

@@ -4,407 +4,461 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>praxis — writing that shows its work</title>
-    <meta name="description" content="Praxis is a structured writing platform for English teachers. Guide students from ideas to final draft — with keystroke-level insights into how they wrote." />
+    <meta name="description" content="Praxis is a structured writing platform for English teachers. Guide students through the writing process and see exactly how they wrote." />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
       :root {
-        --bg: #f5f8ff;
-        --ink: #1a2740;
-        --muted: #687a98;
-        --accent: #5f8fff;
-        --accent-deep: #456ddb;
-        --accent-soft: #e8f0ff;
-        --sage: #34a587;
-        --line: #dbe5f5;
-        --surface: #ffffff;
-        --radius-xl: 24px;
-        --radius-lg: 18px;
-        --radius-md: 14px;
+        --bg:           #f5f8ff;
+        --surface:      #ffffff;
+        --ink:          #1a2740;
+        --muted:        #687a98;
+        --accent:       #5f8fff;
+        --accent-deep:  #456ddb;
+        --accent-soft:  #e8f0ff;
+        --sage:         #34a587;
+        --line:         #dbe5f5;
+        --dark:         #111827;
       }
 
       html { scroll-behavior: smooth; }
 
       body {
-        font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+        font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
         background: var(--bg);
         color: var(--ink);
         line-height: 1.6;
         -webkit-font-smoothing: antialiased;
       }
 
-      /* ── Nav ── */
-      nav {
+      a { color: inherit; text-decoration: none; }
+
+      /* ─── Layout ─── */
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 28px;
+      }
+
+      /* ─── Nav ─── */
+      .nav-bar {
+        padding: 20px 28px;
+        max-width: 1080px;
+        margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 20px 40px;
-        max-width: 1100px;
-        margin: 0 auto;
       }
 
       .nav-logo {
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: var(--ink);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.15rem;
+        font-weight: 700;
         letter-spacing: -0.03em;
-        text-decoration: none;
+        color: var(--ink);
       }
 
-      .nav-logo span { color: var(--accent-deep); }
+      .nav-logo img {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+      }
 
-      .nav-actions { display: flex; gap: 12px; align-items: center; }
+      .nav-actions { display: flex; gap: 10px; align-items: center; }
 
       .btn {
         display: inline-block;
-        padding: 10px 22px;
+        padding: 9px 20px;
         border-radius: 100px;
         font-family: inherit;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         font-weight: 600;
-        text-decoration: none;
         cursor: pointer;
         transition: all 0.15s ease;
+        border: none;
       }
 
-      .btn-ghost {
-        color: var(--muted);
-        background: transparent;
-      }
-
+      .btn-ghost { color: var(--muted); background: transparent; }
       .btn-ghost:hover { color: var(--ink); }
 
       .btn-primary {
-        background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+        background: var(--accent-deep);
         color: white;
-        box-shadow: 0 4px 14px rgba(95, 143, 255, 0.35);
       }
+      .btn-primary:hover { background: #3860c8; }
 
-      .btn-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(95, 143, 255, 0.45);
-      }
+      .btn-lg { padding: 13px 28px; font-size: 0.96rem; }
 
-      .btn-lg {
-        padding: 14px 32px;
-        font-size: 1rem;
-      }
-
-      /* ── Hero ── */
+      /* ─── Hero ─── */
       .hero {
+        padding: 88px 28px 96px;
         text-align: center;
-        padding: 80px 24px 100px;
-        max-width: 780px;
+        max-width: 740px;
         margin: 0 auto;
       }
 
-      .hero-eyebrow {
+      .hero-tag {
         display: inline-block;
-        background: var(--accent-soft);
-        color: var(--accent-deep);
-        font-size: 0.8rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.07em;
         text-transform: uppercase;
-        padding: 6px 16px;
+        color: var(--accent-deep);
+        background: var(--accent-soft);
+        padding: 5px 14px;
         border-radius: 100px;
-        margin-bottom: 28px;
+        margin-bottom: 32px;
       }
 
-      .hero h1 {
-        font-size: clamp(2.4rem, 6vw, 3.8rem);
+      h1 {
+        font-size: clamp(2.4rem, 5.5vw, 3.6rem);
         font-weight: 800;
-        line-height: 1.12;
-        letter-spacing: -0.03em;
+        letter-spacing: -0.035em;
+        line-height: 1.1;
         color: var(--ink);
-        margin-bottom: 24px;
+        margin-bottom: 22px;
       }
 
-      .hero h1 em {
+      h1 em {
         font-style: normal;
         color: var(--accent-deep);
       }
 
-      .hero p {
-        font-size: 1.15rem;
+      .hero-sub {
+        font-size: 1.12rem;
         color: var(--muted);
-        max-width: 560px;
-        margin: 0 auto 40px;
         line-height: 1.7;
+        max-width: 500px;
+        margin: 0 auto 40px;
       }
 
-      .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+      .hero-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
 
-      /* ── Section wrapper ── */
-      section { padding: 80px 24px; }
-
-      .container { max-width: 1100px; margin: 0 auto; }
-
-      .section-label {
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--accent-deep);
-        margin-bottom: 12px;
+      /* ─── Steps ─── */
+      .steps-section {
+        background: var(--surface);
+        padding: 80px 28px;
       }
 
       .section-heading {
-        font-size: clamp(1.7rem, 4vw, 2.5rem);
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
         font-weight: 800;
         letter-spacing: -0.03em;
         line-height: 1.2;
         color: var(--ink);
-        margin-bottom: 16px;
+        margin-bottom: 12px;
       }
 
       .section-sub {
-        font-size: 1.05rem;
+        font-size: 1rem;
         color: var(--muted);
-        max-width: 560px;
         line-height: 1.7;
+        max-width: 500px;
+        margin-bottom: 56px;
       }
-
-      /* ── Workflow ── */
-      .workflow { background: white; }
-
-      .workflow-header { text-align: center; margin-bottom: 64px; }
-      .workflow-header .section-sub { margin: 0 auto; }
 
       .steps {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 24px;
-      }
-
-      .step {
-        background: var(--bg);
-        border-radius: var(--radius-lg);
-        padding: 32px 28px;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
         position: relative;
       }
 
-      .step-number {
-        font-size: 0.75rem;
+      @media (max-width: 700px) {
+        .steps { grid-template-columns: 1fr 1fr; gap: 20px; }
+        .steps::after { display: none; }
+      }
+
+      @media (max-width: 460px) {
+        .steps { grid-template-columns: 1fr; }
+      }
+
+      .steps::after {
+        content: "";
+        position: absolute;
+        top: 20px;
+        left: calc(12.5% + 4px);
+        right: calc(12.5% + 4px);
+        height: 1px;
+        background: var(--line);
+        z-index: 0;
+      }
+
+      .step {
+        padding: 0 20px 0 0;
+        position: relative;
+        z-index: 1;
+      }
+
+      .step-dot {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--accent-soft);
+        border: 2px solid var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
         font-weight: 700;
-        letter-spacing: 0.08em;
-        color: var(--accent);
-        margin-bottom: 14px;
-        text-transform: uppercase;
+        color: var(--accent-deep);
+        margin-bottom: 20px;
       }
 
       .step h3 {
-        font-size: 1.05rem;
+        font-size: 0.98rem;
         font-weight: 700;
         color: var(--ink);
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         letter-spacing: -0.01em;
       }
 
       .step p {
-        font-size: 0.9rem;
+        font-size: 0.86rem;
         color: var(--muted);
         line-height: 1.6;
       }
 
-      .step-icon {
-        font-size: 1.6rem;
-        margin-bottom: 16px;
-        display: block;
+      /* ─── Three pillars ─── */
+      .pillars-section {
+        padding: 80px 28px;
       }
 
-      /* ── Features ── */
-      .features-grid {
+      .pillars {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 28px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
         margin-top: 56px;
       }
 
-      .feature-card {
-        background: white;
-        border-radius: var(--radius-xl);
-        padding: 36px 32px;
+      @media (max-width: 760px) {
+        .pillars { grid-template-columns: 1fr; }
+      }
+
+      .pillar {
+        background: var(--surface);
         border: 1px solid var(--line);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 20px;
+        padding: 32px 28px;
+        transition: box-shadow 0.2s;
       }
 
-      .feature-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 16px 40px rgba(32, 54, 98, 0.08);
+      .pillar:hover {
+        box-shadow: 0 8px 32px rgba(32, 54, 98, 0.08);
       }
 
-      .feature-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: var(--radius-md);
-        background: var(--accent-soft);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.4rem;
-        margin-bottom: 20px;
+      .pillar-num {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 16px;
       }
 
-      .feature-icon.sage { background: #e0f5ef; }
-      .feature-icon.amber { background: #fff4e0; }
-
-      .feature-card h3 {
+      .pillar h3 {
         font-size: 1.1rem;
         font-weight: 700;
-        letter-spacing: -0.02em;
         color: var(--ink);
         margin-bottom: 10px;
+        letter-spacing: -0.02em;
+        line-height: 1.3;
       }
 
-      .feature-card p {
-        font-size: 0.92rem;
+      .pillar p {
+        font-size: 0.9rem;
         color: var(--muted);
         line-height: 1.65;
       }
 
-      /* ── Analytics highlight ── */
-      .analytics { background: var(--ink); color: white; }
+      /* ─── Playback feature ─── */
+      .playback-section {
+        background: var(--dark);
+        padding: 88px 28px;
+        color: white;
+      }
 
-      .analytics .section-label { color: var(--accent); }
-      .analytics .section-heading { color: white; }
-      .analytics .section-sub { color: rgba(255,255,255,0.6); max-width: 540px; }
-
-      .analytics-layout {
+      .playback-inner {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 64px;
+        gap: 72px;
         align-items: center;
-        margin-top: 56px;
       }
 
       @media (max-width: 720px) {
-        .analytics-layout { grid-template-columns: 1fr; gap: 40px; }
+        .playback-inner { grid-template-columns: 1fr; gap: 48px; }
       }
 
-      .analytics-stats {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-      }
-
-      .stat-card {
-        background: rgba(255,255,255,0.07);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: var(--radius-lg);
-        padding: 24px 20px;
-      }
-
-      .stat-label {
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: rgba(255,255,255,0.5);
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        margin-bottom: 8px;
-      }
-
-      .stat-value {
-        font-size: 1.1rem;
+      .playback-label {
+        font-size: 0.72rem;
         font-weight: 700;
-        color: white;
-        line-height: 1.3;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 16px;
       }
 
-      .stat-value.accent { color: var(--accent); }
-      .stat-value.sage { color: #5ecfb1; }
+      .playback-section h2 {
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+        color: white;
+        margin-bottom: 20px;
+      }
 
-      .analytics-points { list-style: none; }
+      .playback-section h2 em {
+        font-style: normal;
+        color: var(--accent);
+      }
 
-      .analytics-points li {
+      .playback-section p {
+        font-size: 1rem;
+        color: rgba(255,255,255,0.55);
+        line-height: 1.7;
+        margin-bottom: 32px;
+      }
+
+      .playback-points {
+        list-style: none;
         display: flex;
+        flex-direction: column;
         gap: 14px;
-        align-items: flex-start;
-        padding: 16px 0;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        font-size: 0.95rem;
-        color: rgba(255,255,255,0.8);
+      }
+
+      .playback-points li {
+        display: flex;
+        gap: 12px;
+        font-size: 0.92rem;
+        color: rgba(255,255,255,0.75);
         line-height: 1.5;
       }
 
-      .analytics-points li:last-child { border-bottom: none; }
-
-      .analytics-points li::before {
-        content: "→";
-        color: var(--accent);
-        font-weight: 700;
+      .playback-points li::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        margin-top: 7px;
         flex-shrink: 0;
-        margin-top: 2px;
       }
 
-      /* ── Integrity ── */
-      .integrity-inner {
-        background: linear-gradient(135deg, var(--accent-soft) 0%, white 100%);
-        border-radius: var(--radius-xl);
-        padding: 64px;
+      /* playback mock UI */
+      .playback-mock {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 18px;
+        padding: 28px 24px;
+        font-size: 0.85rem;
+      }
+
+      .mock-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .mock-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .mock-text {
+        font-family: Georgia, serif;
+        font-size: 0.88rem;
+        color: rgba(255,255,255,0.7);
+        line-height: 1.7;
+        position: relative;
+      }
+
+      .mock-cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: var(--accent);
+        vertical-align: text-bottom;
+        animation: blink 1s step-end infinite;
+        margin-left: 1px;
+      }
+
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+
+      .mock-footer {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.35);
+      }
+
+      .mock-speed {
+        background: rgba(95, 143, 255, 0.15);
+        color: var(--accent);
+        padding: 3px 10px;
+        border-radius: 100px;
+        font-size: 0.72rem;
+        font-weight: 600;
+      }
+
+      /* ─── CTA ─── */
+      .cta-section {
+        padding: 88px 28px;
         text-align: center;
-        border: 1px solid var(--line);
+        background: var(--surface);
       }
 
-      @media (max-width: 600px) {
-        .integrity-inner { padding: 40px 24px; }
-      }
-
-      .integrity-inner blockquote {
-        font-size: clamp(1.2rem, 3vw, 1.6rem);
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        line-height: 1.4;
+      .cta-section h2 {
+        font-size: clamp(1.8rem, 4vw, 2.6rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
         color: var(--ink);
-        max-width: 680px;
-        margin: 0 auto 24px;
+        margin-bottom: 16px;
       }
 
-      .integrity-inner blockquote em {
-        font-style: normal;
-        color: var(--accent-deep);
-      }
-
-      .integrity-inner p {
+      .cta-section p {
         font-size: 1rem;
         color: var(--muted);
-        max-width: 520px;
-        margin: 0 auto;
-        line-height: 1.7;
+        margin-bottom: 40px;
       }
 
-      /* ── CTA ── */
-      .cta { text-align: center; background: white; }
-
-      .cta .section-heading { margin-bottom: 16px; }
-      .cta .section-sub { margin: 0 auto 40px; }
-      .cta-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-
-      /* ── Footer ── */
+      /* ─── Footer ─── */
       footer {
         border-top: 1px solid var(--line);
-        padding: 32px 40px;
+        padding: 28px;
+        max-width: 1080px;
+        margin: 0 auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        max-width: 1100px;
-        margin: 0 auto;
         flex-wrap: wrap;
         gap: 12px;
       }
 
-      footer .nav-logo { font-size: 1rem; }
-
       footer p {
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         color: var(--muted);
       }
 
       footer a {
+        font-size: 0.82rem;
         color: var(--muted);
-        text-decoration: none;
-        font-size: 0.85rem;
       }
 
       footer a:hover { color: var(--ink); }
@@ -413,148 +467,134 @@
   <body>
 
     <!-- Nav -->
-    <nav>
-      <a href="/" class="nav-logo">praxis<span>.</span></a>
-      <div class="nav-actions">
-        <a href="/index.html" class="btn btn-ghost">Sign in</a>
-        <a href="/index.html" class="btn btn-primary">Get started</a>
-      </div>
-    </nav>
+    <header>
+      <nav class="nav-bar">
+        <a href="/" class="nav-logo">
+          <img src="favicon-64.png" alt="praxis logo" />
+          praxis
+        </a>
+        <div class="nav-actions">
+          <a href="/index.html" class="btn btn-ghost">Sign in</a>
+          <a href="/index.html" class="btn btn-primary">Get started</a>
+        </div>
+      </nav>
+    </header>
 
     <!-- Hero -->
     <div class="hero">
-      <span class="hero-eyebrow">For English language teachers</span>
-      <h1>Writing that <em>shows its work.</em></h1>
-      <p>Praxis guides students through every stage of the writing process — and gives teachers the analytics to see exactly how it happened.</p>
-      <div class="hero-cta">
+      <span class="hero-tag">For English language teachers</span>
+      <h1>See how your students <em>actually write.</em></h1>
+      <p class="hero-sub">Praxis gives students a structured writing process — and gives you the tools to see exactly how they used it.</p>
+      <div class="hero-actions">
         <a href="/index.html" class="btn btn-primary btn-lg">Get started free</a>
-        <a href="#how-it-works" class="btn btn-ghost btn-lg">See how it works</a>
+        <a href="#how-it-works" class="btn btn-ghost btn-lg">How it works</a>
       </div>
     </div>
 
-    <!-- Workflow -->
-    <section class="workflow" id="how-it-works">
-      <div class="container">
-        <div class="workflow-header">
-          <div class="section-label">The student experience</div>
-          <h2 class="section-heading">A guided path from idea to submission</h2>
-          <p class="section-sub">Every assignment follows the same structured flow — so students build good habits, and teachers always know where each student is.</p>
-        </div>
+    <!-- Steps -->
+    <section class="steps-section" id="how-it-works">
+      <div class="wrap">
+        <h2 class="section-heading">A path every student follows.</h2>
+        <p class="section-sub">The same structured flow on every assignment — so students build good habits, and you always know where they are.</p>
         <div class="steps">
           <div class="step">
-            <span class="step-icon">💡</span>
-            <div class="step-number">Step 1</div>
+            <div class="step-dot">1</div>
             <h3>Get ideas</h3>
-            <p>An AI writing coach helps students plan and build their outline — asking questions rather than writing for them.</p>
+            <p>An AI coach helps students plan and build their outline — by asking questions, not writing for them.</p>
           </div>
           <div class="step">
-            <span class="step-icon">✍️</span>
-            <div class="step-number">Step 2</div>
+            <div class="step-dot">2</div>
             <h3>Write the draft</h3>
-            <p>Students write their draft with a live word count and optional AI feedback, limited to a teacher-set number of requests.</p>
+            <p>Students write with a live word count. Optional AI feedback is available — up to a limit you set.</p>
           </div>
           <div class="step">
-            <span class="step-icon">🔍</span>
-            <div class="step-number">Step 3</div>
-            <h3>Review and finalise</h3>
-            <p>Students revise their draft into a final version. The coach is locked — the thinking has to show in the writing.</p>
+            <div class="step-dot">3</div>
+            <h3>Revise and finalise</h3>
+            <p>Students revise their draft into a final version. The coach is locked — the thinking shows in the writing.</p>
           </div>
           <div class="step">
-            <span class="step-icon">✅</span>
-            <div class="step-number">Step 4</div>
+            <div class="step-dot">4</div>
             <h3>Submit and reflect</h3>
-            <p>Before submitting, students self-assess against the rubric. Their ratings sit alongside the teacher's — honestly.</p>
+            <p>Before submitting, students rate themselves against the rubric. You see their ratings alongside yours.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Features -->
-    <section>
-      <div class="container">
-        <div class="section-label">For teachers</div>
-        <h2 class="section-heading">Everything you need,<br>nothing you don't.</h2>
-        <p class="section-sub">Praxis handles the structure so you can focus on the feedback that matters.</p>
-        <div class="features-grid">
-          <div class="feature-card">
-            <div class="feature-icon">⚡</div>
-            <h3>Create assignments in seconds</h3>
-            <p>Describe the task in plain English. Praxis generates polished student-facing instructions and a full rubric — or you can upload your own and let AI adapt it.</p>
+    <!-- Pillars -->
+    <section class="pillars-section">
+      <div class="wrap">
+        <h2 class="section-heading">Built for how teachers actually work.</h2>
+        <p class="section-sub">Less admin, more insight.</p>
+        <div class="pillars">
+          <div class="pillar">
+            <div class="pillar-num">Assignments</div>
+            <h3>Write the brief.<br>Praxis does the rest.</h3>
+            <p>Describe the task in plain English. Praxis generates polished student instructions and a full rubric — or upload your own for AI to adapt.</p>
           </div>
-          <div class="feature-card">
-            <div class="feature-icon sage">📊</div>
-            <h3>CEFR-aware writing analytics</h3>
-            <p>Keystroke metrics calibrated to A0–C2 language levels. See typing rhythm, thinking pauses, local and substantive revisions — grounded in L2 writing research.</p>
+          <div class="pillar">
+            <div class="pillar-num">Insight</div>
+            <h3>Know who wrote<br>what you're reading.</h3>
+            <p>Watch any submission replay letter by letter. Spot pasted content instantly. See whether effort went into drafting, revising, or nowhere at all.</p>
           </div>
-          <div class="feature-card">
-            <div class="feature-icon amber">🖊️</div>
-            <h3>Targeted feedback tools</h3>
-            <p>Highlight and annotate with error codes, score rubric criteria, and see exactly how students responded to AI feedback before they submitted.</p>
+          <div class="pillar">
+            <div class="pillar-num">Feedback</div>
+            <h3>Feedback that goes<br>where it matters.</h3>
+            <p>Highlight and annotate directly in the text, score rubric criteria, and see how students responded to AI feedback before they submitted.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Analytics highlight -->
-    <section class="analytics">
-      <div class="container">
-        <div class="section-label">Writing process analytics</div>
-        <h2 class="section-heading">See the writing.<br>Not just the result.</h2>
-        <p class="section-sub">Praxis captures every keystroke — so you can tell a student who wrote carefully from one who didn't.</p>
-        <div class="analytics-layout">
-          <div class="analytics-stats">
-            <div class="stat-card">
-              <div class="stat-label">Typing rhythm</div>
-              <div class="stat-value accent">Mean burst length</div>
+    <!-- Playback feature -->
+    <section class="playback-section">
+      <div class="wrap">
+        <div class="playback-inner">
+          <div>
+            <div class="playback-label">Submission playback</div>
+            <h2>Watch it being written —<br><em>every keystroke.</em></h2>
+            <p>Every submission records exactly how it was written. You can replay it at any speed and see the whole story: the hesitations, the corrections, the moments it changed direction.</p>
+            <ul class="playback-points">
+              <li>Replay any submission letter by letter, at any speed</li>
+              <li>Pasted content is flagged the moment it appears</li>
+              <li>See how much was written, deleted, and revised</li>
+              <li>Results calibrated to your students' language level</li>
+            </ul>
+          </div>
+          <div class="playback-mock" aria-hidden="true">
+            <div class="mock-bar">
+              <div class="mock-dot" style="background:#ff5f57"></div>
+              <div class="mock-dot" style="background:#ffbd2e"></div>
+              <div class="mock-dot" style="background:#28ca42"></div>
+              <span style="margin-left:6px;font-size:0.72rem;color:rgba(255,255,255,0.3);">Rania M. — Draft</span>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Pauses</div>
-              <div class="stat-value">Thinking pauses per 100 words</div>
+            <div class="mock-text">
+              Climate change is one of the most pressing issues facing our generation. Scientists have warned for decades that rising temperatures will have serious consequences for ecosystems around the world<span class="mock-cursor"></span>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Revisions</div>
-              <div class="stat-value sage">Local + substantive</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Playback</div>
-              <div class="stat-value">Letter-by-letter reconstruction</div>
+            <div class="mock-footer">
+              <span>247 words &middot; 12 min</span>
+              <span class="mock-speed">1&times; speed</span>
             </div>
           </div>
-          <ul class="analytics-points">
-            <li>Keystroke-level playback lets you watch exactly how a student wrote — at any speed</li>
-            <li>Paste detection flags content that didn't originate in the editor</li>
-            <li>Fluency scoring produces clear bands: typical, review suggested, close review needed</li>
-            <li>Analytics are calibrated to the assignment's CEFR level, so expectations match proficiency</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- Integrity -->
-    <section>
-      <div class="container">
-        <div class="integrity-inner">
-          <blockquote>"In the age of AI, what students submit tells you less than <em>how they wrote it.</em>"</blockquote>
-          <p>Praxis captures the full writing process — so you can see the thinking behind the text, reward genuine effort, and have confident conversations about what you find.</p>
         </div>
       </div>
     </section>
 
     <!-- CTA -->
-    <section class="cta">
-      <div class="container">
-        <div class="section-label">Get started</div>
-        <h2 class="section-heading">Ready to see how your students write?</h2>
-        <p class="section-sub">Free to get started. No credit card required.</p>
-        <div class="cta-buttons">
-          <a href="/index.html" class="btn btn-primary btn-lg">Create your first assignment</a>
-        </div>
+    <section class="cta-section">
+      <div class="wrap">
+        <h2>Ready to see how your students write?</h2>
+        <p>Free to get started. No credit card required.</p>
+        <a href="/index.html" class="btn btn-primary btn-lg">Create your first assignment</a>
       </div>
     </section>
 
     <!-- Footer -->
     <footer>
-      <a href="/" class="nav-logo">praxis<span style="color: var(--accent-deep)">.</span></a>
+      <a href="/" class="nav-logo" style="font-size:1rem;font-weight:700;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px;">
+        <img src="favicon-64.png" alt="" width="22" height="22" style="border-radius:5px;" />
+        praxis
+      </a>
       <p>Built for English language teachers.</p>
       <a href="/index.html">Sign in</a>
     </footer>

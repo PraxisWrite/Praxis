@@ -84,7 +84,7 @@
 
       /* ─── Hero ─── */
       .hero {
-        padding: 72px 28px 60px;
+        padding: 56px 28px 28px;
         text-align: center;
         max-width: 740px;
         margin: 0 auto;
@@ -102,12 +102,12 @@
         margin-bottom: 22px;
       }
       h1 {
-        font-size: clamp(2.1rem, 4.4vw, 3rem);
+        font-size: clamp(1.95rem, 4vw, 2.7rem);
         font-weight: 800;
         letter-spacing: -0.035em;
-        line-height: 1.1;
+        line-height: 1.12;
         color: var(--ink);
-        margin-bottom: 18px;
+        margin-bottom: 16px;
       }
       h1 em { font-style: normal; color: var(--accent-deep); }
       .hero-sub {
@@ -120,7 +120,7 @@
       .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
       /* ─── Demo section shell ─── */
-      .demo-section { padding: 80px 28px; position: relative; }
+      .demo-section { padding: 64px 28px; position: relative; }
       .demo-section.light  { background: var(--surface); }
       .demo-section.tint   { background: var(--bg); }
       .demo-section.dark   { background: var(--dark); color: white; }
@@ -129,7 +129,7 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 56px;
-        align-items: center;
+        align-items: start;
         max-width: 1080px;
         margin: 0 auto;
       }
@@ -206,7 +206,7 @@
         background: #fafaf8;
         border-radius: 12px;
         padding: 16px;
-        min-height: 280px;
+        height: 280px;
         display: flex;
         flex-direction: column;
         gap: 10px;
@@ -371,7 +371,7 @@
       .pb-pin.in { transform: translateX(-50%) scale(1); }
 
       /* ─── DEMO 3: Rubric upload ─── */
-      .rub-phase { min-height: 200px; display: flex; flex-direction: column; }
+      .rub-phase { height: 260px; display: flex; flex-direction: column; overflow: hidden; }
 
       .rub-dropzone {
         border: 2px dashed var(--line);
@@ -787,7 +787,7 @@
 
       /* ─── CTA ─── */
       .cta-section {
-        padding: 80px 28px;
+        padding: 72px 28px;
         text-align: center;
         background: var(--accent-soft);
       }

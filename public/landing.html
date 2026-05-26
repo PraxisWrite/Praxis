@@ -845,6 +845,16 @@
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const sleep = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
 
+      function clear(el) {
+        while (el.firstChild) el.removeChild(el.firstChild);
+      }
+      function make(tag, className, text) {
+        const el = document.createElement(tag);
+        if (className) el.className = className;
+        if (text != null) el.textContent = text;
+        return el;
+      }
+
       function onVisible(el, fn) {
         if (!('IntersectionObserver' in window)) { fn(); return; }
         const io = new IntersectionObserver((entries) => {
@@ -865,23 +875,32 @@
         { role: 'assistant', text: "Nice — so your essay has a clear position with one specific concern. What's one piece of evidence you could use for the crowding point?" },
       ];
 
+      function buildTypingPlaceholder(role) {
+        if (role === 'assistant') {
+          const t = make('div', 'chat-typing');
+          for (let i = 0; i < 3; i++) t.appendChild(make('span'));
+          return t;
+        }
+        const b = make('div', 'chat-bubble', '…');
+        b.style.opacity = '0.4';
+        return b;
+      }
+
       async function runChat(host) {
         const win = host.querySelector('#chat-window');
         const loop = async () => {
           while (host._alive) {
-            win.innerHTML = '';
+            clear(win);
             for (const msg of chatScript) {
               if (!host._alive) return;
-              const typing = document.createElement('div');
-              typing.className = 'chat-msg ' + msg.role + ' in';
-              typing.innerHTML = msg.role === 'assistant'
-                ? '<div class="chat-typing"><span></span><span></span><span></span></div>'
-                : '<div class="chat-bubble" style="opacity:0.4">…</div>';
-              win.appendChild(typing);
+              const wrap = make('div', 'chat-msg ' + msg.role + ' in');
+              const placeholder = buildTypingPlaceholder(msg.role);
+              wrap.appendChild(placeholder);
+              win.appendChild(wrap);
               await sleep(900);
               if (!host._alive) return;
-              typing.querySelector('.chat-typing, .chat-bubble').outerHTML =
-                '<div class="chat-bubble">' + msg.text + '</div>';
+              const bubble = make('div', 'chat-bubble', msg.text);
+              placeholder.replaceWith(bubble);
               await sleep(1400);
             }
             await sleep(2800);
@@ -896,36 +915,40 @@
       const pbPre  = "Tourism has shaped modern Morocco in ways that are hard to ignore. ";
       const pbPaste = "In 2023, Morocco welcomed a record 14.5 million tourists, a 34 percent increase over the previous year, with Marrakech accounting for nearly a quarter of all arrivals.";
       const pbPost = " But walking through the medina now, it feels less like a city and more like a stage.";
+      // Fixed heights so the timeline is deterministic across replays.
+      const BAR_HEIGHTS = [42,58,46,62,40,55,48,52,44,60,50,68,46,40,54,42,52,48,60,46,56,50,58,44];
 
       async function runPlayback(host) {
-        const text   = host.querySelector('#pb-text');
+        const textEl = host.querySelector('#pb-text');
         const count  = host.querySelector('#pb-count');
         const status = host.querySelector('#pb-status');
         const barsEl = host.querySelector('#pb-bars');
-        const BARS = 24;
+        const BARS = BAR_HEIGHTS.length;
         const pasteIndex = 11;
 
         function buildBars() {
-          barsEl.innerHTML = '';
+          clear(barsEl);
           for (let i = 0; i < BARS; i++) {
-            const b = document.createElement('div');
-            b.className = 'pb-bar';
-            b.style.height = (28 + Math.round(Math.random() * 38)) + '%';
+            const b = make('div', 'pb-bar');
+            b.style.height = BAR_HEIGHTS[i] + '%';
             barsEl.appendChild(b);
           }
-          const pin = document.createElement('div');
-          pin.className = 'pb-pin';
+          const pin = make('div', 'pb-pin');
           pin.style.left = ((pasteIndex + 0.5) * (100 / BARS)) + '%';
           pin.id = 'pb-pin';
           barsEl.appendChild(pin);
         }
 
-        const cursor = '<span class="pb-cursor"></span>';
         function render(pre, paste, post) {
-          let html = pre;
-          if (paste) html += '<span class="paste-chunk">' + paste + '<span class="paste-label">PASTE</span></span>';
-          html += post + cursor;
-          text.innerHTML = html;
+          clear(textEl);
+          textEl.appendChild(document.createTextNode(pre));
+          if (paste) {
+            const chunk = make('span', 'paste-chunk', paste);
+            chunk.appendChild(make('span', 'paste-label', 'PASTE'));
+            textEl.appendChild(chunk);
+          }
+          textEl.appendChild(document.createTextNode(post));
+          textEl.appendChild(make('span', 'pb-cursor'));
         }
         function wordCount(s) {
           return (s.trim().match(/\S+/g) || []).length;
@@ -988,10 +1011,10 @@
 
       /* ── DEMO 3: rubric ── */
       const criteria = [
-        { name: 'Task response',     scores: [5, 4, 3, 2] },
-        { name: 'Coherence',          scores: [5, 4, 3, 2] },
-        { name: 'Vocabulary',         scores: [5, 4, 3, 2] },
-        { name: 'Grammar',            scores: [5, 4, 3, 2] },
+        { name: 'Task response', scores: [5, 4, 3, 2] },
+        { name: 'Coherence',     scores: [5, 4, 3, 2] },
+        { name: 'Vocabulary',    scores: [5, 4, 3, 2] },
+        { name: 'Grammar',       scores: [5, 4, 3, 2] },
       ];
       const bandLabels = ['Excellent', 'Good', 'Satisfactory', 'Needs work'];
       const bandClass  = ['excellent', 'good', 'satisfactory', 'needswork'];
@@ -1002,19 +1025,22 @@
         const total = host.querySelector('#rubric-total');
 
         function build() {
-          grid.innerHTML = '';
-          const head = document.createElement('div');
-          head.className = 'rubric-row head';
-          head.innerHTML = '<div class="rubric-criterion">Criterion</div>'
-            + bandLabels.map((b) => '<div class="rubric-cell">' + b + '</div>').join('');
+          clear(grid);
+          const head = make('div', 'rubric-row head');
+          head.appendChild(make('div', 'rubric-criterion', 'Criterion'));
+          bandLabels.forEach((label) => {
+            head.appendChild(make('div', 'rubric-cell', label));
+          });
           grid.appendChild(head);
           criteria.forEach((c) => {
-            const row = document.createElement('div');
-            row.className = 'rubric-row';
-            row.innerHTML = '<div class="rubric-criterion">' + c.name + '</div>'
-              + c.scores.map((s, i) =>
-                  '<div class="rubric-cell" data-band="' + bandClass[i] + '" data-score="' + s + '">' + s + '</div>'
-                ).join('');
+            const row = make('div', 'rubric-row');
+            row.appendChild(make('div', 'rubric-criterion', c.name));
+            c.scores.forEach((s, i) => {
+              const cell = make('div', 'rubric-cell', String(s));
+              cell.dataset.band = bandClass[i];
+              cell.dataset.score = String(s);
+              row.appendChild(cell);
+            });
             grid.appendChild(row);
           });
         }
@@ -1059,20 +1085,12 @@
         const mock = host.querySelector('#annot-mock');
 
         function build() {
-          mock.innerHTML = '';
+          clear(mock);
           annotPieces.forEach((piece) => {
             if (piece.mark) {
-              const span = document.createElement('span');
-              span.className = 'annot' + (piece.mark.paste ? ' paste' : '');
-              span.textContent = piece.text;
-              const code = document.createElement('span');
-              code.className = 'annot-code';
-              code.textContent = piece.mark.code;
-              span.appendChild(code);
-              const tip = document.createElement('span');
-              tip.className = 'annot-tip';
-              tip.textContent = piece.mark.tip;
-              span.appendChild(tip);
+              const span = make('span', 'annot' + (piece.mark.paste ? ' paste' : ''), piece.text);
+              span.appendChild(make('span', 'annot-code', piece.mark.code));
+              span.appendChild(make('span', 'annot-tip', piece.mark.tip));
               mock.appendChild(span);
             } else {
               mock.appendChild(document.createTextNode(piece.text));
@@ -1091,7 +1109,6 @@
               await sleep(700);
             }
             await sleep(1000);
-            // Cycle a tooltip flash
             for (const m of marks) {
               if (!host._alive) return;
               m.classList.add('show-tip');

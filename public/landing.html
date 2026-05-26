@@ -1307,6 +1307,16 @@
       ];
       const aiCommentFull = "Clear argument with good structure. Body paragraph 2 would benefit from more specific evidence. Grammar mostly accurate with some recurring errors in subject–verb agreement.";
 
+      function fillScoreRow(row, runningTotal) {
+        row.classList.add('in');
+        const fill = row.querySelector('.ai-score-fill');
+        if (fill) fill.style.width = fill.dataset.pct + '%';
+        const val = row.querySelector('.ai-score-val');
+        if (!val) return runningTotal;
+        const parts = val.textContent.split('/');
+        return runningTotal + Number.parseInt(parts[0], 10);
+      }
+
       async function runAI(host) {
         const feedList  = host.querySelector('#ai-feedback-list');
         const scoresEl  = host.querySelector('#ai-scores');
@@ -1346,15 +1356,6 @@
             item.classList.add('in');
             await sleep(550);
           }
-        }
-        function fillScoreRow(row, runningTotal) {
-          row.classList.add('in');
-          const fill = row.querySelector('.ai-score-fill');
-          if (fill) fill.style.width = fill.dataset.pct + '%';
-          const val = row.querySelector('.ai-score-val');
-          if (!val) return runningTotal;
-          const parts = val.textContent.split('/');
-          return runningTotal + Number.parseInt(parts[0], 10);
         }
         async function playScores() {
           await sleep(400);

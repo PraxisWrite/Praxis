@@ -44,8 +44,15 @@
       .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
 
       /* ─── Nav ─── */
+      header {
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        z-index: 100;
+        border-bottom: 1px solid var(--line);
+      }
       .nav-bar {
-        padding: 20px 28px;
+        padding: 16px 28px;
         max-width: 1080px;
         margin: 0 auto;
         display: flex;
@@ -56,12 +63,12 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        font-size: 1.15rem;
+        font-size: 1.35rem;
         font-weight: 700;
         letter-spacing: -0.03em;
         color: var(--ink);
       }
-      .nav-logo img { width: 30px; height: 30px; border-radius: 7px; }
+      .nav-logo img { width: 38px; height: 38px; border-radius: 9px; }
       .logo-accent { color: var(--accent-deep); }
       .nav-actions { display: flex; gap: 10px; align-items: center; }
 
@@ -206,11 +213,10 @@
         background: #fafaf8;
         border-radius: 12px;
         padding: 16px;
-        height: 280px;
+        min-height: 280px;
         display: flex;
         flex-direction: column;
         gap: 10px;
-        overflow: hidden;
       }
       .chat-msg {
         display: flex;
@@ -371,7 +377,7 @@
       .pb-pin.in { transform: translateX(-50%) scale(1); }
 
       /* ─── DEMO 3: Rubric upload ─── */
-      .rub-phase { height: 260px; display: flex; flex-direction: column; overflow: hidden; }
+      .rub-phase { min-height: 220px; display: flex; flex-direction: column; }
 
       .rub-dropzone {
         border: 2px dashed var(--line);
@@ -1013,8 +1019,8 @@
     </section>
 
     <footer>
-      <a href="/" class="nav-logo" style="font-size:1rem;font-weight:700;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px;">
-        <img src="favicon-64.png" alt="" width="22" height="22" style="border-radius:5px;" />
+      <a href="/" class="nav-logo" style="font-size:1.15rem;font-weight:700;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px;">
+        <img src="favicon-64.png" alt="" width="30" height="30" style="border-radius:7px;" />
         <span>pr<span class="logo-accent">a</span>x<span class="logo-accent">i</span>s</span>
       </a>
       <p>Built for English language teachers.</p>

@@ -1248,33 +1248,42 @@
           toolbar.querySelectorAll('.annot-btn').forEach((b) => b.classList.remove('active'));
         }
 
+        async function applyMark(seg) {
+          const span = mock.querySelector('#' + seg.id);
+          if (!span) return;
+          span.classList.add('selecting');
+          activateBtn(seg.mark.code);
+          await sleep(900);
+          if (!host._alive) return;
+          span.classList.remove('selecting');
+          span.classList.add('in');
+          await sleep(500);
+          clearBtn();
+          await sleep(600);
+        }
+        async function flashTip(seg) {
+          const span = mock.querySelector('#' + seg.id);
+          if (span) span.classList.add('show-tip');
+          await sleep(1200);
+          if (span) span.classList.remove('show-tip');
+          await sleep(200);
+        }
+        async function runOnce(action) {
+          for (const seg of markedSegments) {
+            if (!host._alive) return;
+            await action(seg);
+          }
+        }
+
         const loop = async () => {
           while (host._alive) {
             buildPara();
             await sleep(600);
-            for (const seg of markedSegments) {
-              if (!host._alive) return;
-              const span = mock.querySelector('#' + seg.id);
-              if (!span) continue;
-              span.classList.add('selecting');
-              activateBtn(seg.mark.code);
-              await sleep(900);
-              if (!host._alive) return;
-              span.classList.remove('selecting');
-              span.classList.add('in');
-              await sleep(500);
-              clearBtn();
-              await sleep(600);
-            }
+            await runOnce(applyMark);
+            if (!host._alive) return;
             await sleep(800);
-            for (const seg of markedSegments) {
-              if (!host._alive) return;
-              const span = mock.querySelector('#' + seg.id);
-              if (span) span.classList.add('show-tip');
-              await sleep(1200);
-              if (span) span.classList.remove('show-tip');
-              await sleep(200);
-            }
+            await runOnce(flashTip);
+            if (!host._alive) return;
             await sleep(1400);
           }
         };
@@ -1329,47 +1338,62 @@
           });
         }
 
+        async function playFeedback() {
+          await sleep(500);
+          const items = feedList.querySelectorAll('.ai-feedback-item');
+          for (const item of items) {
+            if (!host._alive) return;
+            item.classList.add('in');
+            await sleep(550);
+          }
+        }
+        function fillScoreRow(row, runningTotal) {
+          row.classList.add('in');
+          const fill = row.querySelector('.ai-score-fill');
+          if (fill) fill.style.width = fill.dataset.pct + '%';
+          const val = row.querySelector('.ai-score-val');
+          if (!val) return runningTotal;
+          const parts = val.textContent.split('/');
+          return runningTotal + Number.parseInt(parts[0], 10);
+        }
+        async function playScores() {
+          await sleep(400);
+          const rows = scoresEl.querySelectorAll('.ai-score-row');
+          let total = 0;
+          for (const row of rows) {
+            if (!host._alive) return;
+            total = fillScoreRow(row, total);
+            totalEl.textContent = total + ' / 20';
+            await sleep(500);
+          }
+        }
+        async function playComment() {
+          await sleep(600);
+          clear(commentEl);
+          let typed = '';
+          for (const ch of aiCommentFull) {
+            if (!host._alive) return;
+            typed += ch;
+            commentEl.textContent = typed;
+            await sleep(22);
+          }
+        }
+        function resetCard() {
+          buildFeedback();
+          buildScores();
+          totalEl.textContent = '– / 20';
+          clear(commentEl);
+        }
+
         const loop = async () => {
           while (host._alive) {
-            buildFeedback();
-            buildScores();
-            totalEl.textContent = '– / 20';
-            clear(commentEl);
-
-            await sleep(500);
-            const feedItems = feedList.querySelectorAll('.ai-feedback-item');
-            for (const item of feedItems) {
-              if (!host._alive) return;
-              item.classList.add('in');
-              await sleep(550);
-            }
-            await sleep(400);
-
-            const scoreRows = scoresEl.querySelectorAll('.ai-score-row');
-            let total = 0;
-            for (const row of scoreRows) {
-              if (!host._alive) return;
-              row.classList.add('in');
-              const fill = row.querySelector('.ai-score-fill');
-              if (fill) fill.style.width = fill.dataset.pct + '%';
-              const val = row.querySelector('.ai-score-val');
-              if (val) {
-                const parts = val.textContent.split('/');
-                total += Number.parseInt(parts[0], 10);
-              }
-              totalEl.textContent = total + ' / 20';
-              await sleep(500);
-            }
-            await sleep(600);
-
-            clear(commentEl);
-            let typed = '';
-            for (const ch of aiCommentFull) {
-              if (!host._alive) return;
-              typed += ch;
-              commentEl.textContent = typed;
-              await sleep(22);
-            }
+            resetCard();
+            await playFeedback();
+            if (!host._alive) return;
+            await playScores();
+            if (!host._alive) return;
+            await playComment();
+            if (!host._alive) return;
             await sleep(3500);
           }
         };

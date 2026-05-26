@@ -41,9 +41,14 @@
   function bindAuthScreenEvents(joinClassId = null) {
     const { appEl, authUiState } = window.AppState;
     authUiState.signupRole = "student";
-    const initialTab = globalThis.location.hash === "#signup" ? "signup" : "signin";
-    if (initialTab === "signup") {
-      globalThis.history.replaceState(null, "", globalThis.location.pathname + globalThis.location.search);
+    const search = new URLSearchParams(globalThis.location.search);
+    const wantsSignup = search.get("signup") === "1" || globalThis.location.hash === "#signup";
+    const initialTab = wantsSignup ? "signup" : "signin";
+    if (wantsSignup) {
+      search.delete("signup");
+      const cleanSearch = search.toString();
+      const cleanUrl = globalThis.location.pathname + (cleanSearch ? "?" + cleanSearch : "");
+      globalThis.history.replaceState(null, "", cleanUrl);
     }
     setAuthTab(initialTab);
     setAuthSignupRole("student");

@@ -411,13 +411,13 @@
         border-radius: 100px;
         font-weight: 600;
         font-size: 0.7rem;
-        background: rgba(52, 165, 135, 0.18);
-        color: #6fd5b3;
+        background: #1f3a32;
+        color: #8be4be;
         transition: background 0.3s, color 0.3s;
       }
       .pb-tl-status.alert {
-        background: rgba(214, 103, 130, 0.18);
-        color: var(--pin);
+        background: #3a1f28;
+        color: #ec9bb1;
       }
       .pb-tl-bars {
         display: flex;
@@ -556,9 +556,9 @@
         position: relative;
       }
       .dark .annot-mock {
-        background: rgba(255,255,255,0.04);
-        border-color: rgba(255,255,255,0.1);
-        color: rgba(255,255,255,0.85);
+        background: #1c2538;
+        border-color: #2c374d;
+        color: #e8eaf0;
       }
       .annot {
         background: var(--annot);
@@ -627,9 +627,9 @@
         color: var(--muted);
       }
       .dark .annot-key-item {
-        background: rgba(255,255,255,0.05);
-        border-color: rgba(255,255,255,0.1);
-        color: rgba(255,255,255,0.6);
+        background: #1c2538;
+        border-color: #2c374d;
+        color: #9aa3b8;
       }
       .annot-key-item strong {
         color: var(--accent-deep);
@@ -842,11 +842,11 @@
     </footer>
 
     <script>
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduced = globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const sleep = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
 
       function clear(el) {
-        while (el.firstChild) el.removeChild(el.firstChild);
+        while (el.firstChild) el.firstChild.remove();
       }
       function make(tag, className, text) {
         const el = document.createElement(tag);
@@ -854,9 +854,12 @@
         if (text != null) el.textContent = text;
         return el;
       }
+      function wordCount(s) {
+        return (s.trim().match(/\S+/g) || []).length;
+      }
 
       function onVisible(el, fn) {
-        if (!('IntersectionObserver' in window)) { fn(); return; }
+        if (!('IntersectionObserver' in globalThis)) { fn(); return; }
         const io = new IntersectionObserver((entries) => {
           entries.forEach((e) => {
             if (e.isIntersecting) fn(e.target);
@@ -950,57 +953,63 @@
           textEl.appendChild(document.createTextNode(post));
           textEl.appendChild(make('span', 'pb-cursor'));
         }
-        function wordCount(s) {
-          return (s.trim().match(/\S+/g) || []).length;
-        }
         function litBars(n) {
           const bars = barsEl.querySelectorAll('.pb-bar');
           bars.forEach((b, i) => b.classList.toggle('lit', i < n));
         }
+        async function typeOut(str, onProgress) {
+          let acc = '';
+          for (const ch of str) {
+            if (!host._alive) return null;
+            acc += ch;
+            onProgress(acc);
+            await sleep(28);
+          }
+          return acc;
+        }
+        function applyPasteState() {
+          render(pbPre, pbPaste, '');
+          count.textContent = wordCount(pbPre + pbPaste) + ' words';
+          const pin = host.querySelector('#pb-pin');
+          if (pin) pin.classList.add('in');
+          status.classList.add('alert');
+          status.textContent = 'Review suggested';
+          const bars = barsEl.querySelectorAll('.pb-bar');
+          const pasteBar = bars[pasteIndex];
+          if (pasteBar) {
+            pasteBar.style.background = 'var(--pin)';
+            pasteBar.style.height = '90%';
+            pasteBar.classList.add('lit');
+          }
+        }
+        function resetPlayback() {
+          buildBars();
+          status.classList.remove('alert');
+          status.textContent = 'Typical process';
+          count.textContent = '0 words';
+        }
 
         const loop = async () => {
           while (host._alive) {
-            buildBars();
-            status.classList.remove('alert');
-            status.textContent = 'Typical process';
-            count.textContent = '0 words';
-
-            let typed = '';
-            for (const ch of pbPre) {
-              if (!host._alive) return;
-              typed += ch;
+            resetPlayback();
+            const pre = await typeOut(pbPre, (typed) => {
               render(typed, '', '');
               count.textContent = wordCount(typed) + ' words';
               litBars(Math.round((typed.length / pbPre.length) * pasteIndex));
-              await sleep(28);
-            }
-            if (!host._alive) return;
+            });
+            if (pre === null) return;
 
             await sleep(500);
-            render(pbPre, pbPaste, '');
-            count.textContent = wordCount(pbPre + pbPaste) + ' words';
-            const pin = host.querySelector('#pb-pin');
-            if (pin) pin.classList.add('in');
-            status.classList.add('alert');
-            status.textContent = 'Review suggested';
-            const bars = barsEl.querySelectorAll('.pb-bar');
-            if (bars[pasteIndex]) {
-              bars[pasteIndex].style.background = 'var(--pin)';
-              bars[pasteIndex].style.height = '90%';
-              bars[pasteIndex].classList.add('lit');
-            }
+            applyPasteState();
             await sleep(1100);
 
-            let post = '';
-            for (const ch of pbPost) {
-              if (!host._alive) return;
-              post += ch;
-              render(pbPre, pbPaste, post);
-              count.textContent = wordCount(pbPre + pbPaste + post) + ' words';
-              const progress = pasteIndex + 1 + Math.round((post.length / pbPost.length) * (BARS - pasteIndex - 1));
+            const post = await typeOut(pbPost, (acc) => {
+              render(pbPre, pbPaste, acc);
+              count.textContent = wordCount(pbPre + pbPaste + acc) + ' words';
+              const progress = pasteIndex + 1 + Math.round((acc.length / pbPost.length) * (BARS - pasteIndex - 1));
               litBars(progress);
-              await sleep(28);
-            }
+            });
+            if (post === null) return;
             await sleep(3200);
           }
         };
@@ -1057,7 +1066,7 @@
               const pick = sequence[i];
               const cells = rows[i].querySelectorAll('.rubric-cell');
               cells[pick].classList.add('lit', bandClass[pick]);
-              sum += parseInt(cells[pick].dataset.score, 10);
+              sum += Number.parseInt(cells[pick].dataset.score, 10);
               total.textContent = sum + ' / 20';
             }
             await sleep(3000);

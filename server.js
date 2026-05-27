@@ -45,8 +45,7 @@ app.use((req, res, next) => {
   }
   return next();
 });
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'landing.html')));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { index: 'landing.html' }));
 app.use(express.json({ limit: '10mb' }))
 
 const SUPABASE_SERVER_KEY =

@@ -799,7 +799,50 @@
         font-size: 0.76rem;
         color: var(--muted);
         line-height: 1.45;
+        margin-bottom: 10px;
       }
+      .proc-metric-bar {
+        position: relative;
+        height: 4px;
+        background: var(--line);
+        border-radius: 99px;
+        margin: 6px 0 6px;
+      }
+      .proc-metric-dot {
+        position: absolute;
+        top: 50%;
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: var(--accent-deep);
+        border: 2px solid var(--surface);
+        box-shadow: 0 0 0 2px var(--accent-deep);
+        transform: translate(-50%, -50%);
+      }
+      .proc-metric--below .proc-metric-dot,
+      .proc-metric--above .proc-metric-dot {
+        background: var(--pin);
+        box-shadow: 0 0 0 2px var(--pin);
+      }
+      .proc-metric-scale {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.66rem;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .proc-metric-status {
+        font-weight: 700;
+        font-size: 0.66rem;
+        letter-spacing: 0.02em;
+        padding: 2px 8px;
+        border-radius: 100px;
+      }
+      .proc-metric--within .proc-metric-status { background: var(--sage-soft); color: #1f6b54; }
+      .proc-metric--below .proc-metric-status,
+      .proc-metric--above .proc-metric-status { background: rgba(214,103,130,0.14); color: #a73a59; }
       .proc-chips {
         display: flex;
         gap: 6px;
@@ -1268,6 +1311,13 @@
         io.observe(el);
       }
 
+      function startRun(host) {
+        if (host._demoStop) host._demoStop();
+        const myGen = (host._gen = (host._gen || 0) + 1);
+        host._demoStop = () => { host._gen += 1; };
+        return () => host._gen === myGen;
+      }
+
       /* ── DEMO 1: chatbot ── */
       const chatScript = [
         { role: 'assistant', text: "Your topic is the effects of tourism on Morocco. Do you think the effects are mostly positive, mostly negative, or mixed?" },
@@ -1292,24 +1342,23 @@
       async function runChat(host) {
         const win = host.querySelector('#chat-window');
         const loop = async () => {
-          while (host._alive) {
+          while (alive()) {
             clear(win);
             for (const msg of chatScript) {
-              if (!host._alive) return;
+              if (!alive()) return;
               const wrap = make('div', 'chat-msg ' + msg.role + ' in');
               const ph = makeChatPlaceholder(msg.role);
               wrap.appendChild(ph);
               win.appendChild(wrap);
               await sleep(850);
-              if (!host._alive) return;
+              if (!alive()) return;
               ph.replaceWith(make('div', 'chat-bubble', msg.text));
               await sleep(1300);
             }
             await sleep(6000);
           }
         };
-        host._alive = true;
-        host._demoStop = () => { host._alive = false; };
+        const alive = startRun(host);
         loop();
       }
 
@@ -1356,7 +1405,7 @@
         async function typeOut(str, onChar) {
           let acc = '';
           for (const ch of str) {
-            if (!host._alive) return null;
+            if (!alive()) return null;
             acc += ch;
             onChar(acc);
             await sleep(26);
@@ -1379,7 +1428,7 @@
         }
 
         const loop = async () => {
-          while (host._alive) {
+          while (alive()) {
             buildBars();
             status.classList.remove('alert');
             status.textContent = 'Typical process';
@@ -1403,8 +1452,7 @@
             await sleep(6500);
           }
         };
-        host._alive = true;
-        host._demoStop = () => { host._alive = false; };
+        const alive = startRun(host);
         loop();
       }
 
@@ -1520,7 +1568,7 @@
 
           await sleep(200);
           for (const row of rows) {
-            if (!host._alive) return;
+            if (!alive()) return;
             row.querySelectorAll('.rubric-cell').forEach((c) => c.classList.add('show'));
             await sleep(120);
           }
@@ -1528,7 +1576,7 @@
 
           let sum = 0;
           for (let i = 0; i < rows.length; i++) {
-            if (!host._alive) return;
+            if (!alive()) return;
             await sleep(650);
             const cells = rows[i].querySelectorAll('.rubric-cell');
             const pick = rubricCriteria[i].pick;
@@ -1546,16 +1594,15 @@
         }
 
         const loop = async () => {
-          while (host._alive) {
+          while (alive()) {
             await phaseUpload();
-            if (!host._alive) return;
+            if (!alive()) return;
             await phaseParse();
-            if (!host._alive) return;
+            if (!alive()) return;
             await phaseGrade();
           }
         };
-        host._alive = true;
-        host._demoStop = () => { host._alive = false; };
+        const alive = startRun(host);
         loop();
       }
 
@@ -1610,7 +1657,7 @@
           span.classList.add('selecting');
           activateBtn(seg.mark.code);
           await sleep(900);
-          if (!host._alive) return;
+          if (!alive()) return;
           span.classList.remove('selecting');
           span.classList.add('in');
           await sleep(500);
@@ -1626,7 +1673,7 @@
         }
         async function runOnce(action) {
           for (const seg of markedSegments) {
-            if (!host._alive) return;
+            if (!alive()) return;
             await action(seg);
           }
         }
@@ -1641,7 +1688,7 @@
           const note = "You have some good ideas here, Rania. Watch your sentence boundaries — sentences 1 and 2 need a full stop or a linking word. Also check ‘double-edged sword’ before your next draft.";
           let typed = '';
           for (const ch of note) {
-            if (!host._alive) return;
+            if (!alive()) return;
             typed += ch;
             textEl.textContent = typed;
             await sleep(18);
@@ -1650,22 +1697,21 @@
 
         const loop = async () => {
           const noteEl = host.querySelector('#annot-teacher-note');
-          while (host._alive) {
+          while (alive()) {
             buildPara();
             if (noteEl) { noteEl.classList.remove('in'); clear(noteEl); }
             await sleep(600);
             await runOnce(applyMark);
-            if (!host._alive) return;
+            if (!alive()) return;
             if (noteEl) await typeTeacherNote(noteEl);
-            if (!host._alive) return;
+            if (!alive()) return;
             await sleep(800);
             await runOnce(flashTip);
-            if (!host._alive) return;
+            if (!alive()) return;
             await sleep(5500);
           }
         };
-        host._alive = true;
-        host._demoStop = () => { host._alive = false; };
+        const alive = startRun(host);
         loop();
       }
 
@@ -1698,10 +1744,10 @@
       const PROC_BARS = [42, 58, 46, 62, 40, 55, 48, 52, 90, 44, 60, 50, 68, 46, 40, 54, 42, 52, 48, 60, 46, 56, 50, 58];
       const PROC_PASTE_IDX = 8;
       const procMetrics = [
-        { name: 'Typing rate',     val: '142 cpm',  desc: 'Characters typed per active minute.' },
-        { name: 'Thinking pauses', val: '0.5/100w', desc: 'Pauses of 2 seconds to 2 minutes per 100 words.' },
-        { name: 'Local revisions', val: '0/100w',   desc: 'Edits to a sentence already written, per 100 words.' },
-        { name: 'Text survival',   val: '100%',     desc: 'Share of typed text that made it to the final draft.' },
+        { name: 'Typing rate',     val: 142, unit: ' cpm',  desc: 'Characters typed per active minute.',          range: [85, 170] },
+        { name: 'Thinking pauses', val: 0.5, unit: '/100w', desc: 'Pauses of 2 seconds to 2 minutes per 100 words.', range: [6, 32] },
+        { name: 'Local revisions', val: 0,   unit: '/100w', desc: 'Edits to a sentence already written, per 100 words.', range: [6, 30] },
+        { name: 'Text survival',   val: 100, unit: '%',     desc: 'Share of typed text that made it to the final draft.', range: [55, 92] },
       ];
       const procChips = ['No typing pauses', '0 natural edits', '1 paste event'];
 
@@ -1722,15 +1768,32 @@
           pin.id = 'proc-pin';
           barsEl.appendChild(pin);
         }
+        function metricStatus(m) {
+          const [min, max] = m.range;
+          if (m.val < min) return { tag: 'below', label: 'Below typical range', pct: 0 };
+          if (m.val > max) return { tag: 'above', label: 'Above typical range', pct: 100 };
+          return { tag: 'within', label: 'Within typical range', pct: ((m.val - min) / (max - min)) * 100 };
+        }
         function buildMetrics() {
           clear(metricsEl);
           procMetrics.forEach((m) => {
-            const card = make('div', 'proc-metric');
+            const status = metricStatus(m);
+            const card = make('div', 'proc-metric proc-metric--' + status.tag);
             const head = make('div', 'proc-metric-head');
             head.appendChild(make('span', 'proc-metric-name', m.name));
-            head.appendChild(make('span', 'proc-metric-val', m.val));
+            head.appendChild(make('span', 'proc-metric-val', m.val + m.unit));
             card.appendChild(head);
             card.appendChild(make('div', 'proc-metric-desc', m.desc));
+            const bar = make('div', 'proc-metric-bar');
+            const dot = make('div', 'proc-metric-dot');
+            dot.style.left = status.pct + '%';
+            bar.appendChild(dot);
+            card.appendChild(bar);
+            const scale = make('div', 'proc-metric-scale');
+            scale.appendChild(make('span', null, m.range[0] + m.unit));
+            scale.appendChild(make('span', 'proc-metric-status', status.label));
+            scale.appendChild(make('span', null, m.range[1] + m.unit));
+            card.appendChild(scale);
             metricsEl.appendChild(card);
           });
         }
@@ -1741,7 +1804,7 @@
         async function lightBars() {
           const bars = barsEl.querySelectorAll('.proc-bar');
           for (let i = 0; i < bars.length; i += 1) {
-            if (!host._alive) return;
+            if (!alive()) return;
             bars[i].classList.add('lit');
             if (i === PROC_PASTE_IDX) {
               bars[i].style.background = 'var(--pin)';
@@ -1754,7 +1817,7 @@
         async function revealMetrics() {
           const cards = metricsEl.querySelectorAll('.proc-metric');
           for (const card of cards) {
-            if (!host._alive) return;
+            if (!alive()) return;
             card.classList.add('in');
             await sleep(280);
           }
@@ -1762,32 +1825,42 @@
         async function revealChips() {
           const chips = chipsEl.querySelectorAll('.proc-chip');
           for (const chip of chips) {
-            if (!host._alive) return;
+            if (!alive()) return;
             chip.classList.add('in');
             await sleep(220);
           }
         }
 
-        const loop = async () => {
-          while (host._alive) {
+        const playOnce = async () => {
+          if (host._played) {
             buildBars();
             buildMetrics();
             buildChips();
-            await sleep(500);
-            await lightBars();
-            if (!host._alive) return;
-            await sleep(350);
-            await revealMetrics();
-            if (!host._alive) return;
-            await sleep(350);
-            await revealChips();
-            if (!host._alive) return;
-            await sleep(7000);
+            barsEl.querySelectorAll('.proc-bar').forEach((b, i) => {
+              b.classList.add('lit');
+              if (i === PROC_PASTE_IDX) b.style.background = 'var(--pin)';
+            });
+            const pin = host.querySelector('#proc-pin');
+            if (pin) pin.classList.add('in');
+            metricsEl.querySelectorAll('.proc-metric').forEach((c) => c.classList.add('in'));
+            chipsEl.querySelectorAll('.proc-chip').forEach((c) => c.classList.add('in'));
+            return;
           }
+          buildBars();
+          buildMetrics();
+          buildChips();
+          await sleep(500);
+          await lightBars();
+          if (!alive()) return;
+          await sleep(350);
+          await revealMetrics();
+          if (!alive()) return;
+          await sleep(350);
+          await revealChips();
+          if (alive()) host._played = true;
         };
-        host._alive = true;
-        host._demoStop = () => { host._alive = false; };
-        loop();
+        const alive = startRun(host);
+        playOnce();
       }
 
       async function runAI(host) {
@@ -1825,7 +1898,7 @@
           await sleep(500);
           const items = feedList.querySelectorAll('.ai-feedback-item');
           for (const item of items) {
-            if (!host._alive) return;
+            if (!alive()) return;
             item.classList.add('in');
             await sleep(550);
           }
@@ -1835,7 +1908,7 @@
           const rows = scoresEl.querySelectorAll('.ai-score-row');
           let total = 0;
           for (const row of rows) {
-            if (!host._alive) return;
+            if (!alive()) return;
             total = fillScoreRow(row, total);
             totalEl.textContent = total + ' / 20';
             await sleep(500);
@@ -1846,7 +1919,7 @@
           clear(commentEl);
           let typed = '';
           for (const ch of aiCommentFull) {
-            if (!host._alive) return;
+            if (!alive()) return;
             typed += ch;
             commentEl.textContent = typed;
             await sleep(22);
@@ -1860,19 +1933,18 @@
         }
 
         const loop = async () => {
-          while (host._alive) {
+          while (alive()) {
             resetCard();
             await playFeedback();
-            if (!host._alive) return;
+            if (!alive()) return;
             await playScores();
-            if (!host._alive) return;
+            if (!alive()) return;
             await playComment();
-            if (!host._alive) return;
+            if (!alive()) return;
             await sleep(7000);
           }
         };
-        host._alive = true;
-        host._demoStop = () => { host._alive = false; };
+        const alive = startRun(host);
         loop();
       }
 

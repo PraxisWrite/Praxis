@@ -1,6 +1,7 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
+const compression = require('compression');
 const crypto = require('node:crypto');
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
@@ -30,6 +31,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 const app = express();
 app.disable("x-powered-by");
+app.use(compression());
 
 app.use((req, res, next) => {
   const redirectPath = getSafeRedirectPath(req.originalUrl || req.url);
@@ -793,7 +795,7 @@ async function ensureStudentCanAccessAssignment(assignmentId, studentId, client 
 async function getSubmissionRecord(submissionId, client = supabase) {
   const { data, error } = await client
     .from('submissions')
-    .select('id, assignment_id, student_id, status, teacher_review')
+    .select('id, assignment_id, student_id, status, teacher_review, updated_at')
     .eq('id', submissionId)
     .maybeSingle();
   if (error) throw error;
@@ -1136,20 +1138,29 @@ app.post('/api/generate', async (req, res) => {
     const safeTemperature = clampNumber(temperature, { min: 0, max: 1, fallback: null });
     if (safeTemperature !== null) requestBody.temperature = safeTemperature;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(requestBody)
-    });
+    const aiAbortController = new AbortController();
+    const aiTimeoutId = setTimeout(() => aiAbortController.abort(), 20000);
+    let response;
+    try {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(requestBody),
+        signal: aiAbortController.signal,
+      });
+    } finally {
+      clearTimeout(aiTimeoutId);
+    }
 
     const data = await response.json();
     if (!response.ok) return res.status(response.status).json({ error: data.error.message });
     res.json({ response: data.content[0].text });
   } catch (error) {
+    if (error.name === 'AbortError') return res.status(504).json({ error: 'AI request timed out. Please try again.' });
     res.status(500).json({ error: error.message });
   }
 });
@@ -2354,6 +2365,14 @@ app.patch('/api/submissions/:id', async (req, res) => {
       if (!ownedAssignment) {
         return res.status(403).json({ error: 'You do not have permission to update this submission.' });
       }
+    }
+    const expectedUpdatedAt = req.body?.expected_updated_at;
+    if (expectedUpdatedAt && submission.updated_at && expectedUpdatedAt !== submission.updated_at) {
+      return res.status(409).json({
+        error: 'Submission was modified by someone else. Please refresh and try again.',
+        conflict: true,
+        updated_at: submission.updated_at,
+      });
     }
     const isStudentOwner = submission.student_id === user.id;
     const payload = isStudentOwner

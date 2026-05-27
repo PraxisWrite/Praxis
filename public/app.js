@@ -1161,7 +1161,7 @@ async function loadTeacherClassContext(classId) {
   try {
     [membersData, assignData] = await Promise.all([
       globalThis.ApiService.loadClassMembers(currentClassId),
-      Auth.apiFetch(`/api/classes/${currentClassId}/assignments`)
+      globalThis.ApiService.loadClassAssignments(currentClassId)
     ]);
   } catch (error) {
     console.error("Could not load teacher class context:", error.message, error);
@@ -1173,41 +1173,18 @@ async function loadTeacherClassContext(classId) {
     return;
   }
 
-  if (membersData?.error || assignData?.error) {
+  if (membersData?.error) {
     currentClassMembers = [];
     state.assignments = [];
     state.submissions = [];
-    ui.notice = assignData?.error || membersData?.error || "We couldn't load this class right now.";
+    ui.notice = membersData.error || "We couldn't load this class right now.";
     persistState();
     return;
   }
 
   currentClassMembers = membersData || [];
-  const raw = safeArray(assignData.assignments);
   state.submissions = [];
-  state.assignments = raw.map((a) => normalizeAssignment({
-    id: a.id,
-    title: a.title || '',
-    prompt: a.prompt || '',
-    brief: a.brief || '',
-    focus: a.focus || '',
-    assignmentType: a.assignment_type || 'response',
-    languageLevel: a.language_level || 'B1',
-    wordCountMin: a.word_count_min || 250,
-    wordCountMax: a.word_count_max || 400,
-    feedbackRequestLimit: a.feedback_request_limit || 2,
-    chatTimeLimit: Math.max(0, Number(a.chat_time_limit || 0)),
-    disableChatbot: Boolean(a.disable_chatbot || false),
-    studentFocus: a.student_focus || [],
-    rubric: a.rubric || [],
-    deadline: a.deadline || '',
-    status: a.status || 'draft',
-    uploadedRubricText: a.uploaded_rubric_text || '',
-    uploadedRubricName: a.uploaded_rubric_name || '',
-    createdAt: a.created_at || new Date().toISOString(),
-    classId: a.class_id || currentClassId,
-      ideaRequestLimit: 3,
-  }));
+  state.assignments = assignData.map((a) => normalizeAssignment(a));
   await loadTeacherSubmissionsForAssignments(state.assignments.map((assignment) => assignment.id));
   ui.notice = "";
   persistState();
@@ -1258,42 +1235,18 @@ async function loadStudentAssignmentsForCurrentClass() {
 
   try {
     const results = await Promise.allSettled(
-      classIds.map((classId) => Auth.apiFetch(`/api/classes/${classId}/assignments`))
+      classIds.map((classId) => globalThis.ApiService.loadClassAssignments(classId))
     );
-    const successfulResults = results
+    const rawAssignments = results
       .filter((result) => result.status === "fulfilled")
-      .map((result) => result.value);
-    const resultsWithAssignments = successfulResults.filter((result) => !result?.error);
-    if (!resultsWithAssignments.length) {
+      .flatMap((result) => result.value);
+    if (!rawAssignments.length) {
       throw new Error("No class assignment requests succeeded");
     }
-    const rawAssignments = resultsWithAssignments.flatMap((result) => safeArray(result?.assignments));
 
     state.assignments = rawAssignments
       .filter((a) => a.status === 'published')
-      .map((a) => normalizeAssignment({
-        id: a.id,
-        title: a.title || '',
-        prompt: a.prompt || '',
-        brief: a.brief || '',
-        focus: a.focus || '',
-        assignmentType: a.assignment_type || 'response',
-        languageLevel: a.language_level || 'B1',
-        wordCountMin: a.word_count_min || 250,
-        wordCountMax: a.word_count_max || 400,
-        feedbackRequestLimit: a.feedback_request_limit || 2,
-        chatTimeLimit: Math.max(0, Number(a.chat_time_limit || 0)),
-        disableChatbot: Boolean(a.disable_chatbot || false),
-        studentFocus: a.student_focus || [],
-        rubric: a.rubric || [],
-        deadline: a.deadline || '',
-        status: a.status || 'published',
-        uploadedRubricText: a.uploaded_rubric_text || '',
-        uploadedRubricName: a.uploaded_rubric_name || '',
-        createdAt: a.created_at || new Date().toISOString(),
-        classId: a.class_id || currentClassId,
-        ideaRequestLimit: 3,
-      }));
+      .map((a) => normalizeAssignment(a));
     recoverStudentActiveClass(currentProfile);
     const allowedAssignmentIds = new Set(state.assignments.map((assignment) => assignment.id));
     state.submissions = state.submissions.filter((submission) => allowedAssignmentIds.has(submission.assignmentId));
@@ -1902,12 +1855,35 @@ function flushCurrentStudentWork(options = {}) {
   });
 }
 
+const aiRequestSemaphore = (() => {
+  const MAX_CONCURRENT = 3;
+  let inFlight = 0;
+  const pending = [];
+  function drain() {
+    while (inFlight < MAX_CONCURRENT && pending.length > 0) {
+      inFlight += 1;
+      pending.shift()();
+    }
+  }
+  return {
+    acquire() {
+      return new Promise((resolve) => {
+        if (inFlight < MAX_CONCURRENT) { inFlight += 1; resolve(); }
+        else { pending.push(resolve); }
+      });
+    },
+    release() { inFlight -= 1; drain(); },
+  };
+})();
+
 async function requestAiGenerate(payload, options = {}) {
+  await aiRequestSemaphore.acquire();
   const retries = Math.max(0, Number(options.retries ?? 1));
   const externalSignal = options.signal || null;
   const timeoutMs = Math.max(8000, Number(options.timeoutMs || 20000));
   let lastError = null;
 
+  try {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -1951,6 +1927,9 @@ async function requestAiGenerate(payload, options = {}) {
   }
 
   throw lastError || new Error("AI request failed.");
+  } finally {
+    aiRequestSemaphore.release();
+  }
 }
 
 function buildFormatPrompt() {

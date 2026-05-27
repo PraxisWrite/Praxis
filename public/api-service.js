@@ -237,8 +237,62 @@ async function deleteAssignment(assignmentId) {
       method: "PATCH",
       body: JSON.stringify(payload || {}),
     });
+    if (result?.conflict) {
+      const err = new Error(result.error || 'Conflict');
+      err.conflict = true;
+      err.serverUpdatedAt = result.updated_at;
+      throw err;
+    }
     if (result?.error) throw new Error(result.error);
     return result?.submission ? mapServerSubmission(result.submission) : result;
+  }
+
+  // Tracks array lengths confirmed on the server after each successful auto-sync.
+  // Allows syncStudentSubmission to omit unchanged append-only arrays from the payload,
+  // cutting typical sync payloads from 150-300 KB down to ~5-10 KB.
+  const _syncCursors = new Map();
+
+  async function resolveSyncServerId(submission) {
+    if (hasServerId(submission.id)) return submission.id;
+    const existing = await loadMySubmission(submission.assignmentId);
+    const id = existing?.id || null;
+    if (!id) throw new Error("Submission record was not created on the server.");
+    return id;
+  }
+
+  function buildDeltaPayload(submission, serverId, lengths) {
+    const cursor = _syncCursors.get(serverId) || {};
+    const payload = buildSubmissionServerPayload(submission, {
+      expected_updated_at: submission.updatedAt || null,
+    });
+    if (lengths.writingEvents <= (cursor.writingEventsLen || 0)) delete payload.writing_events;
+    if (lengths.keystrokeLog <= (cursor.keystrokeLogLen || 0)) delete payload.keystroke_log;
+    return payload;
+  }
+
+  async function syncRetryOnConflict(submission, lengths) {
+    const fresh = await loadMySubmission(submission.assignmentId);
+    if (!fresh?.id) return null;
+    const retryPayload = buildSubmissionServerPayload(submission, {
+      expected_updated_at: fresh.updatedAt || null,
+    });
+    const result = await patchSubmission(fresh.id, retryPayload);
+    _syncCursors.set(fresh.id, {
+      writingEventsLen: lengths.writingEvents,
+      keystrokeLogLen: lengths.keystrokeLog,
+    });
+    return result;
+  }
+
+  async function syncRetryOnMissing(submission, payload, lengths) {
+    const existing = await loadMySubmission(submission.assignmentId);
+    if (!existing?.id) return null;
+    const result = await patchSubmission(existing.id, payload);
+    _syncCursors.set(existing.id, {
+      writingEventsLen: lengths.writingEvents,
+      keystrokeLogLen: lengths.keystrokeLog,
+    });
+    return result;
   }
 
   async function syncStudentSubmission(submission) {
@@ -246,28 +300,30 @@ async function deleteAssignment(assignmentId) {
       throw new Error("Missing assignment for submission sync.");
     }
 
-    let serverId = hasServerId(submission.id) ? submission.id : null;
-    if (!serverId) {
-      const existing = await loadMySubmission(submission.assignmentId);
-      serverId = existing?.id || null;
-      if (!serverId) {
-        throw new Error("Submission record was not created on the server.");
-      }
-    }
+    const serverId = await resolveSyncServerId(submission);
+    const lengths = {
+      writingEvents: safeArray(submission.writingEvents).length,
+      keystrokeLog: safeArray(submission.keystrokeLog).length,
+    };
+    const payload = buildDeltaPayload(submission, serverId, lengths);
 
-    const payload = buildSubmissionServerPayload(submission);
     try {
-      return await patchSubmission(serverId, payload);
+      const result = await patchSubmission(serverId, payload);
+      _syncCursors.set(serverId, {
+        writingEventsLen: lengths.writingEvents,
+        keystrokeLogLen: lengths.keystrokeLog,
+      });
+      return result;
     } catch (error) {
-      if (!hasServerId(submission.id)) {
+      if (error.conflict) {
+        const retried = await syncRetryOnConflict(submission, lengths);
+        if (retried) return retried;
         throw error;
       }
-
-      const existing = await loadMySubmission(submission.assignmentId);
-      if (!existing?.id) {
-        throw error;
-      }
-      return patchSubmission(existing.id, payload);
+      if (!hasServerId(submission.id)) throw error;
+      const retried = await syncRetryOnMissing(submission, payload, lengths);
+      if (retried) return retried;
+      throw error;
     }
   }
 

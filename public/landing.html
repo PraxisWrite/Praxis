@@ -1312,9 +1312,10 @@
       }
 
       function startRun(host) {
-        if (host._demoStop) host._demoStop();
-        const myGen = (host._gen = (host._gen || 0) + 1);
+        host._gen = (host._gen || 0) + 1;
+        const myGen = host._gen;
         host._demoStop = () => { host._gen += 1; };
+        delete host._played;
         return () => host._gen === myGen;
       }
 
@@ -1340,6 +1341,7 @@
       }
 
       async function runChat(host) {
+        const alive = startRun(host);
         const win = host.querySelector('#chat-window');
         const loop = async () => {
           while (alive()) {
@@ -1358,7 +1360,6 @@
             await sleep(6000);
           }
         };
-        const alive = startRun(host);
         loop();
       }
 
@@ -1369,6 +1370,7 @@
       const BAR_HEIGHTS = [42,58,46,62,40,55,48,52,44,60,50,68,46,40,54,42,52,48,60,46,56,50,58,44];
 
       async function runPlayback(host) {
+        const alive = startRun(host);
         const textEl  = host.querySelector('#pb-text');
         const countEl = host.querySelector('#pb-count');
         const status  = host.querySelector('#pb-status');
@@ -1452,7 +1454,6 @@
             await sleep(6500);
           }
         };
-        const alive = startRun(host);
         loop();
       }
 
@@ -1493,15 +1494,19 @@
       ];
 
       async function runRubric(host) {
+        const alive = startRun(host);
         const phase    = host.querySelector('#rub-phase');
         const totalWrap = host.querySelector('#rubric-total-wrap');
         const totalEl  = host.querySelector('#rubric-total');
 
-        phase.addEventListener('click', (e) => {
-          const cell = e.target.closest('.rubric-cell.lit');
-          if (!cell) return;
-          cell.classList.toggle('expanded');
-        });
+        if (!host._rubricClick) {
+          host._rubricClick = true;
+          phase.addEventListener('click', (e) => {
+            const cell = e.target.closest('.rubric-cell.lit');
+            if (!cell) return;
+            cell.classList.toggle('expanded');
+          });
+        }
 
         async function phaseUpload() {
           clear(phase);
@@ -1602,7 +1607,6 @@
             await phaseGrade();
           }
         };
-        const alive = startRun(host);
         loop();
       }
 
@@ -1621,6 +1625,7 @@
       const markedSegments = annotSegments.filter((s) => s.mark && !s.mark.paste);
 
       async function runAnnotation(host) {
+        const alive = startRun(host);
         const mock    = host.querySelector('#annot-text');
         const toolbar = host.querySelector('#annot-toolbar');
 
@@ -1711,7 +1716,6 @@
             await sleep(5500);
           }
         };
-        const alive = startRun(host);
         loop();
       }
 
@@ -1759,6 +1763,7 @@
       }
 
       async function runProcess(host) {
+        const alive = startRun(host);
         const barsEl    = host.querySelector('#proc-bars');
         const metricsEl = host.querySelector('#proc-metrics');
         const chipsEl   = host.querySelector('#proc-chips');
@@ -1833,20 +1838,6 @@
         }
 
         const playOnce = async () => {
-          if (host._played) {
-            buildBars();
-            buildMetrics();
-            buildChips();
-            barsEl.querySelectorAll('.proc-bar').forEach((b, i) => {
-              b.classList.add('lit');
-              if (i === PROC_PASTE_IDX) b.style.background = 'var(--pin)';
-            });
-            const pin = host.querySelector('#proc-pin');
-            if (pin) pin.classList.add('in');
-            metricsEl.querySelectorAll('.proc-metric').forEach((c) => c.classList.add('in'));
-            chipsEl.querySelectorAll('.proc-chip').forEach((c) => c.classList.add('in'));
-            return;
-          }
           buildBars();
           buildMetrics();
           buildChips();
@@ -1858,13 +1849,12 @@
           if (!alive()) return;
           await sleep(350);
           await revealChips();
-          if (alive()) host._played = true;
         };
-        const alive = startRun(host);
-        playOnce();
+        await playOnce();
       }
 
       async function runAI(host) {
+        const alive = startRun(host);
         const feedList  = host.querySelector('#ai-feedback-list');
         const scoresEl  = host.querySelector('#ai-scores');
         const totalEl   = host.querySelector('#ai-total');
@@ -1945,7 +1935,6 @@
             await sleep(7000);
           }
         };
-        const alive = startRun(host);
         loop();
       }
 

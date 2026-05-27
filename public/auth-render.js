@@ -47,7 +47,8 @@
     if (wantsSignup) {
       search.delete("signup");
       const cleanSearch = search.toString();
-      const cleanUrl = globalThis.location.pathname + (cleanSearch ? "?" + cleanSearch : "");
+      const cleanHash = globalThis.location.hash === "#signup" ? "" : globalThis.location.hash;
+      const cleanUrl = globalThis.location.pathname + (cleanSearch ? "?" + cleanSearch : "") + cleanHash;
       globalThis.history.replaceState(null, "", cleanUrl);
     }
     setAuthTab(initialTab);

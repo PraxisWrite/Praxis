@@ -1855,12 +1855,35 @@ function flushCurrentStudentWork(options = {}) {
   });
 }
 
+const aiRequestSemaphore = (() => {
+  const MAX_CONCURRENT = 3;
+  let inFlight = 0;
+  const pending = [];
+  function drain() {
+    while (inFlight < MAX_CONCURRENT && pending.length > 0) {
+      inFlight += 1;
+      pending.shift()();
+    }
+  }
+  return {
+    acquire() {
+      return new Promise((resolve) => {
+        if (inFlight < MAX_CONCURRENT) { inFlight += 1; resolve(); }
+        else { pending.push(resolve); }
+      });
+    },
+    release() { inFlight -= 1; drain(); },
+  };
+})();
+
 async function requestAiGenerate(payload, options = {}) {
+  await aiRequestSemaphore.acquire();
   const retries = Math.max(0, Number(options.retries ?? 1));
   const externalSignal = options.signal || null;
   const timeoutMs = Math.max(8000, Number(options.timeoutMs || 20000));
   let lastError = null;
 
+  try {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -1904,6 +1927,9 @@ async function requestAiGenerate(payload, options = {}) {
   }
 
   throw lastError || new Error("AI request failed.");
+  } finally {
+    aiRequestSemaphore.release();
+  }
 }
 
 function buildFormatPrompt() {

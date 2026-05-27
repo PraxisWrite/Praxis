@@ -82,8 +82,74 @@ All demos auto-loop via `IntersectionObserver` at 0.3 threshold; stop when scrol
 
 ---
 
+## Pre-pilot stability fixes (branch: `claude/relaxed-hypatia-MYoa1`)
+
+Seven issues identified in performance audit. Implement all before semester pilot (20–40 students/class).
+
+### Issue 1 — Full submission payload on every sync (HIGHEST IMPACT)
+- **File:** `public/api-service.js:96–121` (`buildSubmissionServerPayload`)
+- **Problem:** Sends entire `writingEvents`, `chatHistory`, `keystrokeLog` arrays on every auto-sync — 150–300 KB per call at ~30s intervals. Multiplies badly under concurrent users.
+- **Fix:** Track a `lastSyncedEventCount` cursor client-side; send only new events as a delta; server appends rather than overwrites.
+
+### Issue 2 — Race condition on submission saves (HIGH IMPACT)
+- **File:** `server.js:2217–2223` (submission UPDATE handler)
+- **Problem:** No optimistic locking — if a student edit and a teacher reopen land simultaneously, the last writer wins and silently drops the other's changes.
+- **Fix:** Add `.eq('updated_at', expectedTimestamp)` to the Supabase `.update()` call; return 409 on mismatch; client retries with fresh fetch.
+
+### Issue 3 — No timeout on AI endpoint
+- **File:** `server.js:1139–1147` (`/api/generate`)
+- **Problem:** If the upstream LLM hangs, the request never resolves — server holds the connection open indefinitely, exhausting the connection pool under load.
+- **Fix:** Wrap the LLM call in an `AbortController` with a 20 s timeout; return 504 on abort.
+
+### Issue 4 — No client-side AI request queue
+- **File:** `public/app.js:4129–4164` and `1858–1907` (AI send handlers)
+- **Problem:** Rapid-clicking "Generate" or fast navigation fires multiple concurrent AI requests. Under 20–40 simultaneous students this can spike server load and return out-of-order responses.
+- **Fix:** A simple client-side queue (max 3–4 in-flight); new requests wait or discard the oldest pending.
+
+### Issue 5 — Missing database indexes
+- **Tables:** `submissions.assignment_id`, `submissions.student_id`
+- **Problem:** Every submission lookup does a sequential scan. At 30+ students per assignment this degrades linearly.
+- **Fix:** Supabase migration adding `CREATE INDEX` on both columns.
+
+### Issue 6 — Uncompressed JS bundle (~658 KB)
+- **File:** `server.js` (Express static middleware)
+- **Problem:** No gzip/brotli. Every page load transfers the full bundle; slow on school networks.
+- **Fix:** Add `compression` npm package as Express middleware before static serving.
+
+### Issue 7 — Polling too aggressive (20 s intervals)
+- **File:** `public/app-constants.js` — `REVIEW_REFRESH_MS` and `ADMIN_REFRESH_MS`
+- **Problem:** 20 s polling under 40 concurrent users = 120 req/min just for refresh ticks.
+- **Fix:** Raise both to `30000` (30 s); reduces polling load by 33%.
+
+---
+
+## Active branch
+
+`claude/relaxed-hypatia-MYoa1` — Phase 16 complete (all `Auth.apiFetch` calls → `ApiService`). PR #256 open.  
+Next: implement the 7 pre-pilot stability fixes above.
+
+---
+
+## Git / push setup
+
+`origin` is a local proxy at `127.0.0.1:38081` — pushes via `origin` are blocked.  
+Push using PAT directly (user rotates PAT often by regenerating):
+```bash
+git push -u "https://x-access-token:TOKEN@github.com/PraxisWrite/Praxis.git" BRANCH
+```
+PR creation also requires curl with PAT (MCP `create_pull_request` returns 403).
+
+---
+
 ## Pending / next steps
 
+- [ ] Implement Issue 1: delta sync (`api-service.js`)
+- [ ] Implement Issue 2: optimistic locking (`server.js`)
+- [ ] Implement Issue 3: AI timeout (`server.js`)
+- [ ] Implement Issue 4: AI request queue (`app.js`)
+- [ ] Implement Issue 5: DB indexes (Supabase migration)
+- [ ] Implement Issue 6: gzip middleware (`server.js` + `package.json`)
+- [ ] Implement Issue 7: polling interval (`app-constants.js`)
 - [ ] Confirm GitHub MCP now resolves to `PraxisWrite/Praxis` (first thing to check above)
 - [ ] Create draft PR for `feature/landing-improvements` if not already open
 - [ ] Watch SonarCloud on the new PR for any new issues

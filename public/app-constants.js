@@ -13,8 +13,8 @@
   const LARGE_PASTE_LIMIT = 220;
   const PRODUCT_NAME = "praxis";
   const PRODUCT_TAGLINE = "Think clearly. Write clearly.";
-  const REVIEW_REFRESH_MS = 20000;
-  const ADMIN_REFRESH_MS = 20000;
+  const REVIEW_REFRESH_MS = 30000;
+  const ADMIN_REFRESH_MS = 30000;
 
   const BASE_ERROR_CODES = [
     { code: "CS",  label: "Comma splice: two complete sentences joined with only a comma" },

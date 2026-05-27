@@ -566,20 +566,56 @@
         transition: background 0.3s;
       }
       .annot {
-        border-radius: 4px;
-        padding: 1px 4px;
+        border-radius: 3px;
+        padding: 0;
         position: relative;
-        transition: background 0.35s ease, color 0.35s ease;
+        transition: background 0.35s ease, color 0.35s ease, box-shadow 0.35s ease;
       }
       .annot.in {
         background: var(--annot);
         color: var(--annot-ink);
+        box-shadow: 3px 0 0 var(--annot), -3px 0 0 var(--annot);
       }
       .annot.paste-mark.in {
         background: rgba(155,77,202,0.18);
         color: inherit;
         border-bottom: 2px solid var(--violet);
-        padding: 0 3px;
+        box-shadow: 3px 0 0 rgba(155,77,202,0.18), -3px 0 0 rgba(155,77,202,0.18);
+      }
+
+      /* ─── Annotation process strip ─── */
+      .annot-process {
+        margin-top: 12px;
+        padding-top: 11px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-family: "Avenir Next", system-ui, sans-serif;
+      }
+      .annot-process-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-right: 2px;
+      }
+      .annot-process-tag {
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 100px;
+        background: var(--accent-soft);
+        color: var(--accent-deep);
+      }
+      .annot-process-more {
+        margin-left: auto;
+        font-size: 0.7rem;
+        color: var(--accent-deep);
+        opacity: 0.55;
+        cursor: default;
       }
       .annot-code {
         font-family: "Avenir Next", system-ui, sans-serif;
@@ -966,7 +1002,16 @@
             <span class="annot-btn" id="btn-WC">WC</span>
             <span class="annot-btn paste-btn" id="btn-PASTE">PASTE</span>
           </div>
-          <div class="annot-mock" id="annot-mock"></div>
+          <div class="annot-mock">
+            <div id="annot-text"></div>
+            <div class="annot-process">
+              <span class="annot-process-label">Writing process</span>
+              <span class="annot-process-tag">No typing pauses</span>
+              <span class="annot-process-tag">0 natural edits</span>
+              <span class="annot-process-tag">1 paste event</span>
+              <span class="annot-process-more">See full analysis →</span>
+            </div>
+          </div>
           <div class="teacher-note" id="annot-teacher-note"></div>
           <div class="annot-key">
             <span class="annot-key-item"><strong>CS</strong>Comma splice</span>
@@ -1349,22 +1394,23 @@
         { id: 'a2', text: ". Marakesh has " },
         { id: 'a3', text: "becomed",  mark: { code: 'SP', tip: 'Spelling — "become".' } },
         { id: 'a4', text: " the symbol of this change. " },
-        { id: 'a5', text: "According to recent data, the city receives over four million international visitors annually, with peak arrivals in spring", mark: { code: 'PASTE', tip: 'Bulk paste detected — check authorship.', paste: true } },
+        { id: 'a5', text: "According to recent data, the city receives over four million international visitors annually, with peak arrivals in spring", mark: { code: 'PASTE', tip: 'Large single insert — review with playback.', paste: true } },
         { id: 'a6', text: ". For locals, this growth has been a " },
         { id: 'a7', text: "double sword", mark: { code: 'WC', tip: 'Word choice — try "double-edged sword".' } },
         { id: 'a8', text: "." },
       ];
-      const markedSegments = annotSegments.filter((s) => s.mark);
+      const markedSegments = annotSegments.filter((s) => s.mark && !s.mark.paste);
 
       async function runAnnotation(host) {
-        const mock    = host.querySelector('#annot-mock');
+        const mock    = host.querySelector('#annot-text');
         const toolbar = host.querySelector('#annot-toolbar');
 
         function buildPara() {
           clear(mock);
           annotSegments.forEach((seg) => {
             if (seg.mark) {
-              const span = make('span', 'annot' + (seg.mark.paste ? ' paste-mark' : ''), seg.text);
+              const pasteClass = seg.mark.paste ? ' paste-mark in' : '';
+              const span = make('span', 'annot' + pasteClass, seg.text);
               span.id = seg.id;
               span.appendChild(make('span', 'annot-code', seg.mark.code));
               span.appendChild(make('span', 'annot-tip', seg.mark.tip));

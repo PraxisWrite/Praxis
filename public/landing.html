@@ -842,7 +842,7 @@
       }
       .proc-metric--within .proc-metric-status { background: var(--sage-soft); color: #1f6b54; }
       .proc-metric--below .proc-metric-status,
-      .proc-metric--above .proc-metric-status { background: rgba(214,103,130,0.14); color: #a73a59; }
+      .proc-metric--above .proc-metric-status { background: #f7e2e8; color: #a73a59; }
       .proc-chips {
         display: flex;
         gap: 6px;
@@ -1751,6 +1751,13 @@
       ];
       const procChips = ['No typing pauses', '0 natural edits', '1 paste event'];
 
+      function metricStatus(m) {
+        const [min, max] = m.range;
+        if (m.val < min) return { tag: 'below', label: 'Below typical range', pct: 0 };
+        if (m.val > max) return { tag: 'above', label: 'Above typical range', pct: 100 };
+        return { tag: 'within', label: 'Within typical range', pct: ((m.val - min) / (max - min)) * 100 };
+      }
+
       async function runProcess(host) {
         const barsEl    = host.querySelector('#proc-bars');
         const metricsEl = host.querySelector('#proc-metrics');
@@ -1767,12 +1774,6 @@
           pin.style.left = ((PROC_PASTE_IDX + 0.5) * (100 / PROC_BARS.length)) + '%';
           pin.id = 'proc-pin';
           barsEl.appendChild(pin);
-        }
-        function metricStatus(m) {
-          const [min, max] = m.range;
-          if (m.val < min) return { tag: 'below', label: 'Below typical range', pct: 0 };
-          if (m.val > max) return { tag: 'above', label: 'Above typical range', pct: 100 };
-          return { tag: 'within', label: 'Within typical range', pct: ((m.val - min) / (max - min)) * 100 };
         }
         function buildMetrics() {
           clear(metricsEl);

@@ -120,10 +120,41 @@
     `;
   }
 
+  function renderPendingApprovalScreen(pendingClasses, showFullScreen) {
+    const { escapeHtml } = globalThis.window;
+    const names = pendingClasses
+      .map((cls) => escapeHtml(cls?.name || "your class"))
+      .join(", ");
+    if (showFullScreen) {
+      return `
+      <section class="student-shell">
+        <div class="panel student-panel">
+          <div class="empty-state" style="padding:44px 28px;">
+            <div style="font-size:2.4rem;margin-bottom:8px;">⏳</div>
+            <h3>Waiting for your teacher</h3>
+            <p>You've requested to join <strong>${names}</strong>. Your teacher needs to approve you before you can see assignments. Check back soon — this page will update once you're in.</p>
+          </div>
+        </div>
+      </section>
+    `;
+    }
+    return `
+      <div class="class-banner" style="background:var(--accent-soft);border-color:var(--accent);">
+        <span class="class-banner-icon">⏳</span>
+        <span>Waiting for approval to join <strong>${names}</strong>. Your teacher will let you in soon.</span>
+      </div>
+    `;
+  }
+
   function renderStudentWorkspace() {
-    const { ui, state, currentClasses, currentClassId, currentProfile } = globalThis.window.AppState;
+    const { ui, state, currentClasses, currentClassId, currentProfile, currentPendingClasses } = globalThis.window.AppState;
     const { escapeHtml, getPublishedAssignments, getStudentAssignmentBuckets,
       getUserById, getStudentSubmission, getStudentAssignment } = globalThis.window;
+
+    const pendingClasses = currentPendingClasses || [];
+    if (pendingClasses.length && !currentClasses.length) {
+      return renderPendingApprovalScreen(pendingClasses, true);
+    }
 
     const assignments = getPublishedAssignments();
     const assignmentBuckets = getStudentAssignmentBuckets();
@@ -158,6 +189,7 @@
             <span><strong>${escapeHtml(currentClass.name)}</strong>${currentClass.teacher_name ? ` · ${escapeHtml(currentClass.teacher_name)}` : ""}</span>
           </div>
         ` : ""}
+        ${pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : ""}
         ${currentClasses.length > 0 && !assignment ? renderUpcomingStudentClasses(currentClasses, currentClassId, state.assignments) : ""}
         <div class="field">
           <label for="student-assignment-select">Choose assignment</label>

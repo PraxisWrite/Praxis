@@ -29,7 +29,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 ### Medium priority
 
 - [x] **What happens when a teacher deletes a class or assignment that had submissions?** — Fixed: submissions are now archived to `public.submission_archive` before deletion (see keystroke-data item above), so data is preserved not destroyed. The class- and assignment-delete confirmation dialogs were also reworded to make clear the work is removed from the dashboard and archived for research (no longer "permanently deleted").
-- [ ] **Sign-up by class link needs an "accept student?" gate on the teacher side** — currently anyone with the link can join. Clicking a student's name should also show their assignment list and let teacher grade directly.
+- [x] **Sign-up by class link needs an "accept student?" gate on the teacher side** — Fixed: new joins via invite link land in `pending` state; teacher sees Approve/Decline in the roster; student sees a waiting screen until approved. Clicking a student name in the roster now navigates directly to their grading view (requires an assignment to be selected first). *(PR #267)*
 
 ---
 

@@ -54,6 +54,7 @@ let currentProfile = null;
 let currentClasses = [];
 let currentClassId = null;
 let currentClassMembers = [];
+let currentPendingClasses = [];
 let reviewRefreshTimer = null;
 let adminClassRefreshTimer = null;
 let storageWarningShown = false;
@@ -169,6 +170,7 @@ if (typeof window !== "undefined") {
     get currentClasses() { return currentClasses; },
     get currentClassId() { return currentClassId; },
     get currentClassMembers() { return currentClassMembers; },
+    get currentPendingClasses() { return currentPendingClasses; },
     get appEl() { return appEl; },
     get authUiState() { return authUiState; },
     render: () => render(),
@@ -913,6 +915,7 @@ function resetAppShellState() {
   currentClasses = [];
   currentClassId = null;
   currentClassMembers = [];
+  currentPendingClasses = [];
   state = createBlankState();
   ui.role = "student";
   ui.activeUserId = "";
@@ -1224,7 +1227,9 @@ async function deleteCurrentClass() {
 }
 
 async function refreshStudentClasses(preferredClassId = currentClassId) {
-  currentClasses = await globalThis.ApiService.loadStudentClasses();
+  const membership = await globalThis.ApiService.loadStudentClassMembership();
+  currentClasses = membership.classes;
+  currentPendingClasses = membership.pendingClasses;
   if (preferredClassId && currentClasses.some((cls) => cls.id === preferredClassId)) {
     currentClassId = preferredClassId;
   } else {
@@ -2397,6 +2402,41 @@ if (action === "switch-class") {
     } catch (error) {
       ui.notice = `Could not remove student: ${error.message || "unknown error"}`;
     }
+    render();
+    return;
+  }
+
+  if (action === "approve-class-member") {
+    if (!currentClassId) return;
+    const studentId = target.dataset.studentId;
+    const studentName = target.dataset.studentName || "this student";
+    if (!studentId) return;
+    try {
+      await globalThis.ApiService.approveClassMember(currentClassId, studentId);
+      await loadTeacherClassContext(currentClassId);
+      ui.notice = `${studentName} has been approved and can now see assignments.`;
+    } catch (error) {
+      ui.notice = `Could not approve student: ${error.message || "unknown error"}`;
+    }
+    render();
+    return;
+  }
+
+  if (action === "grade-student-from-roster") {
+    if (!currentClassId) return;
+    const studentId = target.dataset.studentId;
+    if (!studentId || !ui.selectedAssignmentId) {
+      ui.notice = "Select an assignment first, then click a student name to grade their work.";
+      render();
+      return;
+    }
+    stopPlayback();
+    ui.selectedReviewStudentId = studentId;
+    ui.selectedReviewSubmissionId = getReviewSubmissionForStudent(studentId, ui.selectedAssignmentId)?.id || null;
+    ui.teacherView = "grading";
+    ui.playback.index = 0;
+    ui.playback.touched = false;
+    ui.notice = "";
     render();
     return;
   }

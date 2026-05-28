@@ -2280,7 +2280,7 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
     ]);
     res.json({ submission: data });
   } catch (error) {
-    console.error('Unexpected submit failure:', safeLogError(error));
+    console.error('Unexpected submit failure');
     res.status(500).json({ error: 'Could not submit your work right now. Please try again.' });
   }
 });
@@ -2429,7 +2429,7 @@ app.patch('/api/submissions/:id', async (req, res) => {
     }
     res.json({ submission: data });
   } catch (error) {
-    console.error('Unexpected submission PATCH failure:', safeLogError(error));
+    console.error('Unexpected submission PATCH failure');
     res.status(500).json({ error: 'Could not save submission right now. Please try again.' });
   }
 });

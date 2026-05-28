@@ -2876,6 +2876,21 @@ if (action === "select-assignment") {
     }
     const nextStep = Number(target.dataset.step);
     if (nextStep === 2) {
+      const assignment = getStudentAssignment();
+      const chatHistory = submission?.chatHistory || [];
+      const chatDisabled = isChatDisabled(assignment);
+      const hasEnoughChat = chatDisabled || submission?.chatSkippedAt || chatHistory.length >= 2;
+      const outlineComplete = isOutlineComplete(submission, assignment);
+      if (!hasEnoughChat || !outlineComplete) {
+        const missing = !hasEnoughChat && !outlineComplete
+          ? "talk to the coach a bit more and complete your outline"
+          : !hasEnoughChat
+            ? "talk to the coach a bit more"
+            : "complete your outline";
+        if (!window.confirm(`Are you ready to move on to writing your draft? Most students find it helpful to ${missing} first.\n\nContinue anyway?`)) {
+          return;
+        }
+      }
       const notes = document.getElementById("chat-skip-notes");
       if (notes && submission) {
         submission.outline.partOne = notes.value.trim();

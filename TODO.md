@@ -18,7 +18,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [ ] **Clicking rubric sections causes page to jump** up and down.
 - [ ] **Admin view counts deleted assignments** — deleted items still appear in admin counts.
 - [ ] **Keystroke data deleted when class/assignment deleted** — should be preserved for algorithm training. *Also applies to: if a class is deleted by a teacher the keystroke data should not be deleted.*
-- [ ] **"Next: Write draft" button grayed out until second chat message** — confusing. Should always be enabled; if student clicks early, show a gentle modal asking if they're done with the coach rather than blocking.
+- [x] **"Next: Write draft" button grayed out until second chat message** — Fixed: button is always enabled. If student clicks early (not enough chat / outline incomplete), a gentle `confirm()` modal asks "Are you ready to move on?" rather than blocking. Tooltip on the button still hints that chatting + outlining first helps.
 - [ ] **Blank "Guided outline Part 3: —"** appears in student downloaded work — needs stripping from the download template.
 - [ ] **Teacher should be able to see and grade student's work even if submit was not triggered** — in case of a submit error the work is inaccessible.
 - [ ] **"Likely natural" writing behaviour label unexplained** — in the teacher grading panel, the Writing Behaviour section shows a label ("Likely natural", "Uncertain", or "Needs review") with a summary line like "Mostly natural writing behaviour with some variation — consistent with B1." There is no explanation of *why* that rating was given or what the metrics mean. Needs a `?` info button or tooltip next to the label that explains the scoring criteria.

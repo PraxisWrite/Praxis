@@ -4,8 +4,8 @@
   function parseCoachMarkdown(text) {
     const safe = (globalThis.window.escapeHtml || String)(String(text || ""));
     return safe
-      .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/\n/g, "<br>");
+      .replaceAll(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+      .replaceAll(/\n/g, "<br>");
   }
 
   function summarizeLocalSubmissionForDebug(submission) {

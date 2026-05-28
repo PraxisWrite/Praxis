@@ -3332,7 +3332,9 @@ if (action === "select-assignment") {
     submission.teacherReview.rowScores = [...remainingRows, nextEntry];
     submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
     persistState();
+    const scrollYBeforeRender = window.scrollY;
     render();
+    window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
     scrollToNextRubricCriterionMobile(criterion.id);
     return;
   }

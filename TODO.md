@@ -15,7 +15,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [x] **"Final work submitted" message persists when switching to a different assignment** — was actually `ui.draftSaveMessage` ("Submitted successfully.") not `ui.notice`. Fixed: cleared on `switch-class`, `open-assignment`, and `student-assignment-select` handlers.
 - [ ] **Copy-to-notes then changing rubric deletes teacher's note** — data loss in the teacher grading panel.
 - [ ] **Paste violet highlight only fires on first paste** — subsequent pastes are not detected/highlighted.
-- [ ] **Clicking rubric sections causes page to jump** up and down.
+- [x] **Clicking rubric sections causes page to jump** up and down. — Fixed: `select-rubric-band` handler now snapshots `window.scrollY` before `render()` and restores it immediately after, so the full-page re-render no longer shifts the teacher's scroll position. Mobile auto-scroll to next criterion still fires.
 - [ ] **Admin view counts deleted assignments** — deleted items still appear in admin counts.
 - [ ] **Keystroke data deleted when class/assignment deleted** — should be preserved for algorithm training. *Also applies to: if a class is deleted by a teacher the keystroke data should not be deleted.*
 - [x] **"Next: Write draft" button grayed out until second chat message** — Fixed: button is always enabled. If student clicks early (not enough chat / outline incomplete), a gentle `confirm()` modal asks "Are you ready to move on?" rather than blocking. Tooltip on the button still hints that chatting + outlining first helps.

@@ -267,6 +267,98 @@ button {
   grid-template-columns: 1fr;
 }
 
+/* Grading split-pane: student text and rubric side by side, each scrolling
+   independently, so grading never requires a round-trip scroll. */
+.review-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.review-split {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  height: clamp(520px, calc(100vh - 240px), 1040px);
+}
+
+.review-split-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.review-split-text {
+  flex: 0 0 54%;
+}
+
+.review-split-rubric {
+  flex: 1 1 46%;
+}
+
+.review-pane-head {
+  padding: 14px 16px 0;
+}
+
+.review-pane-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+}
+
+.review-pane-foot {
+  border-top: 1px solid var(--line);
+  padding: 12px 16px;
+  background: var(--surface);
+}
+
+.review-secondary {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.review-secondary-section {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fafaf8;
+}
+
+.review-secondary-section > summary {
+  cursor: pointer;
+  list-style-position: inside;
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.review-secondary-body {
+  padding: 0 14px 14px;
+}
+
+@media (max-width: 900px) {
+  .review-split {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .review-split-text,
+  .review-split-rubric {
+    flex: 1 1 auto;
+  }
+
+  .review-pane-scroll {
+    overflow-y: visible;
+  }
+}
+
 .student-shell {
   margin-top: 18px;
 }
@@ -854,6 +946,30 @@ button.rubric-level-cell:hover {
   font-size: 0.78rem;
 }
 
+/* A4 — in the grading rubric pane, each cell shows only its score header by
+   default; the descriptor appears when the band is selected, hovered or
+   focused. Scoped to the grading pane so previews keep their full text. */
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-cell {
+  min-height: 0;
+  gap: 0;
+}
+
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-text {
+  display: none;
+}
+
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-cell.is-selected,
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:hover,
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:focus-visible {
+  gap: 8px;
+}
+
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-cell.is-selected .rubric-level-text,
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:hover .rubric-level-text,
+.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:focus-visible .rubric-level-text {
+  display: block;
+}
+
 .rubric-schema-shell-preview .rubric-schema-header {
   align-items: center;
 }
@@ -1345,6 +1461,35 @@ button.rubric-level-cell:hover {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent-deep);
+}
+
+/* Labelled annotation buttons: full name is the primary label (audit finding
+   3), with the short code kept as a small badge. The full explanation rides
+   along in the button's title tooltip. */
+.error-code-btn-labeled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.error-code-btn-labeled .error-code-badge {
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.error-code-btn-labeled:hover .error-code-badge {
+  background: #fff;
+}
+
+.error-code-btn-labeled .error-code-name {
+  font-size: 0.8rem;
 }
 
 /* Error code key shown to students */

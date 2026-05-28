@@ -271,6 +271,13 @@ function safeLogError(error) {
   return error?.message || String(error || 'Unknown error');
 }
 
+// Returns only the error class name — never message or stack, both of
+// which can include user-controlled data tainted from the request body
+// (Sonar S5145). Use in request handler catch blocks.
+function errorClassForLog(error) {
+  return error?.name || 'Error';
+}
+
 function validatePasswordStrength(password) {
   const value = String(password || '');
   if (value.length < 8) {
@@ -2280,7 +2287,7 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
     ]);
     res.json({ submission: data });
   } catch (error) {
-    console.error('Unexpected submit failure');
+    console.error('Unexpected submit failure:', errorClassForLog(error));
     res.status(500).json({ error: 'Could not submit your work right now. Please try again.' });
   }
 });
@@ -2429,7 +2436,7 @@ app.patch('/api/submissions/:id', async (req, res) => {
     }
     res.json({ submission: data });
   } catch (error) {
-    console.error('Unexpected submission PATCH failure');
+    console.error('Unexpected submission PATCH failure:', errorClassForLog(error));
     res.status(500).json({ error: 'Could not save submission right now. Please try again.' });
   }
 });

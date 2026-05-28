@@ -1124,7 +1124,14 @@ app.post('/api/rubric/parse-text', async (req, res) => {
 });
 
 // ── AI endpoint ─────────────────────────────────────────────
+let aiRequestsInFlight = 0;
+const AI_MAX_CONCURRENT = 10;
+
 app.post('/api/generate', async (req, res) => {
+  if (aiRequestsInFlight >= AI_MAX_CONCURRENT) {
+    return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.' });
+  }
+  aiRequestsInFlight++;
   try {
     const { prompt, messages, system, maxTokens, temperature } = req.body;
     const apiMessages = (messages || [{ role: "user", content: prompt }])
@@ -1162,6 +1169,8 @@ app.post('/api/generate', async (req, res) => {
   } catch (error) {
     if (error.name === 'AbortError') return res.status(504).json({ error: 'AI request timed out. Please try again.' });
     res.status(500).json({ error: error.message });
+  } finally {
+    aiRequestsInFlight--;
   }
 });
 

@@ -1,4 +1,13 @@
 (function () {
+  // Converts the subset of markdown the AI coach produces into safe HTML.
+  // escapeHtml runs first so user-supplied text can never inject tags.
+  function parseCoachMarkdown(text) {
+    const safe = (globalThis.window.escapeHtml || String)(String(text || ""));
+    return safe
+      .replaceAll(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+      .replaceAll("\n", "<br>");
+  }
+
   function summarizeLocalSubmissionForDebug(submission) {
     if (!submission) return null;
     const { isStudentSubmissionLocked, safeArray } = window;
@@ -309,7 +318,7 @@
           <div class="chatbot-window">
             ${chatHistory.map((msg) => `
               <div class="chat-message chat-${escapeHtml(msg.role)}">
-                <div class="chat-bubble">${escapeHtml(msg.content)}</div>
+                <div class="chat-bubble">${msg.role === "assistant" ? parseCoachMarkdown(msg.content) : escapeHtml(msg.content)}</div>
               </div>
             `).join("")}
           </div>
@@ -333,7 +342,7 @@
           </div>
         ` : chatHistory.map((msg) => `
           <div class="chat-message chat-${escapeHtml(msg.role)}">
-            <div class="chat-bubble">${escapeHtml(msg.content)}</div>
+            <div class="chat-bubble">${msg.role === "assistant" ? parseCoachMarkdown(msg.content) : escapeHtml(msg.content)}</div>
           </div>
         `).join("")}
         ${ui.chatLoading ? `

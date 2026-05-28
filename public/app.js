@@ -896,6 +896,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTimeout(() => renderAuthScreen(joinClassId, inviteInfo), 0);
     return;
   }
+  // When opening an invite link, a stored session from a previous login on the
+  // same device (e.g. a teacher account) could auto-sign-in to the wrong account.
+  // Force sign-out and show the auth screen so the student creates their own account.
+  if (joinClassId && profile.role !== 'student') {
+    await Auth.signOut();
+    resetAppShellState();
+    setTimeout(() => renderAuthScreen(joinClassId, inviteInfo), 0);
+    return;
+  }
   await bootApp(profile);
 });
 

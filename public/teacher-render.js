@@ -663,73 +663,66 @@
     `;
   }
 
-  function renderTeacherAnnotationPanel(submission) {
-    const { escapeHtml, escapeAttribute, getAnnotationDisplayLabel } = globalThis.window;
-    const { getErrorCodes, getErrorCodeLabel, loadCustomErrorCodes } = globalThis.window.AppConstants;
+  // Annotation labels are stored as "Name: explanation". Split them so the
+  // toolbar can show the full name (audit finding 3) with the explanation as a
+  // tooltip — no storage migration needed.
+  function annotationCodeParts(label) {
+    const text = String(label || "Custom code");
+    const splitAt = text.indexOf(":");
+    const name = (splitAt >= 0 ? text.slice(0, splitAt) : text).trim() || "Custom code";
+    const explanation = splitAt >= 0 ? text.slice(splitAt + 1).trim() : "";
+    return { name, explanation };
+  }
+
+  function renderAnnotationToolbar() {
+    const { escapeHtml, escapeAttribute } = globalThis.window;
+    const { getErrorCodes, loadCustomErrorCodes } = globalThis.window.AppConstants;
     return `
-      <div style="margin-bottom:16px;">
-        <div class="error-code-toolbar">
-          <span class="mini-label" style="align-self:center;">Annotate:</span>
-          ${getErrorCodes().map(({code, label}) => `<button class="error-code-btn" data-action="add-annotation" data-code="${code}" title="${label}" onmousedown="event.preventDefault()">${code}</button>`).join("")}
-          <button class="error-code-btn" data-action="add-annotation" data-code="NOTE" title="Add a custom note" onmousedown="event.preventDefault()" style="background:#fff9e6;border-color:#e0c84a;">+ Note</button>
-          <button class="error-code-btn" data-action="add-custom-error-code" title="Add your own reusable error code" onmousedown="event.preventDefault()">+ Code</button>
+      <div class="error-code-toolbar">
+        <span class="mini-label" style="align-self:center;">Annotate:</span>
+        ${getErrorCodes().map(({ code, label }) => `<button class="error-code-btn error-code-btn-labeled" data-action="add-annotation" data-code="${escapeAttribute(code)}" title="${escapeAttribute(label)}" onmousedown="event.preventDefault()"><span class="error-code-badge">${escapeHtml(code)}</span><span class="error-code-name">${escapeHtml(annotationCodeParts(label).name)}</span></button>`).join("")}
+        <button class="error-code-btn" data-action="add-annotation" data-code="NOTE" title="Add a custom note" onmousedown="event.preventDefault()" style="background:#fff9e6;border-color:#e0c84a;">+ Note</button>
+        <button class="error-code-btn" data-action="add-custom-error-code" title="Add your own reusable error code" onmousedown="event.preventDefault()">+ Code</button>
+      </div>
+      ${loadCustomErrorCodes().length ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          ${loadCustomErrorCodes().map((entry) => `
+            <button class="button-ghost" data-action="remove-custom-error-code" data-code="${escapeAttribute(entry.code)}" style="font-size:0.78rem;min-height:30px;padding:0 10px;">
+              ${escapeHtml(entry.code)} ✕
+            </button>
+          `).join("")}
         </div>
-        ${loadCustomErrorCodes().length ? `
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-            ${loadCustomErrorCodes().map((entry) => `
-              <button class="button-ghost" data-action="remove-custom-error-code" data-code="${escapeAttribute(entry.code)}" style="font-size:0.78rem;min-height:30px;padding:0 10px;">
-                ${escapeHtml(entry.code)} ✕
-              </button>
-            `).join("")}
+      ` : ""}
+    `;
+  }
+
+  function renderAnnotationList(submission) {
+    const { escapeHtml, escapeAttribute, getAnnotationDisplayLabel } = globalThis.window;
+    const { getErrorCodeLabel } = globalThis.window.AppConstants;
+    const annotations = submission.teacherReview?.annotations || [];
+    if (!annotations.length) {
+      return `<p class="subtle" style="margin-top:12px;font-size:0.85rem;">No annotations yet. Select text above then choose a code.</p>`;
+    }
+    return `
+      <div style="margin-top:12px;display:grid;gap:6px;">
+        ${annotations.map((ann, i) => `
+          <div id="comment-${escapeAttribute(ann.id)}" style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:10px;background:#f6f0ff;border:1px solid #c9b3eb;font-size:0.88rem;scroll-margin-top:120px;">
+            <strong style="color:#5b2a86;flex-shrink:0;">${escapeHtml(getAnnotationDisplayLabel(ann, i))}</strong>
+            <button type="button" onclick="scrollToAnnotation('${escapeAttribute(ann.id)}')" style="flex:1;text-align:left;background:none;border:none;padding:0;color:#3f2a56;cursor:pointer;font:inherit;">
+              "${escapeHtml(ann.selectedText)}"${getErrorCodeLabel(ann.code) ? ` — ${escapeHtml(getErrorCodeLabel(ann.code))}` : ""}${ann.note ? ` — ${escapeHtml(ann.note)}` : ""}
+            </button>
+            <button class="error-code-btn" data-action="remove-annotation" data-annotation-index="${i}" style="flex-shrink:0;color:var(--danger);">✕</button>
           </div>
-        ` : ""}
-        ${(submission.teacherReview?.annotations?.length) ? `
-          <div style="margin-top:8px;display:grid;gap:6px;">
-            ${submission.teacherReview.annotations.map((ann, i) => `
-              <div id="comment-${escapeAttribute(ann.id)}" style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:10px;background:#f6f0ff;border:1px solid #c9b3eb;font-size:0.88rem;scroll-margin-top:120px;">
-                <strong style="color:#5b2a86;flex-shrink:0;">${escapeHtml(getAnnotationDisplayLabel(ann, i))}</strong>
-                <button type="button" onclick="scrollToAnnotation('${escapeAttribute(ann.id)}')" style="flex:1;text-align:left;background:none;border:none;padding:0;color:#3f2a56;cursor:pointer;font:inherit;">
-                  "${escapeHtml(ann.selectedText)}"${getErrorCodeLabel(ann.code) ? ` — ${escapeHtml(getErrorCodeLabel(ann.code))}` : ""}${ann.note ? ` — ${escapeHtml(ann.note)}` : ""}
-                </button>
-                <button class="error-code-btn" data-action="remove-annotation" data-annotation-index="${i}" style="flex-shrink:0;color:var(--danger);">✕</button>
-              </div>
-            `).join("")}
-          </div>
-        ` : `<p class="subtle" style="margin-top:8px;font-size:0.85rem;">No annotations yet. Select text above then click a code.</p>`}
+        `).join("")}
       </div>
     `;
   }
 
-  function renderTeacherGrading(assignment, submission) {
-    const { ui } = window.AppState;
-    const { escapeHtml, escapeAttribute, formatDateTime, getUserById, isStudentSubmissionLocked,
-      getRubricSchema, renderRubricSchemaLayout, renderAnnotatedText,
-      getReviewRoster, getPreviousReviewStudentId, getNextReviewStudentId,
-      canMarkLateOrMissing, getPlaybackState, getSubmissionStatusDisplay,
-      renderEmailDebugPanel, renderSubmissionBehaviourFlagPanel, renderWritingBehaviour,
-      renderPasteEvidencePanel, renderWritingTimeNote, renderStudentAiFeedbackEvidence,
-      renderSuggestedGradePanel } = window;
-    const { calculateTeacherReviewSummary, getTeacherReviewRowScoreMap, getCriterionBands } = window.ReviewUtils;
-
-    if (!submission) return `<div class="empty-state"><p>No submission selected.</p></div>`;
-    const reviewSummary = calculateTeacherReviewSummary(assignment, submission);
-    const suggestedRowScoreMap = getTeacherReviewRowScoreMap(submission.teacherReview?.suggestedRowScores);
-    const reviewScore = submission.teacherReview?.finalScore ?? "";
-    const reviewNotes = submission.teacherReview?.finalNotes ?? "";
-    const studentName = submission._studentName || getUserById(submission.studentId)?.name || "Student";
-    const roster = getReviewRoster(assignment.id);
-    const rosterIndex = roster.findIndex((student) => student.id === submission.studentId);
-    const previousStudentId = getPreviousReviewStudentId(submission.studentId, assignment.id);
-    const nextStudentId = getNextReviewStudentId(submission.studentId, assignment.id);
-    const deadlinePassed = canMarkLateOrMissing(assignment);
-    const currentStatus = submission.status || submission.teacherReview?.status || "not_started";
-    const canReopenSubmission = isStudentSubmissionLocked(submission);
-    const rubricSchema = assignment.uploadedRubricSchema || assignment.rubricSchema || getRubricSchema(assignment.uploadedRubricData || assignment.rubric, assignment.uploadedRubricName || assignment.title);
-    const playback = getPlaybackState(submission);
-
+  function renderGradingNav(assignment, submission, ctx) {
+    const { escapeHtml, escapeAttribute, getSubmissionStatusDisplay } = globalThis.window;
+    const { studentName, currentStatus, roster, rosterIndex, previousStudentId, nextStudentId } = ctx;
     return `
-    <section class="panel review-shell">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+      <div class="review-nav">
         <button class="button-ghost" data-action="back-to-assignments" style="font-size:0.85rem;">← Assignments</button>
         <span style="color:var(--muted);font-size:0.85rem;">/</span>
         <button class="button-ghost" data-action="back-to-review" style="font-size:0.85rem;">${escapeHtml(assignment.title)}</button>
@@ -744,183 +737,261 @@
           <button class="button-ghost" data-action="download-work" style="font-size:0.85rem;">⬇ Grade sheet</button>
         </div>
       </div>
+    `;
+  }
 
-      <div class="review-grid ${rubricSchema ? "review-grid-stacked" : ""}">
-        <div class="review-card">
-
-          ${!["submitted", "late", "missing", "graded"].includes(currentStatus) && (submission.finalText || submission.draftText) ? `
-            <div style="margin-bottom:16px;padding:10px 14px;border:1px solid #d9c878;background:#fff9e6;border-radius:10px;font-size:0.9rem;color:#5a4a14;">
+  // Left pane: student text with the annotation toolbar pinned above it.
+  function renderGradingTextPane(submission, ctx) {
+    const { renderAnnotatedText } = globalThis.window;
+    const { currentStatus } = ctx;
+    const isUnsubmitted = !["submitted", "late", "missing", "graded"].includes(currentStatus)
+      && (submission.finalText || submission.draftText);
+    return `
+      <div class="review-split-pane review-split-text">
+        <div class="review-pane-head">
+          <p class="mini-label" style="margin-bottom:8px;">Student text</p>
+          ${renderAnnotationToolbar()}
+        </div>
+        <div class="review-pane-scroll">
+          ${isUnsubmitted ? `
+            <div style="margin-bottom:14px;padding:10px 14px;border:1px solid #d9c878;background:#fff9e6;border-radius:10px;font-size:0.9rem;color:#5a4a14;">
               <strong>In-progress draft.</strong> This student has not submitted yet, but you can still review and grade their current work. Annotations and scores will be saved as normal.
             </div>
           ` : ""}
-
-          ${renderTeacherSubmissionStatusPanel(currentStatus, canReopenSubmission, deadlinePassed)}
-
-          ${renderEmailDebugPanel(assignment, submission)}
-          ${renderSubmissionBehaviourFlagPanel(submission)}
-          ${renderWritingBehaviour(submission, assignment)}
-          ${renderPasteEvidencePanel(submission)}
-          ${renderWritingTimeNote(submission)}
-          ${renderStudentAiFeedbackEvidence(submission)}
-          <div style="margin-bottom:16px;">
-            <p class="mini-label" style="margin-bottom:6px;">Student text</p>
-            <div class="editor-with-lines review-editor-with-lines">
-              <div class="line-gutter" id="student-text-annotate-gutter" aria-hidden="true"></div>
-              <div id="student-text-annotate" data-line-gutter="student-text-annotate-gutter" onmouseup="captureAnnotationSelection()" onkeyup="captureAnnotationSelection()" ontouchend="captureAnnotationSelection()" style="background:#fafaf8;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:0.92rem;line-height:1.85;white-space:pre-wrap;word-break:break-word;min-height:320px;max-height:min(78vh,900px);overflow-y:auto;cursor:text;">${renderAnnotatedText(submission)}</div>
-            </div>
+          <div class="editor-with-lines review-editor-with-lines">
+            <div class="line-gutter" id="student-text-annotate-gutter" aria-hidden="true"></div>
+            <div id="student-text-annotate" data-line-gutter="student-text-annotate-gutter" onmouseup="captureAnnotationSelection()" onkeyup="captureAnnotationSelection()" ontouchend="captureAnnotationSelection()" style="background:#fafaf8;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:0.92rem;line-height:1.85;white-space:pre-wrap;word-break:break-word;min-height:240px;cursor:text;">${renderAnnotatedText(submission)}</div>
           </div>
-
-          ${renderTeacherAnnotationPanel(submission)}
-
-          <details style="margin-bottom:16px;" ${ui.playback.touched ? "open" : ""}>
-            <summary style="cursor:pointer;font-size:0.85rem;color:var(--muted);padding:6px 0;">▶ Letter-by-letter playback</summary>
-            <div style="margin-top:10px;">
-              <div class="pill-row" style="margin-bottom:10px;">
-                <button type="button" class="button-ghost" data-action="playback-step" data-direction="-1" ${playback.frames.length <= 1 ? "disabled" : ""}>← Back</button>
-                <button type="button" class="button-ghost" data-action="playback-toggle" ${playback.frames.length <= 1 ? "disabled" : ""}>${ui.playback.isPlaying ? "Pause" : "Play"}</button>
-                <button type="button" class="button-ghost" data-action="playback-step" data-direction="1" ${playback.frames.length <= 1 ? "disabled" : ""}>Next →</button>
-                <label class="subtle" style="display:flex;align-items:center;gap:8px;">Speed
-                  <select id="playback-speed">
-                    ${[0.5, 1, 1.5, 2, 3, 5, 8, 10, 15].map((speed) => `<option value="${speed}" ${Number(ui.playback.speed) === Number(speed) ? "selected" : ""}>${speed}×</option>`).join("")}
-                  </select>
-                </label>
-                <span id="playback-meta" class="pill">${escapeHtml(playback.timeLabel)}</span>
-              </div>
-              <input id="playback-slider" type="range" min="0" max="${Math.max(playback.frames.length - 1, 0)}" value="${playback.index}" style="width:100%;margin-bottom:10px;" ${playback.frames.length <= 1 ? "disabled" : ""} />
-              <div id="playback-label" class="subtle" style="margin-bottom:8px;">${escapeHtml(playback.label)}</div>
-              <div id="playback-screen" style="background:#fafaf8;border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-height:180px;max-height:380px;overflow:auto;"><pre style="margin:0;white-space:pre-wrap;word-break:break-word;">${escapeHtml(playback.text)}</pre></div>
-            </div>
-          </details>
-
-          <details style="margin-bottom:16px;">
-            <summary style="cursor:pointer;font-size:0.85rem;color:var(--muted);padding:6px 0;">▶ Coaching chat (${(submission.chatHistory || []).filter(m => m.role === "user").length} student messages)</summary>
-            <div style="margin-top:10px;max-height:200px;overflow-y:auto;display:grid;gap:6px;">
-              ${(submission.chatHistory || []).map(m => `
-                <div style="padding:8px 12px;border-radius:8px;background:${m.role === "user" ? "#edf4ea" : "#f4efe6"};font-size:0.85rem;">
-                  <strong style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:2px;">${m.role === "user" ? escapeHtml(studentName) : "Coach"}</strong>
-                  ${escapeHtml(m.content)}
-                </div>
-              `).join("")}
-            </div>
-            <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#f8fbff;border:1px solid var(--line);">
-              <strong style="display:block;font-size:0.8rem;margin-bottom:4px;color:var(--muted);">Reflection — what I improved</strong>
-              <p style="margin:0;white-space:pre-wrap;line-height:1.6;">${escapeHtml(submission.reflections?.improved || "No reflection written yet.")}</p>
-            </div>
-          </details>
-
+          ${renderAnnotationList(submission)}
         </div>
+      </div>
+    `;
+  }
 
-        <div class="review-card">
-
-            <div style="margin-bottom:16px;">
-            <p class="mini-label" style="margin-bottom:8px;">Rubric</p>
-            ${rubricSchema
-              ? renderRubricSchemaLayout(rubricSchema, {
-                  clickable: true,
-                  compact: true,
-                  rowScoreMap: reviewSummary.rowScoreMap,
-                  suggestedRowScoreMap,
-                  currentScore: (typeof submission.teacherReview?.finalScore === "number" && !Number.isNaN(submission.teacherReview.finalScore))
-                     ? submission.teacherReview.finalScore
-                     : reviewSummary.totalScore,
-                })
-              : reviewSummary.rubric.map((criterion) => {
-                  const bands = getCriterionBands(criterion);
-                  const selected = reviewSummary.rowScoreMap.get(criterion.id);
-                  const suggested = suggestedRowScoreMap.get(criterion.id);
-                  return `
-                    <div style="padding:10px 0;border-bottom:1px solid var(--line);">
-                      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
-                        <div style="flex:1;">
-                          <div style="font-weight:600;font-size:0.9rem;">${escapeHtml(criterion.name)}</div>
-                          <div style="font-size:0.82rem;color:var(--muted);line-height:1.5;">${escapeHtml(criterion.description)}</div>
-                        </div>
-                        <span style="font-size:0.85rem;color:var(--muted);flex-shrink:0;">/${criterion.points} pts</span>
-                      </div>
-                      ${bands.length ? `
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                          ${bands.map((band) => {
-                            const isSelected = selected?.bandId === band.id || (selected && Number(selected.points) === Number(band.points) && selected.label === band.label);
-                            const isSuggested = suggested?.bandId === band.id || (suggested && Number(suggested.points) === Number(band.points) && suggested.label === band.label);
-                            const bg = isSelected ? "#dff3e4" : isSuggested ? "#f4efe6" : "#fff";
-                            const border = isSelected ? "#4f8f68" : isSuggested ? "#c8b9a2" : "var(--line)";
-                            const color = isSelected ? "#1f5c38" : "var(--ink)";
-                            return `<button
-                              class="button-ghost"
-                              data-action="select-rubric-band"
-                              data-criterion-id="${criterion.id}"
-                              data-band-id="${escapeAttribute(band.id)}"
-                              style="padding:8px 10px;min-width:0;background:${bg};border-color:${border};color:${color};font-size:0.8rem;"
-                            >${escapeHtml(band.label)} (${band.points})</button>`;
-                          }).join("")}
-                        </div>
-                      ` : ""}
-                      ${selected ? `
-                        <p style="font-size:0.78rem;color:var(--sage);margin:8px 0 0;">Selected: ${escapeHtml(selected.label)} (${selected.points}/${selected.maxPoints})</p>
-                      ` : suggested ? `
-                        <p style="font-size:0.78rem;color:var(--muted);margin:8px 0 0;">AI suggestion: ${escapeHtml(suggested.label)} (${suggested.points}/${suggested.maxPoints})</p>
-                      ` : `
-                        <p style="font-size:0.78rem;color:var(--muted);margin:8px 0 0;">Choose a band to score this criterion.</p>
-                      `}
-                    </div>
-                  `;
-                }).join("")
-            }
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-                   <span style="font-size:0.82rem;color:var(--muted);">${reviewSummary.selectedCount}/${reviewSummary.rubric.length} criteria scored</span>
-                   ${(typeof submission.teacherReview?.finalScore === "number" && submission.teacherReview.finalScore !== reviewSummary.totalScore) ? "" : `
-                     <span style="font-size:0.95rem;font-weight:700;color:var(--ink);">Auto total: ${reviewSummary.totalScore}/${reviewSummary.maxScore}</span>
-                   `}
-                 </div>
+  function renderSimpleRubricRows(reviewSummary, suggestedRowScoreMap) {
+    const { escapeHtml, escapeAttribute } = globalThis.window;
+    const { getCriterionBands } = globalThis.window.ReviewUtils;
+    return reviewSummary.rubric.map((criterion) => {
+      const bands = getCriterionBands(criterion);
+      const selected = reviewSummary.rowScoreMap.get(criterion.id);
+      const suggested = suggestedRowScoreMap.get(criterion.id);
+      const bandButtons = bands.map((band) => {
+        const isSelected = selected?.bandId === band.id || (selected && Number(selected.points) === Number(band.points) && selected.label === band.label);
+        const isSuggested = suggested?.bandId === band.id || (suggested && Number(suggested.points) === Number(band.points) && suggested.label === band.label);
+        const bg = isSelected ? "#dff3e4" : isSuggested ? "#f4efe6" : "#fff";
+        const border = isSelected ? "#4f8f68" : isSuggested ? "#c8b9a2" : "var(--line)";
+        const color = isSelected ? "#1f5c38" : "var(--ink)";
+        return `<button class="button-ghost" data-action="select-rubric-band" data-criterion-id="${escapeAttribute(criterion.id)}" data-band-id="${escapeAttribute(band.id)}" style="padding:8px 10px;min-width:0;background:${bg};border-color:${border};color:${color};font-size:0.8rem;">${escapeHtml(band.label)} (${band.points})</button>`;
+      }).join("");
+      let footer = `<p style="font-size:0.78rem;color:var(--muted);margin:8px 0 0;">Choose a band to score this criterion.</p>`;
+      if (selected) {
+        footer = `<p style="font-size:0.78rem;color:var(--sage);margin:8px 0 0;">Selected: ${escapeHtml(selected.label)} (${selected.points}/${selected.maxPoints})</p>`;
+      } else if (suggested) {
+        footer = `<p style="font-size:0.78rem;color:var(--muted);margin:8px 0 0;">AI suggestion: ${escapeHtml(suggested.label)} (${suggested.points}/${suggested.maxPoints})</p>`;
+      }
+      return `
+        <div style="padding:10px 0;border-bottom:1px solid var(--line);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:0.9rem;">${escapeHtml(criterion.name)}</div>
+              <div style="font-size:0.82rem;color:var(--muted);line-height:1.5;">${escapeHtml(criterion.description)}</div>
+            </div>
+            <span style="font-size:0.85rem;color:var(--muted);flex-shrink:0;">/${criterion.points} pts</span>
           </div>
+          ${bands.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${bandButtons}</div>` : ""}
+          ${footer}
+        </div>
+      `;
+    }).join("");
+  }
 
+  function renderFinalScoreField(reviewSummary, reviewScore, ui, submission) {
+    const { escapeAttribute } = globalThis.window;
+    const hasManualOverride = typeof submission.teacherReview?.finalScore === "number"
+      && submission.teacherReview.finalScore !== reviewSummary.totalScore;
+    const fieldValue = ui.pendingFinalScoreOverride !== null
+      ? ui.pendingFinalScoreOverride
+      : (reviewScore !== "" ? reviewScore : reviewSummary.totalScore);
+    return `
+      <div class="field" style="margin-bottom:12px;">
+        <label for="teacher-review-final-score">Final score (out of ${reviewSummary.maxScore})</label>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" id="teacher-review-final-score" step="0.5" min="0" max="${reviewSummary.maxScore}" value="${escapeAttribute(String(fieldValue))}" style="padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fafaf8;font-weight:700;font-size:1rem;width:120px;text-align:center;" />
+          <span style="color:var(--muted);">/ ${reviewSummary.maxScore}</span>
+          ${hasManualOverride ? "" : `<span style="font-size:0.78rem;color:var(--muted);">Auto total: ${reviewSummary.totalScore}/${reviewSummary.maxScore}</span>`}
+        </div>
+        <p style="font-size:0.78rem;color:var(--muted);margin-top:6px;">Edit this number to override the rubric total. Changing rubric scores will recalculate it.</p>
+      </div>
+    `;
+  }
+
+  // Right pane: rubric (scrollable) with the score + submit footer pinned below.
+  function renderGradingRubricPane(submission, ctx) {
+    const { escapeHtml, formatDateTime, renderRubricSchemaLayout, renderSuggestedGradePanel } = globalThis.window;
+    const { ui, reviewSummary, suggestedRowScoreMap, rubricSchema, reviewScore, reviewNotes } = ctx;
+    const hasManualOverride = typeof submission.teacherReview?.finalScore === "number"
+      && submission.teacherReview.finalScore !== reviewSummary.totalScore;
+    const rubricBody = rubricSchema
+      ? renderRubricSchemaLayout(rubricSchema, {
+          clickable: true,
+          compact: true,
+          rowScoreMap: reviewSummary.rowScoreMap,
+          suggestedRowScoreMap,
+          currentScore: hasManualOverride ? submission.teacherReview.finalScore : reviewSummary.totalScore,
+        })
+      : renderSimpleRubricRows(reviewSummary, suggestedRowScoreMap);
+    return `
+      <div class="review-split-pane review-split-rubric">
+        <div class="review-pane-scroll">
+          <p class="mini-label" style="margin-bottom:8px;">Rubric</p>
+          ${rubricBody}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+            <span style="font-size:0.82rem;color:var(--muted);">${reviewSummary.selectedCount}/${reviewSummary.rubric.length} criteria scored</span>
+            ${hasManualOverride ? "" : `<span style="font-size:0.95rem;font-weight:700;color:var(--ink);">Auto total: ${reviewSummary.totalScore}/${reviewSummary.maxScore}</span>`}
+          </div>
           ${renderSuggestedGradePanel(submission)}
-
-          <div class="field" style="margin-bottom:12px;">
-                <label for="teacher-review-final-score">Final score (out of ${reviewSummary.maxScore})</label>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <input
-                    type="number"
-                    id="teacher-review-final-score"
-                    step="0.5"
-                    min="0"
-                    max="${reviewSummary.maxScore}"
-                    value="${escapeAttribute(String(
-                      ui.pendingFinalScoreOverride !== null
-                        ? ui.pendingFinalScoreOverride
-                        : (reviewScore !== "" ? reviewScore : reviewSummary.totalScore)
-                    ))}"
-                    style="padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fafaf8;font-weight:700;font-size:1rem;width:120px;text-align:center;"
-                  />
-                  <span style="color:var(--muted);">/ ${reviewSummary.maxScore}</span>
-                  ${(typeof submission.teacherReview?.finalScore === "number" && submission.teacherReview.finalScore !== reviewSummary.totalScore) ? "" : `
-                    <span style="font-size:0.78rem;color:var(--muted);">Auto total: ${reviewSummary.totalScore}/${reviewSummary.maxScore}</span>
-                  `}
-                </div>
-                <p style="font-size:0.78rem;color:var(--muted);margin-top:6px;">Edit this number to override the rubric total. Changing rubric scores will recalculate it.</p>
-              </div>
-
-          <div class="field" style="margin-bottom:12px;">
+          ${renderFinalScoreField(reviewSummary, reviewScore, ui, submission)}
+          <div class="field" style="margin-bottom:4px;">
             <label for="teacher-review-notes">Teacher notes</label>
             <textarea id="teacher-review-notes" style="min-height:120px;">${escapeHtml(reviewNotes)}</textarea>
           </div>
-
+        </div>
+        <div class="review-pane-foot">
           ${submission.teacherReview?.savedAt ? `
-            <p style="font-size:0.8rem;color:var(--sage);margin-bottom:8px;">✓ Grade saved ${escapeHtml(formatDateTime(submission.teacherReview.savedAt))}</p>
+            <p style="font-size:0.8rem;color:var(--sage);margin:0 0 8px;">✓ Grade saved ${escapeHtml(formatDateTime(submission.teacherReview.savedAt))}</p>
           ` : ""}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="button-secondary" data-action="generate-grade" ${ui.gradeSuggestionLoading ? "disabled" : ""}>${ui.gradeSuggestionLoading ? "Suggesting…" : "Suggest score"}</button>
             ${ui.gradeSuggestionLoading ? `<span style="font-size:0.82rem;color:var(--muted);align-self:center;">AI is reviewing the submission…</span>` : ""}
             <button class="button-ghost" data-action="copy-lms-grade" title="Copies the score, rubric breakdown, teacher feedback and annotation comments so you can paste them into your LMS.">Copy grade and feedback</button>
             <button class="button" data-action="save-teacher-review" ${ui.gradeSubmitting ? "disabled" : ""}>${ui.gradeSubmitting ? "Submitting…" : "Submit grade"}</button>
-            </div>
-            ${ui.notice && /grade submitted/i.test(ui.notice) ? `
-              <div style="margin-top:14px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:10px;color:#2e7d32;font-weight:600;">✓ ${escapeHtml(ui.notice)}</div>
-            ` : ""}
+          </div>
+          ${ui.notice && /grade submitted/i.test(ui.notice) ? `
+            <div style="margin-top:14px;padding:12px 14px;background:#e8f5e9;border:1px solid #66bb6a;border-radius:10px;color:#2e7d32;font-weight:600;">✓ ${escapeHtml(ui.notice)}</div>
+          ` : ""}
         </div>
       </div>
-    </section>
-  `;
+    `;
+  }
+
+  function renderPlaybackControls(playback, ui) {
+    const { escapeHtml } = globalThis.window;
+    const single = playback.frames.length <= 1;
+    return `
+      <div class="pill-row" style="margin-bottom:10px;">
+        <button type="button" class="button-ghost" data-action="playback-step" data-direction="-1" ${single ? "disabled" : ""}>← Back</button>
+        <button type="button" class="button-ghost" data-action="playback-toggle" ${single ? "disabled" : ""}>${ui.playback.isPlaying ? "Pause" : "Play"}</button>
+        <button type="button" class="button-ghost" data-action="playback-step" data-direction="1" ${single ? "disabled" : ""}>Next →</button>
+        <label class="subtle" style="display:flex;align-items:center;gap:8px;">Speed
+          <select id="playback-speed">
+            ${[0.5, 1, 1.5, 2, 3, 5, 8, 10, 15].map((speed) => `<option value="${speed}" ${Number(ui.playback.speed) === Number(speed) ? "selected" : ""}>${speed}×</option>`).join("")}
+          </select>
+        </label>
+        <span id="playback-meta" class="pill">${escapeHtml(playback.timeLabel)}</span>
+      </div>
+      <input id="playback-slider" type="range" min="0" max="${Math.max(playback.frames.length - 1, 0)}" value="${playback.index}" style="width:100%;margin-bottom:10px;" ${single ? "disabled" : ""} />
+      <div id="playback-label" class="subtle" style="margin-bottom:8px;">${escapeHtml(playback.label)}</div>
+      <div id="playback-screen" style="background:#fafaf8;border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-height:180px;max-height:380px;overflow:auto;"><pre style="margin:0;white-space:pre-wrap;word-break:break-word;">${escapeHtml(playback.text)}</pre></div>
+    `;
+  }
+
+  function renderCoachingChat(submission, studentName) {
+    const { escapeHtml } = globalThis.window;
+    return `
+      <div style="max-height:240px;overflow-y:auto;display:grid;gap:6px;">
+        ${(submission.chatHistory || []).map((m) => `
+          <div style="padding:8px 12px;border-radius:8px;background:${m.role === "user" ? "#edf4ea" : "#f4efe6"};font-size:0.85rem;">
+            <strong style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:2px;">${m.role === "user" ? escapeHtml(studentName) : "Coach"}</strong>
+            ${escapeHtml(m.content)}
+          </div>
+        `).join("")}
+      </div>
+      <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:#f8fbff;border:1px solid var(--line);">
+        <strong style="display:block;font-size:0.8rem;margin-bottom:4px;color:var(--muted);">Reflection — what I improved</strong>
+        <p style="margin:0;white-space:pre-wrap;line-height:1.6;">${escapeHtml(submission.reflections?.improved || "No reflection written yet.")}</p>
+      </div>
+    `;
+  }
+
+  // Everything not on the critical grading path lives below the split: status,
+  // flags, the (now collapsed-by-default) analytics, playback and coaching.
+  function renderGradingSecondary(assignment, submission, ctx) {
+    const { renderEmailDebugPanel, renderSubmissionBehaviourFlagPanel, renderWritingBehaviour,
+      renderPasteEvidencePanel, renderWritingTimeNote, renderStudentAiFeedbackEvidence } = globalThis.window;
+    const { ui, playback, studentName, currentStatus, canReopenSubmission, deadlinePassed } = ctx;
+    const analytics = renderWritingBehaviour(submission, assignment);
+    const flags = [
+      renderSubmissionBehaviourFlagPanel(submission),
+      renderPasteEvidencePanel(submission),
+      renderWritingTimeNote(submission),
+      renderStudentAiFeedbackEvidence(submission),
+    ].join("");
+    const studentMessageCount = (submission.chatHistory || []).filter((m) => m.role === "user").length;
+    return `
+      <div class="review-secondary">
+        ${renderTeacherSubmissionStatusPanel(currentStatus, canReopenSubmission, deadlinePassed)}
+        ${renderEmailDebugPanel(assignment, submission)}
+        ${analytics ? `
+          <details class="review-secondary-section">
+            <summary>Writing behaviour analytics · Optional</summary>
+            <div class="review-secondary-body">${analytics}</div>
+          </details>
+        ` : ""}
+        ${flags.trim() ? `
+          <details class="review-secondary-section">
+            <summary>Flags &amp; evidence</summary>
+            <div class="review-secondary-body">${flags}</div>
+          </details>
+        ` : ""}
+        <details class="review-secondary-section" ${ui.playback.touched ? "open" : ""}>
+          <summary>Replay writing process</summary>
+          <div class="review-secondary-body">${renderPlaybackControls(playback, ui)}</div>
+        </details>
+        <details class="review-secondary-section">
+          <summary>Planning chat with coach (${studentMessageCount} student messages)</summary>
+          <div class="review-secondary-body">${renderCoachingChat(submission, studentName)}</div>
+        </details>
+      </div>
+    `;
+  }
+
+  function renderTeacherGrading(assignment, submission) {
+    const { getUserById, isStudentSubmissionLocked, getRubricSchema, getReviewRoster,
+      getPreviousReviewStudentId, getNextReviewStudentId, canMarkLateOrMissing,
+      getPlaybackState } = globalThis.window;
+    const { calculateTeacherReviewSummary, getTeacherReviewRowScoreMap } = globalThis.window.ReviewUtils;
+
+    if (!submission) return `<div class="empty-state"><p>No submission selected.</p></div>`;
+
+    const roster = getReviewRoster(assignment.id);
+    const ctx = {
+      ui: globalThis.window.AppState.ui,
+      reviewSummary: calculateTeacherReviewSummary(assignment, submission),
+      suggestedRowScoreMap: getTeacherReviewRowScoreMap(submission.teacherReview?.suggestedRowScores),
+      reviewScore: submission.teacherReview?.finalScore ?? "",
+      reviewNotes: submission.teacherReview?.finalNotes ?? "",
+      studentName: submission._studentName || getUserById(submission.studentId)?.name || "Student",
+      roster,
+      rosterIndex: roster.findIndex((student) => student.id === submission.studentId),
+      previousStudentId: getPreviousReviewStudentId(submission.studentId, assignment.id),
+      nextStudentId: getNextReviewStudentId(submission.studentId, assignment.id),
+      deadlinePassed: canMarkLateOrMissing(assignment),
+      currentStatus: submission.status || submission.teacherReview?.status || "not_started",
+      canReopenSubmission: isStudentSubmissionLocked(submission),
+      rubricSchema: assignment.uploadedRubricSchema || assignment.rubricSchema || getRubricSchema(assignment.uploadedRubricData || assignment.rubric, assignment.uploadedRubricName || assignment.title),
+      playback: getPlaybackState(submission),
+    };
+
+    return `
+      <section class="panel review-shell">
+        ${renderGradingNav(assignment, submission, ctx)}
+        <div class="review-split">
+          ${renderGradingTextPane(submission, ctx)}
+          ${renderGradingRubricPane(submission, ctx)}
+        </div>
+        ${renderGradingSecondary(assignment, submission, ctx)}
+      </section>
+    `;
   }
 
   const TeacherRender = {

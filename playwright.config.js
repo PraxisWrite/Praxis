@@ -16,7 +16,7 @@ module.exports = defineConfig({
     ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   use: {
-    baseURL: process.env.E2E_BASE_URL || "https://auizero-production.up.railway.app",
+    baseURL: process.env.E2E_BASE_URL || "https://praxiswrite.com",
     headless: isCI,
     screenshot: "only-on-failure",
     video: "retain-on-failure",

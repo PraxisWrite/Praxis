@@ -707,6 +707,12 @@
       <div class="review-grid ${rubricSchema ? "review-grid-stacked" : ""}">
         <div class="review-card">
 
+          ${!["submitted", "late", "missing", "graded"].includes(currentStatus) && (submission.finalText || submission.draftText) ? `
+            <div style="margin-bottom:16px;padding:10px 14px;border:1px solid #d9c878;background:#fff9e6;border-radius:10px;font-size:0.9rem;color:#5a4a14;">
+              <strong>In-progress draft.</strong> This student has not submitted yet, but you can still review and grade their current work. Annotations and scores will be saved as normal.
+            </div>
+          ` : ""}
+
           ${renderTeacherSubmissionStatusPanel(currentStatus, canReopenSubmission, deadlinePassed)}
 
           ${renderEmailDebugPanel(assignment, submission)}

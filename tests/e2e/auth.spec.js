@@ -25,7 +25,7 @@ test.describe("Authentication", () => {
 
     const { getErrors } = collectPageErrors(page);
     const { email } = getCredentials("teacher");
-    await page.goto("/");
+    await page.goto("/index.html");
     await page.getByPlaceholder("Email").first().fill(email);
     await page.getByPlaceholder("Password", { exact: true }).fill("definitely-not-the-real-password-123");
 

@@ -22,7 +22,7 @@ function hasAllCredentials() {
 async function login(page, role) {
   const { email, password } = getCredentials(role);
 
-  await page.goto("/");
+  await page.goto("/index.html");
 
   // The sign-in form uses placeholder text rather than visible labels.
   await page.getByPlaceholder("Email").first().fill(email);

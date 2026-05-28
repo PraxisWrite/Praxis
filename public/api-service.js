@@ -260,13 +260,31 @@ async function deleteAssignment(assignmentId) {
     return id;
   }
 
+  // Replace an append-only array in the payload with just the new tail since the
+  // server-confirmed cursor, so an actively-writing student uploads only new
+  // events instead of the whole (growing) array on every 30s sync.
+  // - unchanged since cursor  → omit the field entirely
+  // - grown                   → send `${col}_append` (new slice) + `${col}_base`
+  // - shrank/reset            → leave the full array so the server overwrites
+  function applyArrayDelta(payload, col, prop, submission, currentLen, baseLen) {
+    if (currentLen === baseLen) {
+      delete payload[col];
+      return;
+    }
+    if (currentLen > baseLen) {
+      payload[`${col}_append`] = safeArray(submission[prop]).slice(baseLen);
+      payload[`${col}_base`] = baseLen;
+      delete payload[col];
+    }
+  }
+
   function buildDeltaPayload(submission, serverId, lengths) {
     const cursor = _syncCursors.get(serverId) || {};
     const payload = buildSubmissionServerPayload(submission, {
       expected_updated_at: submission.updatedAt || null,
     });
-    if (lengths.writingEvents <= (cursor.writingEventsLen || 0)) delete payload.writing_events;
-    if (lengths.keystrokeLog <= (cursor.keystrokeLogLen || 0)) delete payload.keystroke_log;
+    applyArrayDelta(payload, "writing_events", "writingEvents", submission, lengths.writingEvents, cursor.writingEventsLen || 0);
+    applyArrayDelta(payload, "keystroke_log", "keystrokeLog", submission, lengths.keystrokeLog, cursor.keystrokeLogLen || 0);
     return payload;
   }
 
@@ -305,7 +323,11 @@ async function deleteAssignment(assignmentId) {
       writingEvents: safeArray(submission.writingEvents).length,
       keystrokeLog: safeArray(submission.keystrokeLog).length,
     };
-    const payload = buildDeltaPayload(submission, serverId, lengths);
+    // First sync of a session sends the full arrays to establish a baseline the
+    // server agrees on; only subsequent syncs send appends against that cursor.
+    const payload = _syncCursors.has(serverId)
+      ? buildDeltaPayload(submission, serverId, lengths)
+      : buildSubmissionServerPayload(submission, { expected_updated_at: submission.updatedAt || null });
 
     try {
       const result = await patchSubmission(serverId, payload);
@@ -334,6 +356,10 @@ async function deleteAssignment(assignmentId) {
     });
     if (result?.error) throw new Error(result.error);
     if (!result?.submission) throw new Error("Server did not return the submitted work.");
+    // Submit writes full arrays through a different endpoint; drop the sync
+    // cursor so the next post-reopen edit re-baselines instead of appending
+    // against a stale length.
+    if (hasServerId(submission?.id)) _syncCursors.delete(submission.id);
     return mapServerSubmission(result.submission);
   }
 

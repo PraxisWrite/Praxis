@@ -864,6 +864,36 @@ async function getSubmissionRecord(submissionId, client = supabase) {
   return data || null;
 }
 
+// Resolves append-only deltas sent by the client's auto-sync (Issue 1).
+// The client uploads only new events as `<col>_append` plus the `<col>_base`
+// length it expects the server to already hold. We read the current array, and
+// if its length matches the base we concatenate and write the result into
+// `payload[col]`. On any mismatch we return { conflict: true } so the caller
+// can 409 and the client re-baselines with a full resend — no data is lost.
+const APPEND_DELTA_FIELDS = [
+  ['writing_events_append', 'writing_events_base', 'writing_events'],
+  ['keystroke_log_append', 'keystroke_log_base', 'keystroke_log'],
+];
+
+async function applyAppendDeltas(reqBody, submissionId, client, payload) {
+  const active = APPEND_DELTA_FIELDS.filter(([appendKey]) => Array.isArray(reqBody?.[appendKey]));
+  if (!active.length) return { ok: true };
+  const { data, error } = await client
+    .from('submissions')
+    .select('writing_events, keystroke_log')
+    .eq('id', submissionId)
+    .maybeSingle();
+  if (error) throw error;
+  const current = data || {};
+  for (const [appendKey, baseKey, col] of active) {
+    const existing = Array.isArray(current[col]) ? current[col] : [];
+    const base = Number(reqBody[baseKey] ?? 0);
+    if (existing.length !== base) return { conflict: true };
+    payload[col] = existing.concat(reqBody[appendKey]);
+  }
+  return { ok: true };
+}
+
 function getSubmissionTeacherReview(submission = {}) {
   return submission.teacher_review || submission.teacherReview || {};
 }
@@ -2495,15 +2525,23 @@ app.patch('/api/submissions/:id', async (req, res) => {
       });
     }
     const isStudentOwner = submission.student_id === user.id;
-    const payload = isStudentOwner
-      ? {
-          ...sanitizeStudentSubmissionPayload(req.body),
-          updated_at: new Date().toISOString(),
-        }
-      : submissionPayloadWithGradedStatus({
-          ...sanitizeTeacherSubmissionPayload(req.body),
-          updated_at: new Date().toISOString(),
+    let payload;
+    if (isStudentOwner) {
+      payload = { ...sanitizeStudentSubmissionPayload(req.body), updated_at: new Date().toISOString() };
+      const appended = await applyAppendDeltas(req.body, req.params.id, readClient, payload);
+      if (appended.conflict) {
+        return res.status(409).json({
+          error: 'Submission was modified by someone else. Please refresh and try again.',
+          conflict: true,
+          updated_at: submission.updated_at,
         });
+      }
+    } else {
+      payload = submissionPayloadWithGradedStatus({
+        ...sanitizeTeacherSubmissionPayload(req.body),
+        updated_at: new Date().toISOString(),
+      });
+    }
 
     const { data, error } = await submissionWriteWithFallback(req, (client) => client
       .from('submissions')

@@ -79,6 +79,42 @@ test("syncStudentSubmission retries with a refreshed server id when the cached i
   ]);
 });
 
+test("syncStudentSubmission sends the full event arrays on the first sync, then only appends", async () => {
+  const bodies = [];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    if (path === "/api/submissions/server-1") {
+      bodies.push(JSON.parse(options.body));
+      return {
+        submission: {
+          id: "server-1",
+          assignment_id: "assignment-1",
+          student_id: "student-1",
+          updated_at: `t${bodies.length}`,
+        },
+      };
+    }
+    throw new Error(`Unexpected path: ${path}`);
+  });
+
+  const submission = createSubmission({
+    id: "server-1",
+    writingEvents: [{ i: 0 }, { i: 1 }],
+    updatedAt: "t0",
+  });
+
+  // First sync: no cursor yet, so the whole array goes up to establish a baseline.
+  await apiService.syncStudentSubmission(submission);
+  assert.deepEqual(bodies[0].writing_events, [{ i: 0 }, { i: 1 }]);
+  assert.equal(bodies[0].writing_events_append, undefined);
+
+  // Student keeps writing; the next sync should carry only the new tail.
+  submission.writingEvents.push({ i: 2 });
+  await apiService.syncStudentSubmission(submission);
+  assert.equal(bodies[1].writing_events, undefined);
+  assert.deepEqual(bodies[1].writing_events_append, [{ i: 2 }]);
+  assert.equal(bodies[1].writing_events_base, 2);
+});
+
 test("loadAdminClassDetail normalizes missing admin arrays", async () => {
   const calls = [];
   const apiService = loadApiServiceWithFetch(async (path, options = {}) => {

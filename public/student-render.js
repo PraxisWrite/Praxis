@@ -5,7 +5,7 @@
     const safe = (globalThis.window.escapeHtml || String)(String(text || ""));
     return safe
       .replaceAll(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-      .replaceAll(/\n/g, "<br>");
+      .replaceAll("\n", "<br>");
   }
 
   function summarizeLocalSubmissionForDebug(submission) {

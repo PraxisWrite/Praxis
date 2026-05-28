@@ -894,6 +894,12 @@ async function applyAppendDeltas(reqBody, submissionId, client, payload) {
   return { ok: true };
 }
 
+async function buildStudentPatchPayload(reqBody, submissionId, readClient) {
+  const payload = { ...sanitizeStudentSubmissionPayload(reqBody), updated_at: new Date().toISOString() };
+  const appended = await applyAppendDeltas(reqBody, submissionId, readClient, payload);
+  return { conflict: appended.conflict === true, payload };
+}
+
 function getSubmissionTeacherReview(submission = {}) {
   return submission.teacher_review || submission.teacherReview || {};
 }
@@ -2527,15 +2533,15 @@ app.patch('/api/submissions/:id', async (req, res) => {
     const isStudentOwner = submission.student_id === user.id;
     let payload;
     if (isStudentOwner) {
-      payload = { ...sanitizeStudentSubmissionPayload(req.body), updated_at: new Date().toISOString() };
-      const appended = await applyAppendDeltas(req.body, req.params.id, readClient, payload);
-      if (appended.conflict) {
+      const built = await buildStudentPatchPayload(req.body, req.params.id, readClient);
+      if (built.conflict) {
         return res.status(409).json({
           error: 'Submission was modified by someone else. Please refresh and try again.',
           conflict: true,
           updated_at: submission.updated_at,
         });
       }
+      payload = built.payload;
     } else {
       payload = submissionPayloadWithGradedStatus({
         ...sanitizeTeacherSubmissionPayload(req.body),

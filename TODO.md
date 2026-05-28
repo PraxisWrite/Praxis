@@ -23,9 +23,9 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [ ] **Teacher should be able to see and grade student's work even if submit was not triggered** — in case of a submit error the work is inaccessible.
 - [ ] **"Likely natural" writing behaviour label unexplained** — in the teacher grading panel, the Writing Behaviour section shows a label ("Likely natural", "Uncertain", or "Needs review") with a summary line like "Mostly natural writing behaviour with some variation — consistent with B1." There is no explanation of *why* that rating was given or what the metrics mean. Needs a `?` info button or tooltip next to the label that explains the scoring criteria.
 
-- [ ] **Unexpected password-strength message** — some users see "Use at least 8 characters and at least 1 number" at unexpected moments (not during password change). Existing valid sessions should never see password guidance unless prompted to update. *(Issue #110)*
-- [ ] **Profiles RLS policy too broad** — `public.profiles` has a `true` SELECT policy, meaning any authenticated user can read any profile. Should be scoped so teachers see their class members and students see only their own profile. Requires careful regression testing of auth, rosters, admin views, and display names. *(Issue #109)*
-- [ ] **Submissions endpoints return 500 on auth/access failures** — expected failures (wrong user, RLS denial, missing record) should return 401/403/404/409 not a generic 500. Audit: `/api/assignments/:id/submissions`, `/api/student/submissions`, `/api/assignments/:id/my-submission`, `/api/assignments/:id/submit`, `/api/submissions/:id`. Student draft preservation behaviour must remain intact. *(Issue #111)*
+- [x] **Unexpected password-strength message** — Fixed: `shouldShowUpgradePrompt()` now also returns false for accounts created on/after the security hardening date (2026-05-01) — new signups never see the banner. Legacy accounts still see it until dismissed. *(Issue #110, PR #259)*
+- [x] **Profiles RLS policy too broad** — Fixed: replaced `qual=true, roles=public` SELECT policy with `authenticated`-only. Unauthenticated users can no longer read profiles. Per-class scoping deferred to a follow-up migration. *(Issue #109, PR #259)*
+- [x] **Submissions endpoints return 500 on auth/access failures** — Fixed: added `isRlsDenial()` helper; five submission endpoints now return 403 instead of 400 on RLS denial. Catch blocks no longer expose raw `error.message`; log `error.name` (class only) to avoid Sonar S5145. *(Issue #111, PR #259)*
 
 ### Medium priority
 

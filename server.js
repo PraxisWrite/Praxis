@@ -1639,7 +1639,7 @@ app.post('/api/classes/:classId/members', async (req, res) => {
     const { error } = await writeWithRequestScopedFallback(req, (client) => client
       .from('class_members')
       .upsert(
-        { class_id: req.params.classId, student_id: authUser.id },
+        { class_id: req.params.classId, student_id: authUser.id, status: 'approved' },
         { onConflict: 'class_id,student_id' }
       ));
     if (error) return res.status(400).json({ error: error.message });
@@ -1731,6 +1731,28 @@ app.patch('/api/classes/:classId/members/:studentId', async (req, res) => {
   }
 });
 
+// Approve a pending student who joined via the class invite link
+app.post('/api/classes/:classId/members/:studentId/approve', async (req, res) => {
+  try {
+    const { user, error: teacherError, status } = await requireTeacherProfile(req);
+    if (teacherError) return res.status(status).json({ error: teacherError });
+    const readClient = getRequestScopedSupabase(req);
+    const ownedClass = await ensureTeacherOwnsClass(req.params.classId, user.id, readClient);
+    if (!ownedClass) return res.status(403).json({ error: 'You can only approve students for your own classes.' });
+    const enrolledStudent = await ensureStudentBelongsToClass(req.params.classId, req.params.studentId, readClient);
+    if (!enrolledStudent) return res.status(404).json({ error: 'That student is not enrolled in this class.' });
+    const { error } = await writeWithRequestScopedFallback(req, (client) => client
+      .from('class_members')
+      .update({ status: 'approved' })
+      .eq('class_id', req.params.classId)
+      .eq('student_id', req.params.studentId));
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get classes for a student
 app.get('/api/student/classes', async (req, res) => {
   try {
@@ -1739,10 +1761,14 @@ app.get('/api/student/classes', async (req, res) => {
     const readClient = getRequestScopedSupabase(req);
     const { data, error } = await readClient
       .from('class_members')
-      .select('class_id, classes(id, name, teacher_id, profiles(name))')
+      .select('class_id, status, classes(id, name, teacher_id, profiles(name))')
       .eq('student_id', user.id);
     if (error) return res.status(400).json({ error: error.message });
-    res.json({ classes: data.map(d => d.classes) });
+    const rows = (data || []).filter((entry) => entry.classes);
+    res.json({
+      classes: rows.filter((entry) => entry.status !== 'pending').map((entry) => entry.classes),
+      pendingClasses: rows.filter((entry) => entry.status === 'pending').map((entry) => entry.classes),
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1777,14 +1803,14 @@ app.post('/api/classes/:classId/join', async (req, res) => {
     }
     const { error } = await writeWithRequestScopedFallback(req, (client) => client
       .from('class_members')
-      .insert({ class_id: req.params.classId, student_id: user.id })
+      .insert({ class_id: req.params.classId, student_id: user.id, status: 'pending' })
       .select('class_id, student_id')
       .single());
     if (error?.code === '23505') {
       return res.json({ ok: true, alreadyJoined: true });
     }
     if (error) return res.status(400).json({ error: error.message });
-    res.json({ ok: true });
+    res.json({ ok: true, pending: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1799,13 +1825,13 @@ app.get('/api/classes/:classId/members', async (req, res) => {
     if (!ownedClass) return res.status(403).json({ error: 'You can only view rosters for your own classes.' });
     const { data, error } = await readClient
       .from('class_members')
-      .select('student_id, profiles(id, name)')
+      .select('student_id, status, profiles(id, name)')
       .eq('class_id', req.params.classId);
     if (error) return res.status(400).json({ error: error.message });
     res.json({
       members: data
         .filter((entry) => entry.student_id !== user.id && entry.profiles)
-        .map((entry) => entry.profiles),
+        .map((entry) => ({ ...entry.profiles, status: entry.status || 'approved' })),
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

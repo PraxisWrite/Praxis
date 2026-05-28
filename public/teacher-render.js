@@ -97,6 +97,51 @@
       </div>
     `;
   }
+  function renderClassRosterMemberRow(member, index, escapeHtml, escapeAttribute) {
+    const isPending = member.status === "pending";
+    const safeName = escapeAttribute(member.name || "Student");
+    const label = isPending
+      ? `<span class="subtle" style="display:block;font-size:0.74rem;margin-bottom:3px;color:var(--accent-deep);">Awaiting approval</span>`
+      : `<span class="subtle" style="display:block;font-size:0.74rem;margin-bottom:3px;">Student ${index + 1}</span>`;
+    const nameCell = isPending
+      ? `<strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(member.name || "Student")}</strong>`
+      : `<button data-action="grade-student-from-roster" data-student-id="${member.id}" title="Open this student's work to grade it" style="background:none;border:none;padding:0;margin:0;cursor:pointer;color:var(--accent-deep);font-weight:700;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-decoration:underline;text-underline-offset:2px;">${escapeHtml(member.name || "Student")}</button>`;
+    const actions = isPending
+      ? `<button class="button" data-action="approve-class-member" data-student-id="${member.id}" data-student-name="${safeName}" style="font-size:0.78rem;white-space:nowrap;">Approve</button>
+         <button class="button-ghost" data-action="remove-class-member" data-student-id="${member.id}" data-student-name="${safeName}" style="font-size:0.78rem;color:var(--danger);border-color:var(--danger);white-space:nowrap;">Decline</button>`
+      : `<button class="button-ghost" data-action="edit-class-member-name" data-student-id="${member.id}" data-student-name="${safeName}" style="font-size:0.78rem;white-space:nowrap;">Rename</button>
+         <button class="button-ghost" data-action="remove-class-member" data-student-id="${member.id}" data-student-name="${safeName}" style="font-size:0.78rem;color:var(--danger);border-color:var(--danger);white-space:nowrap;">Remove</button>`;
+    const rowStyle = isPending
+      ? "border:1px solid var(--accent);border-radius:12px;padding:10px 12px;background:var(--accent-soft);display:flex;justify-content:space-between;gap:12px;align-items:center;"
+      : "border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fbfdff;display:flex;justify-content:space-between;gap:12px;align-items:center;";
+    return `
+      <div style="${rowStyle}">
+        <div style="min-width:0;">
+          ${label}
+          ${nameCell}
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+          ${actions}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderClassRosterMembers(classRoster, escapeHtml, escapeAttribute) {
+    const ordered = [...classRoster].sort((a, b) => {
+      const aPending = a.status === "pending" ? 0 : 1;
+      const bPending = b.status === "pending" ? 0 : 1;
+      return aPending - bPending;
+    });
+    let approvedIndex = 0;
+    return ordered
+      .map((member) => {
+        const index = member.status === "pending" ? 0 : approvedIndex++;
+        return renderClassRosterMemberRow(member, index, escapeHtml, escapeAttribute);
+      })
+      .join("");
+  }
+
   function renderTeacherWorkspace() {
     const { ui, state, currentClasses, currentClassId, currentClassMembers, currentProfile } = window.AppState;
     const { escapeHtml, escapeAttribute, renderRichTextHtml, renderUploadedRubricPreview,
@@ -342,23 +387,19 @@
               <p class="mini-label" style="margin-bottom:4px;">Class list</p>
               <p class="subtle" style="margin-bottom:0;">Students currently enrolled in ${escapeHtml(currentClasses.find((c) => c.id === currentClassId)?.name || "this class")}.</p>
             </div>
-            <span class="pill">${classRoster.length} student${classRoster.length === 1 ? "" : "s"}</span>
+            ${(() => {
+              const pendingCount = classRoster.filter((m) => m.status === "pending").length;
+              const approvedCount = classRoster.length - pendingCount;
+              if (pendingCount) {
+                return `<span class="pill" style="color:var(--accent-deep);border-color:var(--accent);">${approvedCount} student${approvedCount === 1 ? "" : "s"} · ${pendingCount} pending</span>`;
+              }
+              return `<span class="pill">${classRoster.length} student${classRoster.length === 1 ? "" : "s"}</span>`;
+            })()}
           </summary>
           <div style="margin-top:12px;">
           ${classRoster.length
             ? `<div style="display:grid;gap:8px;">
-                ${classRoster.map((member, index) => `
-                  <div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fbfdff;display:flex;justify-content:space-between;gap:12px;align-items:center;">
-                    <div style="min-width:0;">
-                      <span class="subtle" style="display:block;font-size:0.74rem;margin-bottom:3px;">Student ${index + 1}</span>
-                      <strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(member.name || "Student")}</strong>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-                      <button class="button-ghost" data-action="edit-class-member-name" data-student-id="${member.id}" data-student-name="${escapeAttribute(member.name || "Student")}" style="font-size:0.78rem;white-space:nowrap;">Rename</button>
-                      <button class="button-ghost" data-action="remove-class-member" data-student-id="${member.id}" data-student-name="${escapeAttribute(member.name || "Student")}" style="font-size:0.78rem;color:var(--danger);border-color:var(--danger);white-space:nowrap;">Remove</button>
-                    </div>
-                  </div>
-                `).join("")}
+                ${renderClassRosterMembers(classRoster, escapeHtml, escapeAttribute)}
               </div>`
             : `<div class="empty-state compact-empty"><h3>No students yet</h3><p>Invite students to this class to start building the roster.</p></div>`
           }

@@ -446,6 +446,15 @@ async function deleteAssignment(assignmentId) {
     return safeArray(result?.classes);
   }
 
+  async function loadStudentClassMembership() {
+    const result = await apiFetch("/api/student/classes");
+    if (result?.error) throw createApiError(result, "Failed to load student classes");
+    return {
+      classes: safeArray(result?.classes),
+      pendingClasses: safeArray(result?.pendingClasses),
+    };
+  }
+
   async function loadClassMembers(classId) {
     if (!classId) {
       throw new Error("Missing class for members.");
@@ -523,6 +532,18 @@ async function deleteAssignment(assignmentId) {
     return result;
   }
 
+  async function approveClassMember(classId, studentId) {
+    if (!classId || !studentId) {
+      throw new Error("Missing class or student for approval.");
+    }
+
+    const result = await apiFetch(`/api/classes/${classId}/members/${studentId}/approve`, {
+      method: "POST",
+    });
+    if (result?.error) throw createApiError(result, "Failed to approve student");
+    return result;
+  }
+
   const ApiService = {
     apiFetch,
     hasServerId,
@@ -553,12 +574,14 @@ async function deleteAssignment(assignmentId) {
     loadSubmissionEmailDiagnosis,
     loadTeacherClasses,
     loadStudentClasses,
+    loadStudentClassMembership,
     loadClassMembers,
     createClass,
     deleteClass,
     inviteStudent,
     patchClassMember,
     removeClassMember,
+    approveClassMember,
   };
 
   root.ApiService = ApiService;

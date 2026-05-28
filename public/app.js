@@ -2881,15 +2881,14 @@ if (action === "select-assignment") {
       const chatDisabled = isChatDisabled(assignment);
       const hasEnoughChat = chatDisabled || submission?.chatSkippedAt || chatHistory.length >= 2;
       const outlineComplete = isOutlineComplete(submission, assignment);
-      if (!hasEnoughChat || !outlineComplete) {
-        const missing = !hasEnoughChat && !outlineComplete
-          ? "talk to the coach a bit more and complete your outline"
-          : !hasEnoughChat
-            ? "talk to the coach a bit more"
-            : "complete your outline";
-        if (!window.confirm(`Are you ready to move on to writing your draft? Most students find it helpful to ${missing} first.\n\nContinue anyway?`)) {
-          return;
-        }
+      const chatNeeded = !hasEnoughChat;
+      const outlineNeeded = !outlineComplete;
+      if (chatNeeded || outlineNeeded) {
+        let missing = "complete your outline";
+        if (chatNeeded && outlineNeeded) missing = "talk to the coach a bit more and complete your outline";
+        else if (chatNeeded) missing = "talk to the coach a bit more";
+        const proceed = globalThis.confirm(`Are you ready to move on to writing your draft? Most students find it helpful to ${missing} first.\n\nContinue anyway?`);
+        if (!proceed) return;
       }
       const notes = document.getElementById("chat-skip-notes");
       if (notes && submission) {

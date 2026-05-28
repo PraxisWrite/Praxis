@@ -2287,6 +2287,7 @@ if (action === "switch-class") {
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = null;
     ui.notice = "";
+    ui.draftSaveMessage = "";
     hydrateSelections();
     render();
     loadStudentAssignmentsForCurrentClass().then(() => {
@@ -2305,6 +2306,7 @@ if (action === "switch-class") {
     saveStudentAssignmentId(ui.selectedStudentAssignmentId);
     rememberStudentStep(1, ui.selectedStudentAssignmentId);
     ui.notice = "";
+    ui.draftSaveMessage = "";
     ensureStudentSubmission();
     render();
     loadStudentAssignmentsForCurrentClass().then(async () => {
@@ -2874,6 +2876,20 @@ if (action === "select-assignment") {
     }
     const nextStep = Number(target.dataset.step);
     if (nextStep === 2) {
+      const assignment = getStudentAssignment();
+      const chatHistory = submission?.chatHistory || [];
+      const chatDisabled = isChatDisabled(assignment);
+      const hasEnoughChat = chatDisabled || submission?.chatSkippedAt || chatHistory.length >= 2;
+      const outlineComplete = isOutlineComplete(submission, assignment);
+      const chatNeeded = !hasEnoughChat;
+      const outlineNeeded = !outlineComplete;
+      if (chatNeeded || outlineNeeded) {
+        let missing = "complete your outline";
+        if (chatNeeded && outlineNeeded) missing = "talk to the coach a bit more and complete your outline";
+        else if (chatNeeded) missing = "talk to the coach a bit more";
+        const proceed = globalThis.confirm(`Are you ready to move on to writing your draft? Most students find it helpful to ${missing} first.\n\nContinue anyway?`);
+        if (!proceed) return;
+      }
       const notes = document.getElementById("chat-skip-notes");
       if (notes && submission) {
         submission.outline.partOne = notes.value.trim();
@@ -3315,7 +3331,9 @@ if (action === "select-assignment") {
     submission.teacherReview.rowScores = [...remainingRows, nextEntry];
     submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
     persistState();
+    const scrollYBeforeRender = window.scrollY;
     render();
+    window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
     scrollToNextRubricCriterionMobile(criterion.id);
     return;
   }
@@ -3611,6 +3629,7 @@ if (target.id === "student-class-select") {
     saveStudentAssignmentId(ui.selectedStudentAssignmentId);
     rememberStudentStep(1, ui.selectedStudentAssignmentId);
     ui.notice = "";
+    ui.draftSaveMessage = "";
     ensureStudentSubmission();
     const loaded = await loadStudentSubmissionForAssignment(target.value);
     rememberStudentStep(getStudentStepForSubmission(loaded || getStudentSubmission()), ui.selectedStudentAssignmentId);

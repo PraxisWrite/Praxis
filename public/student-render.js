@@ -390,7 +390,7 @@
             ` : ""}
           </div>
         `}
-        <button class="button" data-action="student-next-step" data-step="2" ${!hasEnoughChat || !outlineComplete ? "disabled title='Have a short coach conversation and complete the outline first'" : ""}>Next: Write Draft</button>
+        <button class="button" data-action="student-next-step" data-step="2"${!hasEnoughChat || !outlineComplete ? " title='You can still continue, but a short coach chat and outline help most students write better drafts.'" : ""}>Next: Write Draft</button>
       </div>
     `;
   }

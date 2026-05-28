@@ -26,8 +26,12 @@
     return `${PASSWORD_UPGRADE_DISMISS_PREFIX}:${profile?.id || "anonymous"}`;
   }
 
+  // Accounts created on or after this date had new password rules enforced at signup.
+  const SECURITY_HARDENING_DATE = "2026-05-01";
+
   function shouldShowUpgradePrompt(profile) {
     if (!profile?.id) return false;
+    if (profile.created_at && profile.created_at >= SECURITY_HARDENING_DATE) return false;
     try {
       return window.localStorage.getItem(getDismissKey(profile)) !== "1";
     } catch (_) {

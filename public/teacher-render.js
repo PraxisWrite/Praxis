@@ -805,13 +805,20 @@
     }).join("");
   }
 
+  // A pending manual override wins; otherwise a saved score; otherwise the
+  // auto-calculated rubric total. Guard clauses keep this free of nested or
+  // negated-with-else conditionals.
+  function resolveFinalScoreValue(ui, reviewScore, totalScore) {
+    if (ui.pendingFinalScoreOverride !== null) return ui.pendingFinalScoreOverride;
+    if (reviewScore !== "") return reviewScore;
+    return totalScore;
+  }
+
   function renderFinalScoreField(reviewSummary, reviewScore, ui, submission) {
     const { escapeAttribute } = globalThis.window;
     const hasManualOverride = typeof submission.teacherReview?.finalScore === "number"
       && submission.teacherReview.finalScore !== reviewSummary.totalScore;
-    const fieldValue = ui.pendingFinalScoreOverride !== null
-      ? ui.pendingFinalScoreOverride
-      : (reviewScore !== "" ? reviewScore : reviewSummary.totalScore);
+    const fieldValue = resolveFinalScoreValue(ui, reviewScore, reviewSummary.totalScore);
     return `
       <div class="field" style="margin-bottom:12px;">
         <label for="teacher-review-final-score">Final score (out of ${reviewSummary.maxScore})</label>

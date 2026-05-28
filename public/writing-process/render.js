@@ -100,8 +100,18 @@
         <div class="process-panel-header">
           <div>
             <p class="mini-label" style="margin:0 0 4px;">Writing process evidence</p>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;">
               <span class="process-status-pill" style="color:${style.color};border-color:${style.border};background:#fff;">${escapeHtml(analysis.statusLabel)}</span>
+              <span onclick="var t=this.nextElementSibling;var wasHidden=t.style.display==='none';t.style.display=wasHidden?'block':'none';if(wasHidden){setTimeout(function(){document.addEventListener('click',function h(){t.style.display='none';document.removeEventListener('click',h);},{once:true});},0);}" style="cursor:pointer;font-size:0.75rem;color:var(--muted);border:1px solid var(--line);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;" title="What do these labels mean?">?</span>
+              <div style="display:none;position:absolute;top:100%;left:0;z-index:100;max-width:380px;margin-top:6px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.10);font-size:0.80rem;line-height:1.55;color:var(--ink);">
+                <p style="margin:0 0 6px;font-weight:600;">How this label is determined</p>
+                <p style="margin:0 0 8px;">The label combines several keystroke-process signals into one of four bands. Severity rises with the number and strength of unusual patterns.</p>
+                <p style="margin:0 0 4px;"><strong>Typical process</strong> — no unusual patterns; the writing looks like normal drafting with revisions and pauses.</p>
+                <p style="margin:0 0 4px;"><strong>Review suggested</strong> — one moderate signal worth checking (e.g. a large paste, very little revision, or unusual pause distribution).</p>
+                <p style="margin:0 0 4px;"><strong>Close review needed</strong> — three or more independent signals are unusual together. Look at the timeline, paste evidence, and playback before deciding.</p>
+                <p style="margin:0 0 8px;"><strong>Not enough writing data</strong> — fewer than 80 final words, so process signals can't be interpreted reliably.</p>
+                <p style="margin:0;color:var(--muted);font-style:italic;">This panel is one signal — always interpret alongside the playback. No single indicator is conclusive.</p>
+              </div>
               ${analysis.excludedFromAnalytics ? `<span class="process-excluded-pill">Excluded from analytics pool</span>` : ""}
             </div>
           </div>

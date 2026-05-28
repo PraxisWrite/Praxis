@@ -2500,6 +2500,11 @@ if (action === "admin-select-teacher") {
     ui.adminSelectedClassId = null;
     ui.adminView = "teachers";
     render();
+    // Refresh teacher counts in the background so deleted assignments
+    // disappear from the totals without forcing a page reload.
+    loadAdminData().then(() => render()).catch((error) => {
+      console.error("Could not refresh admin teacher list:", error);
+    });
     return;
   }
 
@@ -2826,6 +2831,13 @@ if (action === "delete-class") {
     if (ui.selectedStudentAssignmentId === assignmentId) ui.selectedStudentAssignmentId = null;
     ui.selectedReviewSubmissionId = null;
     ui.notice = "Assignment deleted.";
+    // If the deleter is an admin (acting as a teacher), refresh admin
+    // counts so the deleted assignment disappears from the dashboard.
+    if (currentProfile?.role === "admin") {
+      loadAdminData().catch((error) => {
+        console.error("Could not refresh admin data after delete:", error);
+      });
+    }
     persistState();
     render();
     return;
@@ -3263,9 +3275,12 @@ if (action === "select-assignment") {
   if (action === "use-suggested-comment") {
     const submission = getSelectedReviewSubmission();
     if (!submission?.teacherReview?.suggestedGrade?.studentComment) return;
+    submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
+    submission.teacherReview.finalNotes = submission.teacherReview.suggestedGrade.studentComment;
+    persistState();
     const textarea = document.getElementById("teacher-review-notes");
     if (textarea) {
-      textarea.value = submission.teacherReview.suggestedGrade.studentComment;
+      textarea.value = submission.teacherReview.finalNotes;
       textarea.focus();
     }
     return;
@@ -3330,6 +3345,9 @@ if (action === "select-assignment") {
     const remainingRows = safeArray(submission.teacherReview.rowScores).filter((entry) => entry.criterionId !== criterion.id);
     submission.teacherReview.rowScores = [...remainingRows, nextEntry];
     submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
+    // Capture any in-progress notes textarea value before render() wipes the DOM.
+    const notesInput = document.getElementById("teacher-review-notes");
+    if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
     persistState();
     const scrollYBeforeRender = window.scrollY;
     render();

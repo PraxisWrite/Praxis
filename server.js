@@ -140,6 +140,13 @@ async function getUser(req) {
   return user;
 }
 
+function isRlsDenial(error) {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const msg = String(error.message || "").toLowerCase();
+  return code === "42501" || msg.includes("row-level security") || msg.includes("violates") || msg.includes("insufficient_privilege");
+}
+
 // Helper to get user profile including role
 async function getProfile(userId) {
   const { data, error } = await supabase
@@ -262,6 +269,13 @@ function safeLogId(value = '') {
 
 function safeLogError(error) {
   return error?.message || String(error || 'Unknown error');
+}
+
+// Returns only the error class name — never message or stack, both of
+// which can include user-controlled data tainted from the request body
+// (Sonar S5145). Use in request handler catch blocks.
+function errorClassForLog(error) {
+  return error?.name || 'Error';
 }
 
 function validatePasswordStrength(password) {
@@ -2019,7 +2033,7 @@ app.get('/api/assignments/:assignmentId/submissions', async (req, res) => {
     }
     res.json({ submissions: data });
   } catch (error) {
-    console.error('Unexpected submissions endpoint failure:', error);
+    console.error('Unexpected submissions list failure:', safeLogError(error));
     res.status(500).json({ error: 'Could not load submissions right now. Please refresh and try again.' });
   }
 });
@@ -2069,7 +2083,8 @@ app.get('/api/student/submissions', async (req, res) => {
 
     res.json({ submissions: (data || []).map(normalizeStudentVisibleSubmission) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Unexpected student submissions failure:', safeLogError(error));
+    res.status(500).json({ error: 'Could not load your submissions right now. Please refresh and try again.' });
   }
 });
 
@@ -2104,11 +2119,12 @@ app.get('/api/assignments/:assignmentId/my-submission', async (req, res) => {
       if (createError) return res.status(400).json({ error: createError.message });
       data = newData;
     } else if (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(isRlsDenial(error) ? 403 : 400).json({ error: error.message });
     }
     res.json({ submission: normalizeStudentVisibleSubmission(data) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Unexpected my-submission failure:', safeLogError(error));
+    res.status(500).json({ error: 'Could not load your submission right now. Please refresh and try again.' });
   }
 });
 
@@ -2231,7 +2247,7 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
       .eq('assignment_id', req.params.assignmentId)
       .eq('student_id', user.id)
       .maybeSingle();
-    if (existingError) return res.status(400).json({ error: existingError.message });
+    if (existingError) return res.status(isRlsDenial(existingError) ? 403 : 400).json({ error: existingError.message });
 
     if (existing?.id) {
       const { data, error } = await submissionWriteWithFallback(req, (client) => client
@@ -2240,7 +2256,7 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
         .eq('id', existing.id)
         .select('*, profiles(id, name)')
         .single());
-      if (error) return res.status(400).json({ error: error.message });
+      if (error) return res.status(isRlsDenial(error) ? 403 : 400).json({ error: error.message });
       await waitForNotifications('Teacher submission notification email', [
         notifyTeacherAboutStudentSubmission({
           assignment: accessibleAssignment,
@@ -2261,7 +2277,7 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
       })
       .select('*, profiles(id, name)')
       .single());
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) return res.status(isRlsDenial(error) ? 403 : 400).json({ error: error.message });
     await waitForNotifications('Teacher submission notification email', [
       notifyTeacherAboutStudentSubmission({
         assignment: accessibleAssignment,
@@ -2271,7 +2287,8 @@ app.post('/api/assignments/:assignmentId/submit', async (req, res) => {
     ]);
     res.json({ submission: data });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Unexpected submit failure:', errorClassForLog(error));
+    res.status(500).json({ error: 'Could not submit your work right now. Please try again.' });
   }
 });
 
@@ -2400,7 +2417,7 @@ app.patch('/api/submissions/:id', async (req, res) => {
       .eq('id', req.params.id)
       .select('*, profiles(id, name)')
       .single());
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) return res.status(isRlsDenial(error) ? 403 : 400).json({ error: error.message });
     if (ownedAssignment) {
       await waitForNotifications('Student review notification email', [
         notifyStudentAboutGradedSubmission({
@@ -2419,7 +2436,8 @@ app.patch('/api/submissions/:id', async (req, res) => {
     }
     res.json({ submission: data });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Unexpected submission PATCH failure:', errorClassForLog(error));
+    res.status(500).json({ error: 'Could not save submission right now. Please try again.' });
   }
 });
 

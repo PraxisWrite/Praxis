@@ -3825,7 +3825,10 @@ function handlePaste(event) {
     return;
   }
 
-  const pasted = event.clipboardData?.getData("text") || "";
+  // Normalize line endings to match the textarea value (browsers store \n,
+  // but clipboards often carry \r\n). Without this, the saved paste event text
+  // never matches the submission text and the violet highlight is dropped.
+  const pasted = (event.clipboardData?.getData("text") || "").replace(/\r\n?/g, "\n");
   ui.pendingPaste = {
     content: pasted,
     timestamp: Date.now(),
@@ -5494,7 +5497,9 @@ function getPasteEvidenceItems(submission) {
   const text = getSubmissionReviewText(submission);
   const searchStarts = new Map();
   return getFlaggedPasteEvents(submission).map((event, index) => {
-    const pastedText = String(event.insertedText || "");
+    // Normalize line endings so legacy events stored with \r\n still match the
+    // \n-normalized submission text (see handlePaste).
+    const pastedText = String(event.insertedText || "").replace(/\r\n?/g, "\n");
     const id = String(event.id || `paste-${index}`);
     const startHint = Number.isFinite(Number(event.start)) ? Number(event.start) : -1;
     let start = startHint >= 0 && text.slice(startHint, startHint + pastedText.length) === pastedText

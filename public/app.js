@@ -2287,6 +2287,7 @@ if (action === "switch-class") {
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = null;
     ui.notice = "";
+    ui.draftSaveMessage = "";
     hydrateSelections();
     render();
     loadStudentAssignmentsForCurrentClass().then(() => {
@@ -2305,6 +2306,7 @@ if (action === "switch-class") {
     saveStudentAssignmentId(ui.selectedStudentAssignmentId);
     rememberStudentStep(1, ui.selectedStudentAssignmentId);
     ui.notice = "";
+    ui.draftSaveMessage = "";
     ensureStudentSubmission();
     render();
     loadStudentAssignmentsForCurrentClass().then(async () => {
@@ -3611,6 +3613,7 @@ if (target.id === "student-class-select") {
     saveStudentAssignmentId(ui.selectedStudentAssignmentId);
     rememberStudentStep(1, ui.selectedStudentAssignmentId);
     ui.notice = "";
+    ui.draftSaveMessage = "";
     ensureStudentSubmission();
     const loaded = await loadStudentSubmissionForAssignment(target.value);
     rememberStudentStep(getStudentStepForSubmission(loaded || getStudentSubmission()), ui.selectedStudentAssignmentId);

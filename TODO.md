@@ -12,7 +12,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [x] **Chat coach renders `**markdown**` as literal asterisks** — AI coach responses were passed through `escapeHtml` with no markdown conversion. Fixed: `parseCoachMarkdown()` now converts `**bold**` → `<strong>` and newlines → `<br>` for assistant messages only. *(PR #257)*
 - [x] **Annotate function** — annotations were reported not showing in the grading area. Investigated: rendering path in `teacher-render.js` is complete (inline highlights + panel). Likely a display/scroll issue — needs manual recheck in staging.
 - [x] **AI buttons double-pressable** — investigated: the `request-ideas` action has no rendered button in the current UI (dead handler). Feedback button has `draftFeedbackLoading` guard; chat Send has `chatLoading` guard. No change needed.
-- [ ] **"Final work submitted" message persists when switching to a different assignment** — stale `ui.notice` not cleared on assignment switch.
+- [x] **"Final work submitted" message persists when switching to a different assignment** — was actually `ui.draftSaveMessage` ("Submitted successfully.") not `ui.notice`. Fixed: cleared on `switch-class`, `open-assignment`, and `student-assignment-select` handlers.
 - [ ] **Copy-to-notes then changing rubric deletes teacher's note** — data loss in the teacher grading panel.
 - [ ] **Paste violet highlight only fires on first paste** — subsequent pastes are not detected/highlighted.
 - [ ] **Clicking rubric sections causes page to jump** up and down.

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 globalThis.window = globalThis.window || {};
 
-const teacherAnnotationHelp = require("../teacher-annotation-help.js");
+const teacherAnnotationHelp = require("../public/teacher-annotation-help.js");
 
 test("teacher annotation guide escapes custom code content", () => {
   const hostileCode = `<img src=x onerror="alert(1)">`;

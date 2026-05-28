@@ -16,7 +16,12 @@ const writingProcessAnalyze = require("../public/writing-process/analyze.js");
 const writingProcessAdmin = require("../public/writing-process/admin.js");
 const submissionRegressionFixture = require("./fixtures/submission-regression-fixture.js");
 
-global.window = global.window || {};
+// These are browser scripts: in the browser `window` IS the global object and
+// `core-utils.js` loads first, exposing helpers (slugifyRubricId, safeArray, …)
+// as bare globals that the later scripts reference directly. Reproduce that here
+// by aliasing window to globalThis and loading core-utils before its dependents.
+globalThis.window = globalThis;
+require("../public/core-utils.js");
 require("../public/rubric-utils.js");
 require("../public/review-utils.js");
 require("../public/paste-evidence-utils.js");

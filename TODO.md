@@ -2,6 +2,9 @@
 
 Items from pilot testing and teacher feedback. Bugs first, then features.
 
+> **Single source of truth.** This file absorbed the former `docs/todo.md`
+> on 2026-05-28; that file now just points here. Nothing was lost in the merge.
+
 ---
 
 ## Bugs
@@ -33,6 +36,18 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ---
 
+## Tests / QA
+
+- [ ] **UI/integration test: complete a student submission against a 3-criteria / 15-point rubric** — guards against future changes re-introducing a gate on rubric completeness. *(A regression test for the mismatch case is already done — see Done section.)*
+- [ ] **Failed-submit protection test** — student final work stays saved locally / server-queued when submit fails, and the UI does not show false success.
+- [ ] **Draft persistence regression test** — student draft survives refresh/reload after Save Draft / autosave.
+- [ ] **Teacher-receives-submission regression test** — outside the currently-skipped full-flow E2E test.
+- [ ] **4-criteria / 20-point rubric regression test** — keep the normal rubric path covered.
+- [ ] **Verify publish email fires only after server-confirmed publish** — and that a publish failure shows a clear failure message.
+- [ ] **Verify AI provider rate limits and concurrent request capacity** for pilot-scale usage (12+ students simultaneously).
+
+---
+
 ## Features
 
 ### Teacher workflow
@@ -52,20 +67,70 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [ ] **Ability to accept or reject AI suggestions**.
 - [ ] **Two reusable Praxis-supported writing task models** — listed as "Demo task" for every teacher when they set up a class.
 - [ ] **Class rules** — when teacher creates a class, give them the chance to add class rules with a template suggestion.
-- [ ] **Make sure test teacher/student assignment submissions don't skew keystroke data** — delete or flag test data.
+- [ ] **Make sure test teacher/student assignment submissions don't skew keystroke data** — *flagging mechanism exists* (`is_test_account` + per-submission writing-behaviour exclusion in `admin-render.js`). Remaining: bulk-delete or auto-flag obvious test data so it never enters analytics in the first place.
 
 ### Student workflow
 
 - [ ] **"Graded work available" notification on student side** — student sees the notification but can't find how to view or download graded report, rubric, and teacher comments. Needs a clear "View feedback" button.
+- [ ] **Student assignment tray needs structure** — separate sections for new, submitted, and graded assignments. Look at how Canvas / other LMS organise students' assignments.
 - [ ] **Make the assignment brief more obvious and unmissable** on the student assignment page.
 - [ ] **Toggleable: auto-generate outline after chat conversation** — like the chatbot on/off switch, let teachers enable auto-outline generation after the chat, viewable on the drafting page.
 - [ ] **Download "my work" filename** — should be `AssignmentName-ClassName-Date` not a generic name.
 - [ ] **Remove student focus box from all workflows**.
-- [ ] **Remove skip chat button**.
+- [ ] **Remove skip chat button** — *note:* the old `docs/todo.md` marked this done, but `skip-chat-to-draft` + the `chat-skip-notes` textarea are still live in `student-render.js`/`app.js`, so it is **not** actually done.
 - [ ] **+code: Contraction field** — "don't" instead of "do not" should give 3 fields: 1. Error code, 2. Name, 3. Explanation (shown on hover).
 - [ ] **"Good sample" green highlight** — a positive annotation type to show students well-written sections (complement to the existing error annotations).
+
+### Naming / labels
+
+- [ ] **Remove all mentions of "AUIZero"** — replace with "praxis" throughout the app (UI text, page titles, emails, etc.). UI/branding only — do **not** rename the GitHub repo, Railway project, env vars, or the `AUIZero-v1` localStorage keys without a migration plan.
+- [ ] **Rename "Teacher notes" label → "Feedback for student"** (or similar). After the PR consolidating AI feedback into one `studentComment` field, the textbox is pre-filled with student-facing content, so the current label is misleading. Optional alternative: split into two fields — "Feedback for student" (public) + "Teacher notes" (private). The split is more product work and probably overkill unless teachers ask for it.
 
 ### Writing fluency / analytics
 
 - [ ] **All five writing fluency items should show the trend line (Kline)**, not just the first three. Clarify which items are weighted lower.
+
+---
+
+## Known minor issues (defer unless teachers complain)
+
+- [ ] **Pre-save rubric header flicker** — the rubric panel header still shows the auto-total while the teacher is editing the Final score override input; it only updates after Submit grade. Could fix with an `oninput` handler on the override input that writes to a UI state field. Current behaviour is acceptable since the input itself shows what they typed.
+
+---
+
+## Open product decisions
+
+- [ ] **Attempt history** — should re-submission create a new attempt record with separate grading, or keep updating the same submission as iteration? Needs a product decision before implementation.
+
+---
+
+## Refactor / architecture
+
+- [ ] **Continue modularizing only after pilot-critical bugs/tests are stable.**
+- [ ] Consider `student-workflow.js` for step navigation, draft/final transitions, submit, and feedback request handlers.
+- [ ] Consider `teacher-assignments.js` for create/edit/publish/delete assignment handlers.
+- [ ] Consider `teacher-review.js` for grading handlers, annotation controls, and playback controls.
+- [ ] Keep large render extraction for later; render functions are still tightly coupled to global state.
+- [ ] **Enable Anthropic prompt caching on AI calls** (chat, draft feedback, grade suggestion). Requires restructuring prompt builders in `app.js` so static content (assignment context, rubric, system prompts) comes BEFORE dynamic content (student draft, chat history) — currently interleaved as template literals. Also requires updating `/api/generate` in `server.js` to support a `cache_control` field. Estimated savings: 50–70% on input tokens for cache hits (mostly grade suggestion + feedback during concurrent pilot use). Note: 2048-token minimum on Sonnet means short chat turns may not qualify. Best done during the prompt-builder refactor. Revisit when AI costs exceed ~$50/month.
+
+---
+
+## Done (historical — consolidated from docs/todo.md)
+
+- [x] Delete test assignments + submission data so they don't skew real keystroke analytics
+- [x] RLS recursion bug fix
+- [x] Signup flow hardening with friendly error messages
+- [x] Supabase admin/user client session separation *(PR #115)*
+- [x] Playwright E2E test suite (auth ✅ teacher ✅ student ✅ full-flow skipped with reason)
+- [x] Reopen submission flow: clears graded review fields server-side AND fixed `mergeStudentSubmission` so locally-cached graded state doesn't override the server's cleared state on reopen
+- [x] AI buttons disable while thinking — prevents double-requests on assignment creation and student AI feedback
+- [x] Regression test: pilot rubric mismatch (3 criteria / 15 points) does not block student submission
+- [x] Rename "Suggest rubric scores" → "Grade with AI" (clearer action label)
+- [x] Submit grade button disables + shows "Submitting…" during request
+- [x] Show "Grade submitted to student" confirmation in grading panel after submit
+- [x] Optional reflection textarea on self-assessment screen (non-blocking for submit)
+- [x] Editable Final score input on grading screen — teacher can override rubric total
+- [x] Fixed flicker: Final score input briefly showed auto total instead of override during save
+- [x] Hide "Auto total" labels when teacher has set a manual override
+- [x] Consolidated AI feedback: one `studentComment` used for both the suggested-grade panel and the Teacher Notes default; removed the duplicate justification field
 

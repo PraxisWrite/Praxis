@@ -1,7 +1,5 @@
 (() => {
   const EXACT_TEXT_REPLACEMENTS = new Map([
-    ["Suggest Grade", "Grade with AI"],
-    ["Copy Grade", "Copy grade summary"],
     ["Letter-by-letter playback", "Replay writing process"],
     ["Coaching chat", "Planning chat with coach"],
     ["Teacher Review", "Class work"],

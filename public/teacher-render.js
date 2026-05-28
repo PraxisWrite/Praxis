@@ -868,9 +868,9 @@
             <p style="font-size:0.8rem;color:var(--sage);margin-bottom:8px;">✓ Grade saved ${escapeHtml(formatDateTime(submission.teacherReview.savedAt))}</p>
           ` : ""}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="button-secondary" data-action="generate-grade" ${ui.gradeSuggestionLoading ? "disabled" : ""}>${ui.gradeSuggestionLoading ? "Suggesting…" : "Suggest rubric scores"}</button>
+            <button class="button-secondary" data-action="generate-grade" ${ui.gradeSuggestionLoading ? "disabled" : ""}>${ui.gradeSuggestionLoading ? "Suggesting…" : "Suggest score"}</button>
             ${ui.gradeSuggestionLoading ? `<span style="font-size:0.82rem;color:var(--muted);align-self:center;">AI is reviewing the submission…</span>` : ""}
-            <button class="button-ghost" data-action="copy-lms-grade">Copy Grade</button>
+            <button class="button-ghost" data-action="copy-lms-grade" title="Copies the score, rubric breakdown, teacher feedback and annotation comments so you can paste them into your LMS.">Copy grade and feedback</button>
             <button class="button" data-action="save-teacher-review" ${ui.gradeSubmitting ? "disabled" : ""}>${ui.gradeSubmitting ? "Submitting…" : "Submit grade"}</button>
             </div>
             ${ui.notice && /grade submitted/i.test(ui.notice) ? `

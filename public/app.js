@@ -1202,7 +1202,7 @@ async function loadTeacherClassContext(classId) {
 async function deleteCurrentClass() {
   if (!currentClassId) return false;
   const className = currentClasses.find(c => c.id === currentClassId)?.name || "this class";
-  if (!confirm(`Delete "${className}"? This will permanently delete all assignments and submissions in this class. This cannot be undone.`)) return false;
+  if (!confirm(`Delete "${className}"? This removes the class, its assignments, and all submissions from your dashboard. Student writing data is archived for research and cannot be restored to your view. This cannot be undone.`)) return false;
   try {
     await globalThis.ApiService.deleteClass(currentClassId);
   } catch (error) {
@@ -2818,7 +2818,7 @@ if (action === "delete-class") {
   
   if (action === "delete-assignment") {
     const assignmentId = target.dataset.assignmentId;
-    if (!confirm("Delete this assignment? This cannot be undone.")) return;
+    if (!confirm("Delete this assignment? It is removed from your dashboard along with its submissions. Student writing data is archived for research and cannot be restored to your view. This cannot be undone.")) return;
     try {
   	  await window.ApiService.deleteAssignment(assignmentId);
 	} catch (error) {

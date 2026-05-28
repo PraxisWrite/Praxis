@@ -774,6 +774,41 @@ async function ensureTeacherOwnsAssignment(assignmentId, teacherId, client = sup
   return ownedClass ? { ...data, className: ownedClass.name || '' } : null;
 }
 
+// Snapshot submissions (and their raw keystroke / writing-process data) into
+// public.submission_archive before they are hard deleted, so the data survives
+// a class/assignment deletion for algorithm training. Throws if the archive
+// write fails so callers abort the delete rather than silently lose data.
+async function archiveSubmissionsForDeletion(submissions, { reason, archivedBy = null, classId = null }) {
+  const rows = (submissions || []).filter(Boolean);
+  if (!rows.length) return;
+  const archiveRows = rows.map((submission) => ({
+    original_submission_id: submission.id,
+    assignment_id: submission.assignment_id ?? null,
+    class_id: classId,
+    student_id: submission.student_id ?? null,
+    status: submission.status ?? null,
+    draft_text: submission.draft_text ?? '',
+    final_text: submission.final_text ?? '',
+    chat_history: submission.chat_history ?? [],
+    writing_events: submission.writing_events ?? [],
+    keystroke_log: submission.keystroke_log ?? [],
+    feedback_history: submission.feedback_history ?? [],
+    reflections: submission.reflections ?? {},
+    outline: submission.outline ?? {},
+    self_assessment: submission.self_assessment ?? {},
+    teacher_review: submission.teacher_review ?? {},
+    fluency_summary: submission.fluency_summary ?? {},
+    submission_snapshot: submission,
+    original_submitted_at: submission.submitted_at ?? null,
+    original_started_at: submission.started_at ?? null,
+    original_updated_at: submission.updated_at ?? null,
+    archive_reason: reason,
+    archived_by: archivedBy,
+  }));
+  const { error } = await supabase.from('submission_archive').insert(archiveRows);
+  if (error) throw error;
+}
+
 async function ensureStudentBelongsToClass(classId, studentId, client = supabase) {
   const { data, error } = await client
     .from('class_members')
@@ -1627,6 +1662,17 @@ app.delete('/api/classes/:classId', async (req, res) => {
       .eq('class_id', req.params.classId);
     const assignmentIds = (assignments || []).map(a => a.id);
     if (assignmentIds.length) {
+      const { data: submissionsToArchive, error: fetchError } = await supabase
+        .from('submissions')
+        .select('*')
+        .in('assignment_id', assignmentIds);
+      if (fetchError) return res.status(400).json({ error: fetchError.message });
+      // Preserve keystroke/writing-process data before the hard delete.
+      await archiveSubmissionsForDeletion(submissionsToArchive, {
+        reason: 'class_deleted',
+        archivedBy: user.id,
+        classId: req.params.classId,
+      });
       await supabase.from('submissions').delete().in('assignment_id', assignmentIds);
       await supabase.from('assignments').delete().in('id', assignmentIds);
     }
@@ -1965,6 +2011,18 @@ app.delete('/api/assignments/:id', async (req, res) => {
     const readClient = getRequestScopedSupabase(req);
     const ownedAssignment = await ensureTeacherOwnsAssignment(req.params.id, user.id, readClient);
     if (!ownedAssignment) return res.status(403).json({ error: 'You can only delete assignments in your own classes.' });
+
+    const { data: submissionsToArchive, error: fetchError } = await supabase
+      .from('submissions')
+      .select('*')
+      .eq('assignment_id', req.params.id);
+    if (fetchError) return res.status(400).json({ error: fetchError.message });
+    // Preserve keystroke/writing-process data before the hard delete.
+    await archiveSubmissionsForDeletion(submissionsToArchive, {
+      reason: 'assignment_deleted',
+      archivedBy: user.id,
+      classId: ownedAssignment.class_id ?? null,
+    });
 
     const { error: submissionDeleteError } = await supabase
       .from('submissions')

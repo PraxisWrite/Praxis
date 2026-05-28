@@ -351,11 +351,13 @@
     let remaining = text;
     let html = "";
     for (const event of flaggedPastes) {
-      const idx = remaining.indexOf(event.insertedText);
+      // Normalize line endings so pastes stored with \r\n still match the text.
+      const insertedText = String(event.insertedText || "").replace(/\r\n?/g, "\n");
+      const idx = remaining.indexOf(insertedText);
       if (idx === -1) continue;
       html += escapeHtml(remaining.slice(0, idx));
-      html += `<mark class="paste-highlight" title="Pasted content">${escapeHtml(event.insertedText)}</mark>`;
-      remaining = remaining.slice(idx + event.insertedText.length);
+      html += `<mark class="paste-highlight" title="Pasted content">${escapeHtml(insertedText)}</mark>`;
+      remaining = remaining.slice(idx + insertedText.length);
     }
     html += escapeHtml(remaining);
     return `<pre class="context-expanded-text">${html}</pre>`;

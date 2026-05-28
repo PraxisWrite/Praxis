@@ -820,6 +820,19 @@ async function ensureStudentBelongsToClass(classId, studentId, client = supabase
   return data || null;
 }
 
+// Shared guard for teacher endpoints that act on a specific enrolled student.
+// Returns { error, status } on failure, or { user, readClient } on success.
+async function requireOwnedClassMember(req, { ownershipError }) {
+  const { user, error: teacherError, status } = await requireTeacherProfile(req);
+  if (teacherError) return { error: teacherError, status };
+  const readClient = getRequestScopedSupabase(req);
+  const ownedClass = await ensureTeacherOwnsClass(req.params.classId, user.id, readClient);
+  if (!ownedClass) return { error: ownershipError, status: 403 };
+  const enrolledStudent = await ensureStudentBelongsToClass(req.params.classId, req.params.studentId, readClient);
+  if (!enrolledStudent) return { error: 'That student is not enrolled in this class.', status: 404 };
+  return { user, readClient };
+}
+
 async function ensureUserCanAccessClass(classId, userId, client = supabase) {
   const ownedClass = await ensureTeacherOwnsClass(classId, userId, client);
   if (ownedClass) return { role: 'teacher', classRecord: ownedClass };
@@ -1734,13 +1747,10 @@ app.patch('/api/classes/:classId/members/:studentId', async (req, res) => {
 // Approve a pending student who joined via the class invite link
 app.post('/api/classes/:classId/members/:studentId/approve', async (req, res) => {
   try {
-    const { user, error: teacherError, status } = await requireTeacherProfile(req);
-    if (teacherError) return res.status(status).json({ error: teacherError });
-    const readClient = getRequestScopedSupabase(req);
-    const ownedClass = await ensureTeacherOwnsClass(req.params.classId, user.id, readClient);
-    if (!ownedClass) return res.status(403).json({ error: 'You can only approve students for your own classes.' });
-    const enrolledStudent = await ensureStudentBelongsToClass(req.params.classId, req.params.studentId, readClient);
-    if (!enrolledStudent) return res.status(404).json({ error: 'That student is not enrolled in this class.' });
+    const guard = await requireOwnedClassMember(req, {
+      ownershipError: 'You can only approve students for your own classes.',
+    });
+    if (guard.error) return res.status(guard.status).json({ error: guard.error });
     const { error } = await writeWithRequestScopedFallback(req, (client) => client
       .from('class_members')
       .update({ status: 'approved' })

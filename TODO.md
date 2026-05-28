@@ -21,7 +21,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [ ] **"Next: Write draft" button grayed out until second chat message** — confusing. Should always be enabled; if student clicks early, show a gentle modal asking if they're done with the coach rather than blocking.
 - [ ] **Blank "Guided outline Part 3: —"** appears in student downloaded work — needs stripping from the download template.
 - [ ] **Teacher should be able to see and grade student's work even if submit was not triggered** — in case of a submit error the work is inaccessible.
-- [ ] **"Likely natural" writing behaviour label unexplained** — no tooltip or explanation for why a submission receives this rating. Needs a hover/info explanation.
+- [ ] **"Likely natural" writing behaviour label unexplained** — in the teacher grading panel, the Writing Behaviour section shows a label ("Likely natural", "Uncertain", or "Needs review") with a summary line like "Mostly natural writing behaviour with some variation — consistent with B1." There is no explanation of *why* that rating was given or what the metrics mean. Needs a `?` info button or tooltip next to the label that explains the scoring criteria.
 
 ### Medium priority
 
@@ -39,11 +39,11 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [ ] **Notification when assignment is created and ready to publish** — teacher should see a confirmation message and a prompt to publish.
 - [ ] **Save assignment button should change to "Saving…" on click**, then scroll to the created assignment in the tray, highlight the Publish button, and suggest publishing.
 - [ ] **Submit grade message** — should say "Grade submitted to student" rather than "Last saved".
-- [ ] **Suggest rubric score button** — rename to "Suggest score" and move to just below the "Planning chat with coach" fold in the grading panel.
+- [ ] **Suggest rubric score button** — rename to "Suggest score" and move from its current position to just below the collapsible "▶ Planning chat with coach (2 student messages)" section in the teacher grading panel (i.e. after the process/chat context, before the rubric rows).
 - [ ] **"1 paste flag" in assignment tray should be clickable** — should take the teacher directly to that student.
 - [ ] **Copy grade → rename to "Copy grade and feedback"** with a brief tooltip explaining what it copies (rubric scores + comments).
 - [ ] **Coaching chat under the heat map should show the student's Reflection ("what I improved")** so teacher sees the full process.
-- [ ] **Rubric score should be bumpable up or down in 0.5 increments** from the top-right "Good / 4 pts" indicator.
+- [ ] **Rubric score should be bumpable in 0.5 increments** — each rubric criterion row has a selected band shown in the top-right corner (e.g. "Good · 4 pts"). Add up/down nudge controls there so the teacher can fine-tune the score by ±0.5 without having to click a different band cell.
 - [ ] **Hide manual assignment setup box when in AI-support mode**.
 - [ ] **Fix AI feedback** *(needs more detail — what specifically is broken?)*
 - [ ] **Ability to accept or reject AI suggestions**.

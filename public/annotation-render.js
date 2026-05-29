@@ -269,10 +269,11 @@
       ? ` onclick="${clickTarget}('${escapeAttribute(highlight.id)}')"`
       : "";
     const styles = highlight.overlapsPaste
-      ? "background:rgba(91,42,134,0.10);border:2px solid #5b2a86;color:inherit;border-radius:4px;padding:2px 4px;scroll-margin-top:120px;cursor:pointer;"
-      : "background:#fff176;color:#2f2416;border-radius:4px;padding:2px 4px;scroll-margin-top:120px;cursor:pointer;";
-    const labelColor = highlight.overlapsPaste ? "#5b2a86" : "var(--accent-deep)";
-    return `<mark id="${escapeAttribute(markId)}"${clickHandler} style="${styles}" title="Click to jump to comment">${segment}<sup style="font-size:0.7em;color:${labelColor};font-weight:700;margin-left:3px;">${escapeHtml(highlight.label || highlight.code)}</sup></mark>`;
+      ? "background:#f3e8ff;border-bottom:2px solid #9b4dca;color:inherit;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;"
+      : "background:#fef3c7;border-bottom:2px solid #f59e0b;color:#2f2416;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;";
+    const bubbleBg = highlight.overlapsPaste ? "#9b4dca" : "#f59e0b";
+    const bubble = `<span style="display:inline-block;background:${bubbleBg};color:#fff;font-size:0.62em;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:super;line-height:1.4;letter-spacing:0.02em;">${escapeHtml(highlight.label || highlight.code)}</span>`;
+    return `<mark id="${escapeAttribute(markId)}"${clickHandler} style="${styles}" title="Click to jump to comment">${segment}${bubble}</mark>`;
   }
 
   function createPasteHighlights(pasteEvidenceItems) {

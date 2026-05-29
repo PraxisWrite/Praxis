@@ -312,12 +312,6 @@ button {
   padding: 14px 16px;
 }
 
-.review-pane-foot {
-  border-top: 1px solid var(--line);
-  padding: 12px 16px;
-  background: var(--surface);
-}
-
 .review-secondary {
   margin-top: 18px;
   display: grid;
@@ -360,7 +354,8 @@ button {
     flex: 1 1 auto;
   }
 
-  .review-pane-scroll {
+  .review-pane-scroll,
+  .rubric-pane-body {
     overflow-y: visible;
   }
 
@@ -956,45 +951,113 @@ button.rubric-level-cell:hover {
   font-size: 0.78rem;
 }
 
-/* A4 — in the grading rubric pane, each cell shows only its score header by
-   default; the descriptor appears when the band is selected, hovered or
-   focused. Scoped to the grading pane so previews keep their full text. */
-
-/* Let the level grid wrap to fit the ~46% pane without overflowing */
-.review-split-rubric .rubric-level-grid-1,
-.review-split-rubric .rubric-level-grid-2,
-.review-split-rubric .rubric-level-grid-3,
-.review-split-rubric .rubric-level-grid-4,
-.review-split-rubric .rubric-level-grid-5 {
-  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+/* Grading rubric pane — compact pill layout that fills the right pane instead
+   of squeezing the full card grid into ~46% width. */
+.rubric-pane-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
 }
 
-.review-split-rubric .rubric-level-badge {
-  font-size: 0.69rem;
-  padding: 2px 5px;
-  white-space: nowrap;
+.rubric-pane-name { font-size: 0.92rem; font-weight: 700; color: var(--ink); }
+.rubric-pane-meta { font-size: 0.76rem; color: var(--muted); white-space: nowrap; }
+
+.rubric-pane-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0 10px;
 }
 
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-cell {
-  min-height: 0;
-  gap: 0;
-  padding: 5px 7px;
+.grading-criterion {
+  padding: 9px 14px 7px;
+  border-bottom: 1px solid var(--line);
 }
 
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-text {
-  display: none;
-}
-
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-cell.is-selected,
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:hover,
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:focus-visible {
+.grading-criterion-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 8px;
+  margin-bottom: 6px;
 }
 
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-cell.is-selected .rubric-level-text,
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:hover .rubric-level-text,
-.review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) button.rubric-level-cell:focus-visible .rubric-level-text {
-  display: block;
+.grading-criterion-name { font-size: 0.84rem; font-weight: 600; color: var(--ink); }
+.grading-criterion-range { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+
+.grading-score-pills { display: flex; gap: 4px; }
+
+.grading-pill {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fafbfd;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.25;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.grading-pill:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.grading-pill-label { font-size: 0.72rem; }
+.grading-pill-score { font-size: 0.82rem; font-weight: 700; }
+.grading-pill.is-selected { box-shadow: 0 2px 6px rgba(26, 39, 64, 0.18); }
+
+.grading-criterion-desc {
+  margin-top: 7px;
+  padding: 7px 9px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: #f7f9fc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.grading-score-field {
+  padding: 10px 14px 0;
+  margin: 0;
+}
+
+.rubric-pane-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  padding: 10px 14px;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.rubric-total-number { font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+.rubric-total-number .score-val { color: var(--accent-deep); }
+.rubric-total-number .score-max { font-size: 0.95rem; font-weight: 400; color: var(--muted); }
+.rubric-total-sub { font-size: 0.74rem; color: var(--muted); margin-top: 1px; }
+.rubric-foot-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Always-visible feedback box in the secondary region */
+.review-notes-block {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px 14px;
 }
 
 .rubric-schema-shell-preview .rubric-schema-header {
@@ -1518,6 +1581,69 @@ button.rubric-level-cell:hover {
 .error-code-btn-labeled .error-code-name {
   font-size: 0.8rem;
 }
+
+/* Note button (pencil) and the "+" add-code button */
+.error-code-btn-note {
+  background: #fff9e6;
+  border-color: #e0c84a;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.error-code-add-btn {
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 700;
+  padding: 3px 10px;
+  color: var(--accent-deep);
+}
+
+.error-code-add-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* "Your codes" management row — chips show the full name like the toolbar
+   buttons; the short code stays as a small badge. */
+.custom-code-manage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.custom-code-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.custom-code-chip:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.custom-code-chip .error-code-badge {
+  font-family: "SFMono-Regular", "Menlo", monospace;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.custom-code-chip .custom-code-remove { color: var(--muted); font-size: 0.78rem; }
+.custom-code-chip:hover .custom-code-remove { color: var(--danger); }
 
 /* Error code key shown to students */
 .error-code-key {

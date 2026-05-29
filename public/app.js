@@ -2200,14 +2200,16 @@ if (action === "generate-teacher-assist") {
   }
 
   if (action === "add-custom-error-code") {
-    const code = String(window.prompt("New error code (for example TS or WW)", "") || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    const code = String(globalThis.prompt("New error code (for example TS or WW)", "") || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
     if (!code) return;
-    const label = String(window.prompt(`Explanation for ${code}`, "") || "").trim();
-    if (!label) {
-      ui.notice = "Add a short explanation for the new error code.";
+    const name = String(globalThis.prompt(`Short name for ${code} (e.g. "Tense shift")`, "") || "").trim();
+    if (!name) {
+      ui.notice = "Add a short name for the new error code.";
       render();
       return;
     }
+    const explanation = String(globalThis.prompt(`Explanation for ${code} — ${name} (optional)`, "") || "").trim();
+    const label = explanation ? `${name}: ${explanation}` : name;
     const nextCodes = [...loadCustomErrorCodes().filter((entry) => String(entry.code || "").toUpperCase() !== code), { code, label }];
     saveCustomErrorCodes(nextCodes);
     ui.notice = `${code} added to your reusable error codes.`;

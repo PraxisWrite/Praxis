@@ -324,6 +324,12 @@ button {
   gap: 10px;
 }
 
+.review-secondary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .review-secondary-section {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -356,6 +362,10 @@ button {
 
   .review-pane-scroll {
     overflow-y: visible;
+  }
+
+  .review-secondary-row {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -949,9 +959,26 @@ button.rubric-level-cell:hover {
 /* A4 — in the grading rubric pane, each cell shows only its score header by
    default; the descriptor appears when the band is selected, hovered or
    focused. Scoped to the grading pane so previews keep their full text. */
+
+/* Let the level grid wrap to fit the ~46% pane without overflowing */
+.review-split-rubric .rubric-level-grid-1,
+.review-split-rubric .rubric-level-grid-2,
+.review-split-rubric .rubric-level-grid-3,
+.review-split-rubric .rubric-level-grid-4,
+.review-split-rubric .rubric-level-grid-5 {
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+}
+
+.review-split-rubric .rubric-level-badge {
+  font-size: 0.69rem;
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
 .review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-cell {
   min-height: 0;
   gap: 0;
+  padding: 5px 7px;
 }
 
 .review-split-rubric .rubric-schema-shell-compact:not(.rubric-schema-shell-preview) .rubric-level-text {

@@ -3383,9 +3383,14 @@ if (action === "select-assignment") {
       return;
     }
 
-    const nextEntry = buildTeacherReviewRowScore(criterion, band);
     const remainingRows = safeArray(submission.teacherReview.rowScores).filter((entry) => entry.criterionId !== criterion.id);
-    submission.teacherReview.rowScores = [...remainingRows, nextEntry];
+    const existing = safeArray(submission.teacherReview.rowScores).find((entry) => entry.criterionId === criterion.id);
+    // Clicking the already-selected band toggles it off (folds the descriptor away).
+    if (existing && existing.bandId === band.id) {
+      submission.teacherReview.rowScores = remainingRows;
+    } else {
+      submission.teacherReview.rowScores = [...remainingRows, buildTeacherReviewRowScore(criterion, band)];
+    }
     submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
     // Capture any in-progress notes textarea value before render() wipes the DOM.
     const notesInput = document.getElementById("teacher-review-notes");
@@ -3395,6 +3400,34 @@ if (action === "select-assignment") {
     render();
     window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
     scrollToNextRubricCriterionMobile(criterion.id);
+    return;
+  }
+
+  if (action === "bump-rubric-band") {
+    const submission = getSelectedReviewSubmission();
+    const assignment = getSelectedAssignment();
+    if (!submission || !assignment) {
+      return;
+    }
+    const step = Number(target.dataset.direction) < 0 ? -0.5 : 0.5;
+    submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
+    const entry = safeArray(submission.teacherReview.rowScores).find((row) => row.criterionId === target.dataset.criterionId);
+    if (!entry) {
+      return;
+    }
+    const maxPoints = Number(entry.maxPoints || 0) || Number(entry.points || 0);
+    const nextPoints = Math.min(Math.max(Number(entry.points || 0) + step, 0), maxPoints);
+    if (nextPoints === Number(entry.points || 0)) {
+      return;
+    }
+    entry.points = nextPoints;
+    submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
+    const notesInput = document.getElementById("teacher-review-notes");
+    if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
+    persistState();
+    const scrollYBeforeRender = window.scrollY;
+    render();
+    window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
     return;
   }
 
@@ -4974,6 +5007,7 @@ Rules:
 - Be conservative and teacher-safe.
 - Consider the final writing first, then process evidence.
 - Very short or underdeveloped work should score low.
+- After picking a band you may LOWER its score using "adjust": a negative multiple of 0.5 (e.g. -0.5, -1.5) when the work falls just short of that band. "adjust" can take the score as low as 0 — so even the lowest band can be reduced toward 0. Use 0 or omit "adjust" when the band fits as-is. Never raise a score above its band.
 - Do not invent criteria or bands.
 - Keep reasons short and concrete.`,
     prompt: `Assignment title: ${assignment.title}
@@ -5006,7 +5040,7 @@ ${JSON.stringify({
 Respond with ONLY this JSON shape:
 {
   "criteria": [
-    { "criterionId": "criterion-id", "bandId": "band-id", "reason": "short reason" }
+    { "criterionId": "criterion-id", "bandId": "band-id", "adjust": 0, "reason": "short reason" }
   ],
   "studentComment": "3-5 sentence comment to give the student about their work"
 }`,
@@ -5060,7 +5094,14 @@ function mapAiGradeSuggestionToReview(assignment, submission, parsed) {
       (entry.id || `band-${criterion.id}-${entry.points}`) === selection?.bandId
     ));
     if (!band) continue;
-    rowScores.push(buildTeacherReviewRowScore(criterion, band));
+    const rowScore = buildTeacherReviewRowScore(criterion, band);
+    // The AI may shave a band down in 0.5 steps (never up) when work falls just short.
+    const adjust = Number(selection?.adjust);
+    if (Number.isFinite(adjust) && adjust < 0) {
+      const maxPoints = Number(rowScore.maxPoints || 0) || rowScore.points;
+      rowScore.points = Math.min(Math.max(rowScore.points + adjust, 0), maxPoints);
+    }
+    rowScores.push(rowScore);
     if (selection?.reason) {
       reasons.push({
         criterionId: criterion.id,

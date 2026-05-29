@@ -779,10 +779,22 @@
   function gradingBandAbbrev(label) {
     const text = String(label || "").trim();
     if (!text) return "—";
-    const words = text.split(/\s+/);
-    if (words.length > 1) return words.map((w) => w[0]).join("").toUpperCase().slice(0, 4);
-    if (text.length <= 5) return text;
-    return `${text.slice(0, 3)}.`;
+    const known = {
+      excellent: "Exc.", good: "Good", satisfactory: "Sat.", unsatisfactory: "Unsat.",
+      "needs improvement": "Needs", proficient: "Prof.", developing: "Dev.",
+      beginning: "Beg.", emerging: "Emrg.", weak: "Weak", fair: "Fair", poor: "Poor",
+    };
+    const lower = text.toLowerCase();
+    if (known[lower]) return known[lower];
+    const head = text.split(/\s+/)[0];
+    if (head.length <= 6) return head;
+    return `${head.slice(0, 5)}.`;
+  }
+
+  // 0.5-step scores can land on x.5; show whole numbers without a trailing ".0".
+  function formatBandScore(value) {
+    const n = Number(value || 0);
+    return Number.isInteger(n) ? String(n) : n.toFixed(1);
   }
 
   function normalizeGradingBand(band) {
@@ -805,13 +817,33 @@
     const theme = levelTheme(band.label);
     const isSelected = isGradingBandMatch(selected, band);
     const isSuggested = !isSelected && isGradingBandMatch(suggested, band);
+    // Soft tinted fill with a coloured border/text reads better than a saturated
+    // solid block; suggested bands get the same tint with a dashed border.
     let style = "";
-    if (isSelected) style = `background:${theme.ring};border-color:${theme.ring};color:#fff;`;
-    else if (isSuggested) style = `border-color:${theme.ring};color:${theme.text};background:${theme.bg};`;
+    if (isSelected) style = `background:${theme.bg};border-color:${theme.ring};color:${theme.text};`;
+    else if (isSuggested) style = `border-style:dashed;border-color:${theme.ring};color:${theme.text};background:${theme.bg};`;
     const title = band.description
       ? `${band.label} · ${band.points} pts — ${band.description}`
       : `${band.label} · ${band.points} pts`;
-    return `<button class="grading-pill${isSelected ? " is-selected" : ""}${isSuggested ? " is-suggested" : ""}" data-action="select-rubric-band" data-criterion-id="${escapeAttribute(criterionId)}" data-band-id="${escapeAttribute(band.id)}" title="${escapeAttribute(title)}" style="${style}"><span class="grading-pill-label">${escapeHtml(gradingBandAbbrev(band.label))}</span><span class="grading-pill-score">${band.points}</span></button>`;
+    return `<button class="grading-pill${isSelected ? " is-selected" : ""}${isSuggested ? " is-suggested" : ""}" data-action="select-rubric-band" data-criterion-id="${escapeAttribute(criterionId)}" data-band-id="${escapeAttribute(band.id)}" title="${escapeAttribute(title)}" style="${style}"><span class="grading-pill-label">${escapeHtml(gradingBandAbbrev(band.label))}</span></button>`;
+  }
+
+  // A ±0.5 stepper sits on the criterion row and nudges only that row's selected
+  // cell. Until a band is picked there is nothing to nudge, so we show the range.
+  function renderGradingScoreStepper(criterionId, selectedScore, min, max) {
+    const { escapeAttribute } = globalThis.window;
+    if (selectedScore === null) {
+      return `<span class="grading-criterion-range">${formatBandScore(min)}–${formatBandScore(max)} pts</span>`;
+    }
+    const atFloor = selectedScore <= 0;
+    const atCeil = selectedScore >= max;
+    return `
+      <span class="grading-stepper">
+        <button type="button" class="grading-step-btn" data-action="bump-rubric-band" data-criterion-id="${escapeAttribute(criterionId)}" data-direction="-1" ${atFloor ? "disabled" : ""} title="Lower by 0.5" aria-label="Lower score by 0.5">▼</button>
+        <span class="grading-step-value">${formatBandScore(selectedScore)}</span>
+        <button type="button" class="grading-step-btn" data-action="bump-rubric-band" data-criterion-id="${escapeAttribute(criterionId)}" data-direction="1" ${atCeil ? "disabled" : ""} title="Raise by 0.5" aria-label="Raise score by 0.5">▲</button>
+      </span>
+    `;
   }
 
   function renderGradingRubricCriterion(criterion, bands, selected, suggested) {
@@ -822,18 +854,21 @@
     const activeBand = selected ? bands.find((b) => isGradingBandMatch(selected, b)) : null;
     const suggestedBand = !activeBand && suggested ? bands.find((b) => isGradingBandMatch(suggested, b)) : null;
     const descBand = activeBand || suggestedBand;
+    // The displayed score follows the selected entry — which may carry a ±0.5 fine
+    // adjustment — rather than the band's nominal points.
+    const selectedScore = activeBand ? Number(selected.points ?? activeBand.points) : null;
     let descHeader = "";
     if (activeBand) {
-      descHeader = `${activeBand.label} · ${activeBand.points} pts`;
+      descHeader = `${activeBand.label} · ${formatBandScore(selectedScore)} pts`;
     } else if (suggestedBand) {
-      descHeader = `Suggested · ${suggestedBand.label} · ${suggestedBand.points} pts`;
+      descHeader = `Suggested · ${suggestedBand.label} · ${formatBandScore(Number(suggested.points ?? suggestedBand.points))} pts`;
     }
     const pills = bands.map((band) => renderGradingRubricPill(criterion.id, band, selected, suggested)).join("");
     return `
       <div class="grading-criterion" data-rubric-criterion-id="${escapeAttribute(criterion.id)}">
         <div class="grading-criterion-title">
           <span class="grading-criterion-name">${escapeHtml(criterion.name || "Criterion")}</span>
-          <span class="grading-criterion-range">${min}–${max} pts</span>
+          ${renderGradingScoreStepper(criterion.id, selectedScore, min, max)}
         </div>
         <div class="grading-score-pills">${pills}</div>
         ${descBand ? `<div class="grading-criterion-desc"><strong>${escapeHtml(descHeader)}</strong> ${renderRichTextHtml(descBand.description || "No descriptor provided.")}</div>` : ""}
@@ -981,7 +1016,6 @@
       renderSubmissionBehaviourFlagPanel(submission),
       renderPasteEvidencePanel(submission),
       renderWritingTimeNote(submission),
-      renderStudentAiFeedbackEvidence(submission),
     ].join("");
     const studentMessageCount = (submission.chatHistory || []).filter((m) => m.role === "user").length;
     // One collapsible reveals writing behaviour and the replay side by side, so
@@ -1006,8 +1040,13 @@
         ${renderEmailDebugPanel(assignment, submission)}
         ${behaviourReplay}
         <details class="review-secondary-section">
-          <summary>Planning chat with coach (${studentMessageCount} student messages)</summary>
-          <div class="review-secondary-body">${renderCoachingChat(submission, studentName)}</div>
+          <summary>Planning chat &amp; AI feedback used (${studentMessageCount} student messages)</summary>
+          <div class="review-secondary-body">
+            <div class="review-secondary-row">
+              <div>${renderCoachingChat(submission, studentName)}</div>
+              <div>${renderStudentAiFeedbackEvidence(submission) || `<p class="subtle" style="margin:0;">No AI feedback was used during writing.</p>`}</div>
+            </div>
+          </div>
         </details>
       </div>
     `;

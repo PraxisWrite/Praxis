@@ -920,12 +920,12 @@
     `;
   }
 
-  // Everything not on the critical grading path lives below the split: status,
-  // flags, the (now collapsed-by-default) analytics, playback and coaching.
+  // Everything not on the critical grading path lives below the split: flags,
+  // analytics, playback and coaching chat.
   function renderGradingSecondary(assignment, submission, ctx) {
     const { renderEmailDebugPanel, renderSubmissionBehaviourFlagPanel, renderWritingBehaviour,
       renderPasteEvidencePanel, renderWritingTimeNote, renderStudentAiFeedbackEvidence } = globalThis.window;
-    const { ui, playback, studentName, currentStatus, canReopenSubmission, deadlinePassed } = ctx;
+    const { ui, playback, studentName } = ctx;
     const analytics = renderWritingBehaviour(submission, assignment);
     const flags = [
       renderSubmissionBehaviourFlagPanel(submission),
@@ -933,27 +933,30 @@
       renderWritingTimeNote(submission),
       renderStudentAiFeedbackEvidence(submission),
     ].join("");
+    const hasBehaviour = !!(analytics || flags.trim());
     const studentMessageCount = (submission.chatHistory || []).filter((m) => m.role === "user").length;
+    const playbackOpen = ui.playback.touched ? "open" : "";
+    const replaySection = `
+      <details class="review-secondary-section" ${playbackOpen}>
+        <summary>Replay writing process</summary>
+        <div class="review-secondary-body">${renderPlaybackControls(playback, ui)}</div>
+      </details>
+    `;
+    const behaviourBlock = hasBehaviour
+      ? `
+        <div class="review-secondary-row">
+          <details class="review-secondary-section">
+            <summary>Writing behaviour analytics</summary>
+            <div class="review-secondary-body">${analytics || ""}${flags}</div>
+          </details>
+          ${replaySection}
+        </div>
+      `
+      : replaySection;
     return `
       <div class="review-secondary">
-        ${renderTeacherSubmissionStatusPanel(currentStatus, canReopenSubmission, deadlinePassed)}
         ${renderEmailDebugPanel(assignment, submission)}
-        ${analytics ? `
-          <details class="review-secondary-section">
-            <summary>Writing behaviour analytics · Optional</summary>
-            <div class="review-secondary-body">${analytics}</div>
-          </details>
-        ` : ""}
-        ${flags.trim() ? `
-          <details class="review-secondary-section">
-            <summary>Flags &amp; evidence</summary>
-            <div class="review-secondary-body">${flags}</div>
-          </details>
-        ` : ""}
-        <details class="review-secondary-section" ${ui.playback.touched ? "open" : ""}>
-          <summary>Replay writing process</summary>
-          <div class="review-secondary-body">${renderPlaybackControls(playback, ui)}</div>
-        </details>
+        ${behaviourBlock}
         <details class="review-secondary-section">
           <summary>Planning chat with coach (${studentMessageCount} student messages)</summary>
           <div class="review-secondary-body">${renderCoachingChat(submission, studentName)}</div>
@@ -992,6 +995,7 @@
     return `
       <section class="panel review-shell">
         ${renderGradingNav(assignment, submission, ctx)}
+        ${renderTeacherSubmissionStatusPanel(ctx.currentStatus, ctx.canReopenSubmission, ctx.deadlinePassed)}
         <div class="review-split">
           ${renderGradingTextPane(submission, ctx)}
           ${renderGradingRubricPane(submission, ctx)}

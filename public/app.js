@@ -695,7 +695,7 @@ function getAssignmentRubricType(assignment) {
 }
 
 function createDefaultTeacherReview(review = {}) {
-  return {
+  const base = {
     status: review?.status || "ungraded",
     rubricType: review?.rubricType || "simple_band",
     rowScores: Array.isArray(review?.rowScores) ? review.rowScores : [],
@@ -709,9 +709,47 @@ function createDefaultTeacherReview(review = {}) {
     writingBehaviourExcluded: Boolean(review?.writingBehaviourExcluded),
     writingBehaviourExcludedAt: review?.writingBehaviourExcludedAt || null,
     writingBehaviourExclusionReason: review?.writingBehaviourExclusionReason || "",
+    // Snapshot of the grade the student currently sees. The fields above are the
+    // teacher's working draft; this is only updated when they submit/resubmit.
+    publishedReview: review?.publishedReview || null,
   };
+  // Back-compat: a grade saved before publishedReview existed becomes its own
+  // baseline, so Discard/Resubmit behave correctly for older graded work.
+  if (!base.publishedReview && base.status === "graded" && base.savedAt) {
+    base.publishedReview = snapshotPublishedReview(base);
+  }
+  return base;
 }
 if (typeof window !== "undefined") window.createDefaultTeacherReview = createDefaultTeacherReview;
+
+// Captures just the student-visible fields of a teacher review as the published grade.
+function snapshotPublishedReview(review = {}) {
+  return {
+    rowScores: Array.isArray(review?.rowScores) ? review.rowScores.map((row) => ({ ...row })) : [],
+    finalScore: review?.finalScore ?? "",
+    finalNotes: review?.finalNotes || "",
+    annotations: Array.isArray(review?.annotations) ? review.annotations.map((ann) => ({ ...ann })) : [],
+    rubricType: review?.rubricType || "simple_band",
+    savedAt: review?.savedAt || null,
+  };
+}
+
+// Serialises only the content the student sees, so we can detect unpublished edits.
+function teacherReviewContentKey(source = {}) {
+  return JSON.stringify({
+    rowScores: Array.isArray(source?.rowScores) ? source.rowScores : [],
+    finalScore: source?.finalScore ?? "",
+    finalNotes: source?.finalNotes || "",
+    annotations: Array.isArray(source?.annotations) ? source.annotations : [],
+  });
+}
+
+// True when the working draft differs from the grade the student currently sees.
+function teacherReviewHasUnpublishedEdits(review) {
+  if (!review?.publishedReview) return false;
+  return teacherReviewContentKey(review) !== teacherReviewContentKey(review.publishedReview);
+}
+if (typeof window !== "undefined") window.teacherReviewHasUnpublishedEdits = teacherReviewHasUnpublishedEdits;
 
 function calculateTeacherReviewSummary(assignment, submission, rowScores = submission?.teacherReview?.rowScores) {
   return calculateTeacherReviewSummaryCore(assignment, submission, rowScores, { rubricForType });
@@ -1582,6 +1620,7 @@ let lastKeystrokeAt = null;
 let keystrokeFlushTimer = null;
 let autoSaveTimer = null;
 let submissionSyncTimer = null;
+let teacherReviewSyncTimer = null;
 let submissionSyncInFlight = null;
 let queuedSubmissionSyncKey = "";
 let queuedSubmissionSyncResolvers = [];
@@ -1773,6 +1812,18 @@ function scheduleSubmissionSync(delay = 1800) {
     if (!submission) return;
     persistState();
     queueSubmissionSync(submission);
+  }, delay);
+}
+
+// Debounced autosave of in-progress teacher grading (rubric, annotations,
+// feedback) so nothing is lost if the tab closes mid-grade. This never changes
+// the submission status — the grade only reaches the student on submit/resubmit.
+function scheduleTeacherReviewSync(submission, delay = 1800) {
+  if (!submission) return;
+  clearTimeout(teacherReviewSyncTimer);
+  teacherReviewSyncTimer = setTimeout(() => {
+    persistState();
+    syncTeacherReviewToServer(submission);
   }, delay);
 }
 
@@ -2184,6 +2235,7 @@ if (action === "generate-teacher-assist") {
       persistState();
       render();
     });
+    scheduleTeacherReviewSync(submission);
     return;
   }
 
@@ -2196,6 +2248,7 @@ if (action === "generate-teacher-assist") {
       persistState();
       render();
     });
+    scheduleTeacherReviewSync(submission);
     return;
   }
 
@@ -3320,6 +3373,7 @@ if (action === "select-assignment") {
     submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
     submission.teacherReview.finalNotes = submission.teacherReview.suggestedGrade.studentComment;
     persistState();
+    scheduleTeacherReviewSync(submission);
     const textarea = document.getElementById("teacher-review-notes");
     if (textarea) {
       textarea.value = submission.teacherReview.finalNotes;
@@ -3341,6 +3395,7 @@ if (action === "select-assignment") {
     submission.teacherReview.acceptedAt = new Date().toISOString();
     ui.notice = "Suggested grade and comment copied — review and submit when ready.";
     persistState();
+    scheduleTeacherReviewSync(submission);
     render();
     window.requestAnimationFrame(() => {
       const submitBtn = document.querySelector('[data-action="save-teacher-review"]');
@@ -3396,6 +3451,7 @@ if (action === "select-assignment") {
     const notesInput = document.getElementById("teacher-review-notes");
     if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
     persistState();
+    scheduleTeacherReviewSync(submission);
     const scrollYBeforeRender = window.scrollY;
     render();
     window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
@@ -3425,6 +3481,7 @@ if (action === "select-assignment") {
     const notesInput = document.getElementById("teacher-review-notes");
     if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
     persistState();
+    scheduleTeacherReviewSync(submission);
     const scrollYBeforeRender = window.scrollY;
     render();
     window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
@@ -3484,12 +3541,15 @@ if (action === "select-assignment") {
        const overrideNum = overrideRaw === "" ? null : Number(overrideRaw);
        const validOverride = overrideNum !== null && !Number.isNaN(overrideNum) ? overrideNum : null;
        ui.gradeSubmitting = true;
+       // A pending autosave must not race the publish below.
+       clearTimeout(teacherReviewSyncTimer);
        // Stash the captured override so the re-render between now and the
        // server response shows what the teacher typed, not the stale value.
        ui.pendingFinalScoreOverride = validOverride;
        render();
        const previousStatus = submission.status;
        const previousReview = createDefaultTeacherReview(submission.teacherReview);
+       const wasAlreadyGraded = Boolean(previousReview.savedAt);
        try {
          submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
          const summary = calculateTeacherReviewSummary(assignment, submission);
@@ -3498,11 +3558,13 @@ if (action === "select-assignment") {
          submission.teacherReview.finalNotes = notesValue;
          submission.teacherReview.status = "graded";
          submission.teacherReview.savedAt = new Date().toISOString();
+         // Publish the working draft as the grade the student now sees.
+         submission.teacherReview.publishedReview = snapshotPublishedReview(submission.teacherReview);
          submission.status = "graded";
          const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
          replaceSubmissionInState(savedSubmission);
          ui.selectedReviewSubmissionId = savedSubmission.id;
-         ui.notice = "Grade submitted to student.";
+         ui.notice = wasAlreadyGraded ? "Updated grade resubmitted to student." : "Grade submitted to student.";
          persistState();
        } catch (error) {
          submission.status = previousStatus;
@@ -3516,6 +3578,38 @@ if (action === "select-assignment") {
        }
        return;
      }
+
+  if (action === "discard-teacher-review-edits") {
+    const submission = getSelectedReviewSubmission();
+    const assignment = getSelectedAssignment();
+    if (!submission || !assignment) return;
+    const published = submission.teacherReview?.publishedReview;
+    if (!published) return;
+    clearTimeout(teacherReviewSyncTimer);
+    const previousReview = createDefaultTeacherReview(submission.teacherReview);
+    // Revert the working draft to the grade the student currently sees.
+    submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
+    submission.teacherReview.rowScores = safeArray(published.rowScores).map((row) => ({ ...row }));
+    submission.teacherReview.finalScore = published.finalScore ?? "";
+    submission.teacherReview.finalNotes = published.finalNotes || "";
+    submission.teacherReview.annotations = safeArray(published.annotations).map((ann) => ({ ...ann }));
+    submission.teacherReview.rubricType = published.rubricType || submission.teacherReview.rubricType;
+    ui.notice = "Reverted to the grade the student currently sees.";
+    persistState();
+    render();
+    try {
+      const savedSubmission = await upsertTeacherReviewSubmission(assignment, submission);
+      replaceSubmissionInState(savedSubmission);
+      ui.selectedReviewSubmissionId = savedSubmission.id;
+      persistState();
+    } catch (error) {
+      submission.teacherReview = previousReview;
+      ui.notice = `Could not discard changes: ${error.message}`;
+      console.error("Could not discard teacher review edits:", error);
+    }
+    render();
+    return;
+  }
 
   if (action === "set-review-status") {
     const submission = getSelectedReviewSubmission();
@@ -3780,6 +3874,16 @@ function handleInput(event) {
 
   if (target.id === "chat-input") {
     ui.chatInput = target.value;
+    return;
+  }
+
+  if (target.id === "teacher-review-notes") {
+    const submission = getSelectedReviewSubmission();
+    if (!submission) return;
+    submission.teacherReview = submission.teacherReview || {};
+    submission.teacherReview.finalNotes = target.value;
+    persistState();
+    scheduleTeacherReviewSync(submission);
     return;
   }
 

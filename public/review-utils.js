@@ -83,6 +83,8 @@
       annotations: [],
       savedAt: null,
       acceptedAt: null,
+      // Withdraw the published grade — the student will resubmit for a fresh review.
+      publishedReview: null,
     };
   }
 

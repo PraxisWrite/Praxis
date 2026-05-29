@@ -554,6 +554,23 @@
   `;
   }
 
+  // Returns a submission whose teacherReview reflects only the published grade
+  // (what the student should see), never the teacher's in-progress autosaved draft.
+  function studentVisibleGradeSubmission(submission) {
+    const review = submission?.teacherReview;
+    if (!review) return submission;
+    let visible = review.publishedReview;
+    if (!visible && review.savedAt) {
+      // Older graded work saved before published snapshots existed.
+      visible = review;
+    }
+    if (!visible) {
+      // Nothing published yet — hide any in-progress teacher grading.
+      visible = { rowScores: [], finalScore: "", finalNotes: "", annotations: [] };
+    }
+    return { ...submission, teacherReview: { ...review, ...visible } };
+  }
+
   function renderStudentFinalStep(assignment, submission) {
     const { isStudentSubmissionLocked, getTeacherReviewRowsForExport } = globalThis.window;
     const { getRubricSchema } = globalThis.window;
@@ -564,10 +581,12 @@
     const selfAssessmentRowMap = getStudentSelfAssessmentRowScoreMap(submission);
     const selfAssessmentScore = Array.from(selfAssessmentRowMap.values()).reduce((sum, entry) => sum + Number(entry?.points ?? 0), 0);
     const selfAssessmentCompletion = getStudentSelfAssessmentCompletion(rubricSchema, submission);
-    const teacherReviewRows = getTeacherReviewRowsForExport(assignment, submission);
+    // Students see the published grade snapshot, never the teacher's in-progress edits.
+    const visibleSubmission = studentVisibleGradeSubmission(submission);
+    const teacherReviewRows = getTeacherReviewRowsForExport(assignment, visibleSubmission);
 
     if (isStudentSubmissionLocked(submission) && submission.teacherReview?.savedAt) {
-      return renderStudentGradedFinalStep(submission, teacherReviewRows);
+      return renderStudentGradedFinalStep(visibleSubmission, teacherReviewRows);
     }
     if (submission.status === "submitted") {
       return renderStudentSubmittedFinalStep(submission);
@@ -749,7 +768,7 @@
       getTeacherReviewRowsForExport, renderAnnotatedText } = globalThis.window;
     const { getErrorCodeLabel } = globalThis.window.AppConstants;
     if (submission.status !== "submitted") return "";
-    const teacherReviewRows = getTeacherReviewRowsForExport(assignment, submission);
+    const teacherReviewRows = getTeacherReviewRowsForExport(assignment, studentVisibleGradeSubmission(submission));
     const teacherReviewRowsHtml = renderStudentTeacherReviewRows(teacherReviewRows);
     return `
         <div id="submitted-confirmation" class="submitted-banner" style="margin-top:16px;">

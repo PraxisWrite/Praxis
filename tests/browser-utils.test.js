@@ -573,6 +573,29 @@ test("self-assessment completion requires every parsed criterion without checkin
   assert.equal(parsedRubric.totalPoints, 15);
 });
 
+test("reopening a graded submission withdraws the published grade snapshot", () => {
+  const graded = {
+    status: "graded",
+    finalScore: 18,
+    finalNotes: "Strong thesis.",
+    annotations: [{ id: "a1", code: "SP", selectedText: "teh", note: "" }],
+    savedAt: "2026-05-01T10:00:00.000Z",
+    publishedReview: {
+      rowScores: [{ criterionId: "c1", points: 4 }],
+      finalScore: 18,
+      finalNotes: "Strong thesis.",
+      annotations: [{ id: "a1", code: "SP", selectedText: "teh", note: "" }],
+      savedAt: "2026-05-01T10:00:00.000Z",
+    },
+  };
+  const reopened = reviewUtils.resetTeacherReviewForReopen(graded);
+  assert.equal(reopened.status, "draft");
+  assert.equal(reopened.savedAt, null);
+  assert.equal(reopened.finalScore, "");
+  assert.deepEqual(reopened.annotations, []);
+  assert.equal(reopened.publishedReview, null);
+});
+
 test("annotation short labels preserve custom wording", () => {
   assert.equal(reviewUtils.formatAnnotationShortLabel("Missing word"), "Missing word");
   assert.equal(reviewUtils.formatAnnotationShortLabel("Wrong word form"), "Wrong word form");

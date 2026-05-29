@@ -937,6 +937,15 @@
     const hasManualOverride = typeof submission.teacherReview?.finalScore === "number"
       && submission.teacherReview.finalScore !== model.total;
     const displayScore = hasManualOverride ? submission.teacherReview.finalScore : model.total;
+    const alreadyGraded = Boolean(submission.teacherReview?.savedAt);
+    const hasUnpublishedEdits = Boolean(globalThis.window.teacherReviewHasUnpublishedEdits?.(submission.teacherReview));
+    const submittingLabel = alreadyGraded ? "Resubmitting…" : "Submitting…";
+    const submitIdleLabel = alreadyGraded ? "Resubmit grade" : "Submit grade";
+    const submitLabel = ui.gradeSubmitting ? submittingLabel : submitIdleLabel;
+    const discardDisabled = ui.gradeSubmitting ? "disabled" : "";
+    const discardButton = alreadyGraded && hasUnpublishedEdits
+      ? `<button class="button-ghost" data-action="discard-teacher-review-edits" ${discardDisabled}>Discard changes</button>`
+      : "";
     const savedSub = submission.teacherReview?.savedAt
       ? `✓ Saved ${escapeHtml(formatDateTime(submission.teacherReview.savedAt))}`
       : `${model.graded} of ${model.count} scored`;
@@ -959,7 +968,8 @@
           <div class="rubric-foot-actions">
             <button class="button-ghost" data-action="generate-grade" ${ui.gradeSuggestionLoading ? "disabled" : ""}>${ui.gradeSuggestionLoading ? "Suggesting…" : "Suggest"}</button>
             <button class="button-ghost" data-action="copy-lms-grade" title="Copies the score, rubric breakdown, teacher feedback and annotation comments so you can paste them into your LMS.">Copy</button>
-            <button class="button" data-action="save-teacher-review" ${ui.gradeSubmitting ? "disabled" : ""}>${ui.gradeSubmitting ? "Submitting…" : "Submit grade"}</button>
+            ${discardButton}
+            <button class="button" data-action="save-teacher-review" ${ui.gradeSubmitting ? "disabled" : ""}>${submitLabel}</button>
           </div>
         </div>
       </div>

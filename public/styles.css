@@ -1014,9 +1014,28 @@ button.rubric-level-cell:hover {
   color: var(--accent-deep);
 }
 
-.grading-pill-label { font-size: 0.72rem; }
-.grading-pill-score { font-size: 0.82rem; font-weight: 700; }
-.grading-pill.is-selected { box-shadow: 0 2px 6px rgba(26, 39, 64, 0.18); }
+.grading-pill-label { font-size: 0.76rem; }
+.grading-pill.is-selected { box-shadow: 0 1px 4px rgba(26, 39, 64, 0.12); font-weight: 700; }
+
+.grading-stepper { display: inline-flex; align-items: center; gap: 6px; }
+.grading-step-btn {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fafbfd;
+  color: var(--accent-deep);
+  font-size: 0.58rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.grading-step-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.grading-step-btn:disabled { opacity: 0.35; cursor: default; }
+.grading-step-value { min-width: 30px; text-align: center; font-weight: 700; font-size: 0.84rem; color: var(--ink); }
 
 .grading-criterion-desc {
   margin-top: 7px;

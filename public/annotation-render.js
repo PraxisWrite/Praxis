@@ -272,7 +272,10 @@
       ? "background:#f3e8ff;border-bottom:2px solid #9b4dca;color:inherit;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;"
       : "background:#fef3c7;border-bottom:2px solid #f59e0b;color:#2f2416;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;";
     const bubbleBg = highlight.overlapsPaste ? "#9b4dca" : "#f59e0b";
-    const bubble = `<span style="display:inline-block;background:${bubbleBg};color:#fff;font-size:0.62em;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:super;line-height:1.4;letter-spacing:0.02em;">${escapeHtml(highlight.label || highlight.code)}</span>`;
+    // Show only the code (e.g. "SP"), not the numbered label ("SP 1"). The number
+    // already appears in the annotation list below the text, which links back here.
+    const bubbleText = highlight.code || String(highlight.label || "").replace(/\s\d+$/, "") || "NOTE";
+    const bubble = `<span style="display:inline-block;background:${bubbleBg};color:#fff;font-size:0.62em;font-weight:700;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:super;line-height:1.4;letter-spacing:0.02em;">${escapeHtml(bubbleText)}</span>`;
     return `<mark id="${escapeAttribute(markId)}"${clickHandler} style="${styles}" title="Click to jump to comment">${segment}${bubble}</mark>`;
   }
 

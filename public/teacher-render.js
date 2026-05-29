@@ -935,26 +935,28 @@
     ].join("");
     const hasBehaviour = !!(analytics || flags.trim());
     const studentMessageCount = (submission.chatHistory || []).filter((m) => m.role === "user").length;
+    const playbackOpen = ui.playback.touched ? "open" : "";
+    const replaySection = `
+      <details class="review-secondary-section" ${playbackOpen}>
+        <summary>Replay writing process</summary>
+        <div class="review-secondary-body">${renderPlaybackControls(playback, ui)}</div>
+      </details>
+    `;
+    const behaviourBlock = hasBehaviour
+      ? `
+        <div class="review-secondary-row">
+          <details class="review-secondary-section">
+            <summary>Writing behaviour analytics</summary>
+            <div class="review-secondary-body">${analytics || ""}${flags}</div>
+          </details>
+          ${replaySection}
+        </div>
+      `
+      : replaySection;
     return `
       <div class="review-secondary">
         ${renderEmailDebugPanel(assignment, submission)}
-        ${hasBehaviour ? `
-          <div class="review-secondary-row">
-            <details class="review-secondary-section">
-              <summary>Writing behaviour analytics</summary>
-              <div class="review-secondary-body">${analytics || ""}${flags}</div>
-            </details>
-            <details class="review-secondary-section" ${ui.playback.touched ? "open" : ""}>
-              <summary>Replay writing process</summary>
-              <div class="review-secondary-body">${renderPlaybackControls(playback, ui)}</div>
-            </details>
-          </div>
-        ` : `
-          <details class="review-secondary-section" ${ui.playback.touched ? "open" : ""}>
-            <summary>Replay writing process</summary>
-            <div class="review-secondary-body">${renderPlaybackControls(playback, ui)}</div>
-          </details>
-        `}
+        ${behaviourBlock}
         <details class="review-secondary-section">
           <summary>Planning chat with coach (${studentMessageCount} student messages)</summary>
           <div class="review-secondary-body">${renderCoachingChat(submission, studentName)}</div>

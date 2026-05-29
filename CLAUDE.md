@@ -34,29 +34,18 @@ curl -s -X POST \
 
 ## Active branch
 
-`claude/admiring-brown-rkIXr` — **PR #274 open** (draft).  
-Latest commit: `eda1209` — fix backtracking regex in annotation bubble label strip (SonarCloud S5852).
+`claude/relaxed-goldberg-XYY4F` — no open PR yet (start here for new work).
 
-### What's in PR #274 (on top of merged PR #273)
+### Recently merged (main is up to date)
 
-PR #273 (merged) contained the full grading view redesign:
-- Compact pill rubric (head / scrollable body / pinned foot), sourcing bands from `assignment.rubric`
-- Mockup-style annotation highlights: amber underline + rounded code bubble
-- Toolbar: pencil on Note, `+` add button, custom chips show full name
-- Writing behaviour + Replay merged into one collapsible, side-by-side body
-- Submission status above the split pane
-- Teacher feedback always-visible below split
-
-PR #274 adds on top:
-- **Annotation bubbles**: show only the code (`SP`), not `SP 1` — number still in list below
-- **Rubric pills**: soft tinted fill + coloured border (not saturated solid); clicking selected band again toggles/folds descriptor
-- **Pill labels**: `Exc.`, `Sat.`, `Unsat.`, `Needs` — no per-pill point number
-- **±0.5 score stepper**: `▼ value ▲` bumper per criterion row, clamped to `[0, max]`
-- **AI `adjust` field**: AI grade suggestion can shave a band down in 0.5 steps, reaching 0
-- **Planning chat + AI feedback used**: side by side in one collapsible
-- **S5852 fix**: `/\s*\d+$/` → `/\s\d+$/` in `annotation-render.js`
-
-SonarCloud scan is pending — **watch for any new hotspots and fix before merge**.
+- **PR #275** — updated CLAUDE.md handoff
+- **PR #274** — half-point stepper, softer rubric pills, cleaner annotation bubbles, S5852 fix
+- **PR #273** — full grading view redesign (split pane, compact pill rubric, annotation highlights)
+- **PR #272** — status order, rubric fit, merged behaviour corrections
+- **PR #271** — Phase A grading view redesign
+- **PR #270** — fixed broken unit tests + added unit CI job
+- **PR #269** — append-only sync deltas (Issue 1) + submission lookup indexes (Issue 5)
+- **PR #267** — student approval gate + click-to-grade from roster
 
 ---
 
@@ -142,46 +131,23 @@ renderTeacherGrading(assignment, submission)
 
 ---
 
-## Pre-pilot stability fixes (all still pending)
+## Pre-pilot stability fixes — ALL SHIPPED
 
-Seven issues identified in a performance audit. Implement before semester pilot (20–40 students/class).
+All seven issues identified in the performance audit are done. No action needed.
 
-### Issue 1 — Full submission payload on every sync (HIGHEST IMPACT)
-- **File:** `public/api-service.js:96–121` (`buildSubmissionServerPayload`)
-- **Problem:** Sends entire `writingEvents`, `chatHistory`, `keystrokeLog` arrays on every auto-sync — 150–300 KB per call at ~30s intervals.
-- **Fix:** Track a `lastSyncedEventCount` cursor client-side; send only new events as a delta; server appends rather than overwrites.
-
-### Issue 2 — Race condition on submission saves (HIGH IMPACT)
-- **File:** `server.js:2217–2223` (submission UPDATE handler)
-- **Problem:** No optimistic locking — last writer wins silently.
-- **Fix:** Add `.eq('updated_at', expectedTimestamp)` to the Supabase `.update()` call; return 409 on mismatch; client retries with fresh fetch.
-
-### Issue 3 — No timeout on AI endpoint
-- **File:** `server.js:1139–1147` (`/api/generate`)
-- **Problem:** If the upstream LLM hangs, server holds the connection open indefinitely.
-- **Fix:** Wrap the LLM call in an `AbortController` with a 20 s timeout; return 504 on abort.
-
-### Issue 4 — No client-side AI request queue
-- **File:** `public/app.js` (AI send handlers)
-- **Problem:** Rapid-clicking "Generate" fires multiple concurrent AI requests.
-- **Fix:** Simple client-side queue (max 3–4 in-flight); new requests wait or discard oldest pending.
-
-### Issue 5 — Missing database indexes
-- **Tables:** `submissions.assignment_id`, `submissions.student_id`
-- **Fix:** Supabase migration adding `CREATE INDEX` on both columns.
-
-### Issue 6 — Uncompressed JS bundle (~658 KB)
-- **File:** `server.js` (Express static middleware)
-- **Fix:** Add `compression` npm package as Express middleware before static serving.
-
-### Issue 7 — Polling too aggressive (20 s intervals)
-- **File:** `public/app-constants.js` — `REVIEW_REFRESH_MS` and `ADMIN_REFRESH_MS`
-- **Fix:** Raise both to `30000` (30 s).
+| # | Issue | Status | Where |
+|---|-------|--------|-------|
+| 1 | Append-only sync deltas | ✅ Done | PR #269 — `public/api-service.js` |
+| 2 | Optimistic locking on saves | ✅ Already existed | `server.js` `expected_updated_at` → 409 |
+| 3 | AI endpoint timeout | ✅ Done | `server.js:1246` — `AbortController` 20s + 504 |
+| 4 | Client-side AI request queue | ✅ Done | `public/app.js:1874` — `inFlight`/`MAX_CONCURRENT` |
+| 5 | Missing DB indexes | ✅ Done | PR #269 — migration applied to production |
+| 6 | Uncompressed JS bundle | ✅ Done | `server.js:4,34` — `compression` middleware |
+| 7 | Polling too aggressive | ✅ Done | `app-constants.js:16–17` — both at 30000 ms |
 
 ---
 
 ## Pending / next steps
 
-- [ ] Watch SonarCloud on PR #274 — fix any new hotspots, then the user will merge
-- [ ] After #274 merges: start a new branch for the pre-pilot stability fixes (Issues 1–7)
-- [ ] User may have further grading-view UX feedback after reviewing the live result
+- [ ] User to review live grading view and give UX feedback
+- [ ] Add Sentry error tracking after pilot launch (deferred — known issues already fixed)

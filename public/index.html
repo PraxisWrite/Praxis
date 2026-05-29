@@ -5,6 +5,22 @@
       src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
       crossorigin="anonymous"
     ></script>
+    <script>
+      Sentry.onLoad(function() {
+        Sentry.init({
+          integrations: [
+            Sentry.feedbackIntegration({
+              colorScheme: "light",
+              buttonLabel: "Report a problem",
+              submitButtonLabel: "Send report",
+              formTitle: "Report a problem",
+              messagePlaceholder: "What happened? What were you trying to do?",
+              showBranding: false,
+            }),
+          ],
+        });
+      });
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>praxis</title>

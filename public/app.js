@@ -749,7 +749,7 @@ function teacherReviewHasUnpublishedEdits(review) {
   if (!review?.publishedReview) return false;
   return teacherReviewContentKey(review) !== teacherReviewContentKey(review.publishedReview);
 }
-if (typeof window !== "undefined") window.teacherReviewHasUnpublishedEdits = teacherReviewHasUnpublishedEdits;
+if (typeof globalThis !== "undefined" && globalThis.window) globalThis.window.teacherReviewHasUnpublishedEdits = teacherReviewHasUnpublishedEdits;
 
 function calculateTeacherReviewSummary(assignment, submission, rowScores = submission?.teacherReview?.rowScores) {
   return calculateTeacherReviewSummaryCore(assignment, submission, rowScores, { rubricForType });

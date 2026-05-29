@@ -34,18 +34,24 @@ curl -s -X POST \
 
 ## Active branch
 
-`claude/relaxed-goldberg-XYY4F` — no open PR yet (start here for new work).
+`claude/relaxed-goldberg-XYY4F` — **PR #282 open** (draft, Sentry loader guard). Otherwise reuse this branch for new work.
 
 ### Recently merged (main is up to date)
 
+- **PR #281** — teacher grading autosave + Discard changes + Resubmit grade (this session)
+- **PR #280** — removed Sentry feedback widget from landing page
+- **PR #279** — Sentry user-feedback widget (`sentry-init.js`) + dedupe
+- **PR #278** — point Sentry loader at real `praxis` project DSN
+- **PR #277** — add Sentry error monitoring (loader script)
+- **PR #276** — CLAUDE.md handoff (all 7 pre-pilot fixes confirmed shipped)
 - **PR #275** — updated CLAUDE.md handoff
 - **PR #274** — half-point stepper, softer rubric pills, cleaner annotation bubbles, S5852 fix
 - **PR #273** — full grading view redesign (split pane, compact pill rubric, annotation highlights)
-- **PR #272** — status order, rubric fit, merged behaviour corrections
-- **PR #271** — Phase A grading view redesign
-- **PR #270** — fixed broken unit tests + added unit CI job
-- **PR #269** — append-only sync deltas (Issue 1) + submission lookup indexes (Issue 5)
-- **PR #267** — student approval gate + click-to-grade from roster
+- **PR #272–267** — earlier grading redesign, unit-test CI, sync deltas, approval gate (see git log)
+
+### Open / in flight
+
+- **PR #282** (draft) — guard `sentry-init.js` so a blocked Sentry CDN (ad-blocker/VPN) doesn't throw an uncaught `ReferenceError`. Verify CI then merge.
 
 ---
 
@@ -147,7 +153,33 @@ All seven issues identified in the performance audit are done. No action needed.
 
 ---
 
+## Sentry (error monitoring + user feedback) — LIVE
+
+Set up this session. Org `praxiswrite`, project **`praxis`** (slug `praxis`, id `4511474897715280`).
+
+- **Loader script** in `public/index.html` head: `js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js`. DSN key `ce9396547e963ef331dbb030435c4d46`. Loader options: replay + performance + **feedback** on.
+- **`public/sentry-init.js`** — shared init (loaded only on `index.html`, NOT landing). Calls `Sentry.feedbackIntegration()` ("Report a problem" button). **Guarded** with `typeof Sentry !== "undefined"` so a blocked CDN (ad-blocker/VPN) doesn't throw — see PR #282.
+- **NOT on `landing.html`** (removed in #280) — feedback only inside the app.
+- **Alerts** (email to owner `scmc2789@hotmail.com` / `praxiswrite` team): new-issue, error spike (5+/hr), regression, high-volume (20+/hr).
+- **Inbound filters on**: browser-extensions, web-crawlers, localhost, plus `401*`/`Unauthorized*` error-message filter (expected auth noise).
+- **Config via REST API**, not MCP: `mcp.sentry.dev` is **blocked by this env's network allowlist**; `sentry.io` REST API is reachable. User holds a `sntryu_…` auth token (full scopes) — ask them for it to make Sentry changes. The user's own machine runs NordVPN Threat Protection which intermittently blocks the CDN (returns 204) — that's why the widget/events sometimes don't load for them but will for students. A long obfuscated `/...` script on the live page is NordVPN injection, not ours — safe.
+
+## Grading autosave / publish model (PR #281) — LIVE
+
+Teacher grading no longer loses work and editing a returned grade is explicit:
+
+- `teacherReview` = **working draft** (autosaved ~1.8s on rubric/annotation/feedback change via `scheduleTeacherReviewSync` → `syncTeacherReviewToServer`, which PATCHes `teacher_review` only, no status change, no `expected_updated_at`).
+- `teacherReview.publishedReview` = **snapshot the student sees** (set on submit/resubmit via `snapshotPublishedReview`). Students read this, never the working draft — see `studentVisibleGradeSubmission()` in `student-render.js`. Back-compat: old graded work lazily adopts its current grade as baseline in `createDefaultTeacherReview`.
+- **Submit → "Resubmit grade"** label once `savedAt` is set. **"Discard changes"** button appears only when `teacherReviewHasUnpublishedEdits()` (working draft ≠ published); reverts to published.
+- Reopen clears `publishedReview` too (`resetTeacherReviewForReopen` in `review-utils.js`).
+- Feedback textarea now has an `input` handler (previously had none).
+- No server change needed — `teacher_review` jsonb stores the new field as-is.
+
+---
+
 ## Pending / next steps
 
-- [ ] User to review live grading view and give UX feedback
-- [ ] Add Sentry error tracking after pilot launch (deferred — known issues already fixed)
+- [ ] Merge PR #282 once CI passes (Sentry loader guard)
+- [ ] After deploy, hard-refresh and confirm console is clean + feedback widget shows inside app
+- [ ] More grading-view UX feedback from live use (next UI session)
+- [ ] Mark the legit test feedback report in Sentry as "not spam" (AI spam filter caught it)

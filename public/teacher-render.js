@@ -822,9 +822,12 @@
     const activeBand = selected ? bands.find((b) => isGradingBandMatch(selected, b)) : null;
     const suggestedBand = !activeBand && suggested ? bands.find((b) => isGradingBandMatch(suggested, b)) : null;
     const descBand = activeBand || suggestedBand;
-    const descHeader = activeBand
-      ? `${activeBand.label} · ${activeBand.points} pts`
-      : suggestedBand ? `Suggested · ${suggestedBand.label} · ${suggestedBand.points} pts` : "";
+    let descHeader = "";
+    if (activeBand) {
+      descHeader = `${activeBand.label} · ${activeBand.points} pts`;
+    } else if (suggestedBand) {
+      descHeader = `Suggested · ${suggestedBand.label} · ${suggestedBand.points} pts`;
+    }
     const pills = bands.map((band) => renderGradingRubricPill(criterion.id, band, selected, suggested)).join("");
     return `
       <div class="grading-criterion" data-rubric-criterion-id="${escapeAttribute(criterion.id)}">

@@ -1166,9 +1166,70 @@ async function recomputeStaleProcessAnalyses({ limit = 50 } = {}) {
   };
 }
 
+// ── Per-user abuse guards (in-memory; reset on server restart) ──
+// These are NOT hard quotas for normal use — they sit far above what a real
+// teacher or student would ever hit. They exist to blunt a compromised or
+// fake account (e.g. someone who registers just to drain the Anthropic bill).
+
+// Rubric parsing: a teacher has no reason to parse more than a handful of
+// rubrics a day. Cap per user per calendar day.
+const RUBRIC_DAILY_MAX = 10;
+const rubricUsageByUser = new Map(); // userId -> { day, count }
+
+function checkRubricQuota(userId) {
+  const day = new Date().toISOString().slice(0, 10);
+  let rec = rubricUsageByUser.get(userId);
+  if (rec?.day !== day) {
+    rec = { day, count: 0 };
+    rubricUsageByUser.set(userId, rec);
+  }
+  if (rec.count >= RUBRIC_DAILY_MAX) return false;
+  rec.count += 1;
+  return true;
+}
+
+// Chat / AI generate: no hard cap (a student may legitimately chat a lot),
+// but a velocity breaker with escalating cooldowns. A human types with pauses;
+// a bot or script fires in bursts. Each successive trip ratchets up the lockout
+// so cycling burst → cooldown → burst quickly becomes a 24-hour block.
+const AI_BURST_WINDOW_MS = 30000;
+const AI_BURST_MAX = 12;       // >12 calls in 30s is not human pacing
+const AI_HOURLY_WINDOW_MS = 3600000;
+const AI_HOURLY_MAX = 150;     // sustained ceiling no real user reaches
+const AI_COOLDOWN_TIERS_MS = [300000, 900000, 3600000, 86400000]; // 5m, 15m, 1h, 24h
+const aiUsageByUser = new Map(); // userId -> { hits: number[], cooldownUntil, offences }
+
+function checkAiVelocity(userId) {
+  const now = Date.now();
+  let rec = aiUsageByUser.get(userId);
+  if (!rec) {
+    rec = { hits: [], cooldownUntil: 0, offences: 0 };
+    aiUsageByUser.set(userId, rec);
+  }
+  if (now < rec.cooldownUntil) {
+    return { allowed: false, retryAfter: Math.ceil((rec.cooldownUntil - now) / 1000) };
+  }
+  rec.hits = rec.hits.filter((t) => now - t < AI_HOURLY_WINDOW_MS);
+  const burstCount = rec.hits.filter((t) => now - t < AI_BURST_WINDOW_MS).length;
+  if (burstCount >= AI_BURST_MAX || rec.hits.length >= AI_HOURLY_MAX) {
+    const tier = Math.min(rec.offences, AI_COOLDOWN_TIERS_MS.length - 1);
+    const cooldownMs = AI_COOLDOWN_TIERS_MS[tier];
+    rec.offences += 1;
+    rec.cooldownUntil = now + cooldownMs;
+    return { allowed: false, retryAfter: Math.ceil(cooldownMs / 1000) };
+  }
+  rec.hits.push(now);
+  return { allowed: true, retryAfter: 0 };
+}
+
 // ── Rubric parsing endpoints ────────────────────────────────
 app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
   try {
+    const { user, error, status } = await requireTeacherProfile(req);
+    if (error) return res.status(status).json({ success: false, error });
+    if (!checkRubricQuota(user.id)) {
+      return res.status(429).json({ success: false, error: 'Daily rubric parsing limit reached. Please try again tomorrow.' });
+    }
     if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
     const { text, schema, rubricData } = await parseRubricBuffer(
@@ -1190,6 +1251,11 @@ app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
 
 app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
   try {
+    const { user, error, status } = await requireTeacherProfile(req);
+    if (error) return res.status(status).json({ error });
+    if (!checkRubricQuota(user.id)) {
+      return res.status(429).json({ error: 'Daily rubric parsing limit reached. Please try again tomorrow.' });
+    }
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     const { text, schema, rubricData } = await parseRubricBuffer(
@@ -1206,6 +1272,11 @@ app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
 
 app.post('/api/rubric/parse-text', async (req, res) => {
   try {
+    const { user, error, status } = await requireTeacherProfile(req);
+    if (error) return res.status(status).json({ success: false, error });
+    if (!checkRubricQuota(user.id)) {
+      return res.status(429).json({ success: false, error: 'Daily rubric parsing limit reached. Please try again tomorrow.' });
+    }
     const text = String(req.body?.text || '').trim();
     if (!text) return res.status(400).json({ success: false, error: 'Text is required' });
 
@@ -1224,14 +1295,41 @@ app.post('/api/rubric/parse-text', async (req, res) => {
 // ── AI endpoint ─────────────────────────────────────────────
 let aiRequestsInFlight = 0;
 const AI_MAX_CONCURRENT = 10;
+// ~50k tokens of input — far above any real chat/feedback/grading payload,
+// but well under the 10mb body limit, so a single request can't run up a
+// huge input-token bill.
+const MAX_AI_INPUT_CHARS = 200000;
+
+function aiInputCharCount(prompt, messages, system) {
+  let total = String(system || '').length + String(prompt || '').length;
+  if (Array.isArray(messages)) {
+    for (const m of messages) {
+      total += typeof m?.content === 'string' ? m.content.length : JSON.stringify(m?.content || '').length;
+    }
+  }
+  return total;
+}
 
 app.post('/api/generate', async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  const { prompt, messages, system, maxTokens, temperature } = req.body;
+  if (messages && !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages must be an array.' });
+  }
+  if (aiInputCharCount(prompt, messages, system) > MAX_AI_INPUT_CHARS) {
+    return res.status(413).json({ error: 'Your request is too large. Please shorten it and try again.' });
+  }
+  const velocity = checkAiVelocity(user.id);
+  if (!velocity.allowed) {
+    res.set('Retry-After', String(velocity.retryAfter));
+    return res.status(429).json({ error: 'Too many requests in a short time. Please wait a few minutes and try again.' });
+  }
   if (aiRequestsInFlight >= AI_MAX_CONCURRENT) {
     return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.' });
   }
   aiRequestsInFlight++;
   try {
-    const { prompt, messages, system, maxTokens, temperature } = req.body;
     const apiMessages = (messages || [{ role: "user", content: prompt }])
       .map(({ role, content }) => ({ role, content }));
     const requestBody = {
@@ -1262,8 +1360,10 @@ app.post('/api/generate', async (req, res) => {
     }
 
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.error.message });
-    res.json({ response: data.content[0].text });
+    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || 'AI request failed.' });
+    const text = data?.content?.[0]?.text;
+    if (!text) return res.status(502).json({ error: 'AI returned an empty response. Please try again.' });
+    res.json({ response: text });
   } catch (error) {
     if (error.name === 'AbortError') return res.status(504).json({ error: 'AI request timed out. Please try again.' });
     res.status(500).json({ error: error.message });

@@ -2000,7 +2000,7 @@ async function requestAiGenerate(payload, options = {}) {
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Auth.getToken()}` },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });

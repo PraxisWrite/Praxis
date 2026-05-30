@@ -15,9 +15,7 @@ Supabase backend (MCP tools available for DB work).
 Push using a PAT directly (user rotates PAT often):
 ```bash
 git push -u "https://x-access-token:TOKEN@github.com/PraxisWrite/Praxis.git" BRANCH
-```
-After every push, scrub the upstream so the PAT doesn't linger:
-```bash
+git fetch origin BRANCH   # sync remote-tracking ref so stop-hook sees it
 git branch --unset-upstream && git config --remove-section "branch.BRANCHNAME"
 ```
 PR creation also requires curl with PAT — MCP `create_pull_request` returns 403:

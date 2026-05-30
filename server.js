@@ -2215,6 +2215,38 @@ app.delete('/api/assignments/:id', async (req, res) => {
 
 // ── Submissions endpoints ────────────────────────────────────
 
+// Get all submissions for every assignment in a class (teacher) — single
+// round-trip replacement for the old per-assignment N+1 pattern.
+app.get('/api/classes/:classId/submissions', async (req, res) => {
+  try {
+    const { user, error: teacherError, status } = await requireTeacherProfile(req);
+    if (teacherError) return res.status(status).json({ error: teacherError });
+    const readClient = getRequestScopedSupabase(req);
+    const ownedClass = await ensureTeacherOwnsClass(req.params.classId, user.id, readClient);
+    if (!ownedClass) return res.status(403).json({ error: 'You can only view submissions for your own classes.' });
+
+    const { data: assignments, error: assignError } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('class_id', req.params.classId);
+    if (assignError) return res.status(400).json({ error: assignError.message });
+
+    const assignmentIds = (assignments || []).map((a) => a.id).filter(Boolean);
+    if (!assignmentIds.length) return res.json({ submissions: [] });
+
+    const { data, error } = await supabase
+      .from('submissions')
+      .select('*, profiles(id, name)')
+      .in('assignment_id', assignmentIds);
+    if (error) return res.status(400).json({ error: error.message });
+
+    res.json({ submissions: data || [] });
+  } catch (error) {
+    console.error('Unexpected class submissions failure:', safeLogError(error));
+    res.status(500).json({ error: 'Could not load submissions right now. Please refresh and try again.' });
+  }
+});
+
 // Get all submissions for an assignment (teacher)
 app.get('/api/assignments/:assignmentId/submissions', async (req, res) => {
   try {

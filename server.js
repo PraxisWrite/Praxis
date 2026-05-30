@@ -1189,21 +1189,21 @@ function checkRubricQuota(userId) {
 }
 
 // Chat / AI generate: no hard cap (a student may legitimately chat a lot),
-// but a velocity breaker. A human types with pauses; a bot or script fires in
-// bursts. Trip a cooldown on either a short-window burst or a runaway hourly
-// volume, then lock that user out for a few minutes.
+// but a velocity breaker with escalating cooldowns. A human types with pauses;
+// a bot or script fires in bursts. Each successive trip ratchets up the lockout
+// so cycling burst → cooldown → burst quickly becomes a 24-hour block.
 const AI_BURST_WINDOW_MS = 30000;
-const AI_BURST_MAX = 12; // >12 calls in 30s is not human pacing
+const AI_BURST_MAX = 12;       // >12 calls in 30s is not human pacing
 const AI_HOURLY_WINDOW_MS = 3600000;
-const AI_HOURLY_MAX = 150; // sustained ceiling no real user reaches
-const AI_COOLDOWN_MS = 300000; // 5-minute lockout once tripped
-const aiUsageByUser = new Map(); // userId -> { hits: number[], cooldownUntil }
+const AI_HOURLY_MAX = 150;     // sustained ceiling no real user reaches
+const AI_COOLDOWN_TIERS_MS = [300000, 900000, 3600000, 86400000]; // 5m, 15m, 1h, 24h
+const aiUsageByUser = new Map(); // userId -> { hits: number[], cooldownUntil, offences }
 
 function checkAiVelocity(userId) {
   const now = Date.now();
   let rec = aiUsageByUser.get(userId);
   if (!rec) {
-    rec = { hits: [], cooldownUntil: 0 };
+    rec = { hits: [], cooldownUntil: 0, offences: 0 };
     aiUsageByUser.set(userId, rec);
   }
   if (now < rec.cooldownUntil) {
@@ -1212,8 +1212,11 @@ function checkAiVelocity(userId) {
   rec.hits = rec.hits.filter((t) => now - t < AI_HOURLY_WINDOW_MS);
   const burstCount = rec.hits.filter((t) => now - t < AI_BURST_WINDOW_MS).length;
   if (burstCount >= AI_BURST_MAX || rec.hits.length >= AI_HOURLY_MAX) {
-    rec.cooldownUntil = now + AI_COOLDOWN_MS;
-    return { allowed: false, retryAfter: Math.ceil(AI_COOLDOWN_MS / 1000) };
+    const tier = Math.min(rec.offences, AI_COOLDOWN_TIERS_MS.length - 1);
+    const cooldownMs = AI_COOLDOWN_TIERS_MS[tier];
+    rec.offences += 1;
+    rec.cooldownUntil = now + cooldownMs;
+    return { allowed: false, retryAfter: Math.ceil(cooldownMs / 1000) };
   }
   rec.hits.push(now);
   return { allowed: true, retryAfter: 0 };

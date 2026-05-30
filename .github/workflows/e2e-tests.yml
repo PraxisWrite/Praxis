@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Nightly cross-role smoke (teacher creates -> student submits). Kept off
+    # the push gate because it makes several AI-backed calls and is flake-prone
+    # under load; the fast auth + teacher specs gate every push instead.
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       test_file:
@@ -21,7 +26,7 @@ on:
 
 jobs:
   e2e:
-    name: ${{ github.event_name == 'push' && 'Smoke tests (push to main)' || format('Run {0} Playwright test', inputs.test_file) }}
+    name: ${{ (github.event_name == 'push' && 'Smoke tests (push to main)') || (github.event_name == 'schedule' && 'Nightly cross-role smoke') || format('Run {0} Playwright test', inputs.test_file) }}
     runs-on: ubuntu-latest
 
     env:
@@ -50,7 +55,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            npx playwright test tests/e2e/auth.spec.js tests/e2e/teacher.spec.js tests/e2e/cross-role-smoke.spec.js
+            npx playwright test tests/e2e/auth.spec.js tests/e2e/teacher.spec.js
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            npx playwright test tests/e2e/cross-role-smoke.spec.js
           else
             case "${{ inputs.test_file }}" in
               auth)
@@ -82,7 +89,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-${{ github.event_name == 'push' && 'smoke' || inputs.test_file }}-html-report
+          name: e2e-${{ (github.event_name == 'push' && 'smoke') || (github.event_name == 'schedule' && 'nightly') || inputs.test_file }}-html-report
           path: playwright-report/
           if-no-files-found: ignore
 
@@ -90,6 +97,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-${{ github.event_name == 'push' && 'smoke' || inputs.test_file }}-failure-artifacts
+          name: e2e-${{ (github.event_name == 'push' && 'smoke') || (github.event_name == 'schedule' && 'nightly') || inputs.test_file }}-failure-artifacts
           path: test-results/
           if-no-files-found: ignore

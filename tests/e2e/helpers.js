@@ -32,10 +32,16 @@ async function login(page, role) {
   // contain visible "Sign in" text.
   await page.locator("#auth-signin-form").getByRole("button", { name: /^sign in$/i }).click();
 
-  await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible({ timeout: 30_000 });
+  // "Sign out" is now inside the avatar <details> dropdown and hidden until opened.
+  // Wait for the avatar trigger (aria-label="Account menu") which is always visible
+  // after a successful login.
+  await expect(page.getByRole("button", { name: /account menu/i })).toBeVisible({ timeout: 30_000 });
 }
 
 async function logout(page) {
+  // Sign out is inside the avatar dropdown — open it first.
+  const accountMenu = page.getByRole("button", { name: /account menu/i });
+  await accountMenu.click();
   await page.getByRole("button", { name: /sign out/i }).click();
   await expect(page.getByRole("button", { name: /^sign in$/i }).last()).toBeVisible({ timeout: 15_000 });
 }

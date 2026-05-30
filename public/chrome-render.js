@@ -123,6 +123,8 @@
     const { ui, currentProfile, currentClasses, currentClassId } = window.AppState;
     const studentOptions = "";
     const classSwitcherOptions = currentClasses.filter((c) => c.id !== currentClassId);
+    const accountInitials = (currentProfile?.name || "?")
+      .trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase() || "?";
 
     return `
       <header class="topbar">
@@ -134,7 +136,6 @@
           </div>
         </div>
         <div class="toolbar">
-          ${currentProfile ? `<span style="font-size:0.85rem;color:var(--muted);">${escapeHtml(currentProfile.name)} · ${escapeHtml(currentProfile.role)}</span>` : ""}
          ${ui.role === "teacher" || isAdminTeacherView() ? `
             ${currentClassId ? `<span class="pill">Current class: ${escapeHtml(currentClasses.find((c) => c.id === currentClassId)?.name || "None")}</span>` : ""}
             ${currentClasses.length === 0 ? `
@@ -150,8 +151,16 @@
             `}
             ` : ""}
           ${isAdminTeacherView() ? `<button class="button-ghost" data-action="admin-exit-teacher-view" style="color:var(--accent-deep);">← Back to admin</button>` : ""}
-          <button class="button-ghost" data-action="account-security-change-password">Change password</button>
-          <button class="button-ghost" data-action="sign-out">Sign out</button>
+          <details class="account-menu">
+            <summary class="account-menu-trigger" aria-label="Account menu" title="${currentProfile ? escapeHtml(currentProfile.name) : "Account"}">
+              <span class="account-avatar">${escapeHtml(accountInitials)}</span>
+            </summary>
+            <div class="account-menu-list">
+              ${currentProfile ? `<div class="account-menu-id"><strong>${escapeHtml(currentProfile.name)}</strong><span>${escapeHtml(currentProfile.role)}</span></div>` : ""}
+              <button class="button-ghost" data-action="account-security-change-password">Change password</button>
+              <button class="button-ghost" data-action="sign-out">Sign out</button>
+            </div>
+          </details>
         </div>
       </header>
     `;

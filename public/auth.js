@@ -92,6 +92,24 @@ const Auth = (() => {
     clearStoredSession();
   }
 
+  async function refreshToken() {
+    if (!session?.refresh_token) return false;
+    try {
+      const data = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: session.refresh_token }),
+      }).then(r => r.json());
+      if (!data.session) return false;
+      session = data.session;
+      const storage = localStorage.getItem('auizero_session') ? localStorage : sessionStorage;
+      storage.setItem('auizero_session', JSON.stringify(session));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function restoreSession() {
     const stored = localStorage.getItem('auizero_session') || sessionStorage.getItem('auizero_session');
     if (!stored) return null;
@@ -189,5 +207,5 @@ async function getInviteInfo(classId) {
     return true;
   }
 
-  return { getSession, getProfile, getToken, authHeaders, apiFetch, signIn, signUp, signOut, restoreSession, joinClassIfInvited, getInviteInfo, requestPasswordReset, consumeRecoverySessionFromUrl, updatePassword };
+  return { getSession, getProfile, getToken, authHeaders, apiFetch, signIn, signUp, signOut, refreshToken, restoreSession, joinClassIfInvited, getInviteInfo, requestPasswordReset, consumeRecoverySessionFromUrl, updatePassword };
 })();

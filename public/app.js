@@ -675,8 +675,8 @@ function hasLowSentenceVariety(sentences = []) {
 }
 
 function scrollToNextRubricCriterionMobile(criterionId) {
-  if (!criterionId || typeof window === "undefined" || !window.matchMedia("(max-width: 900px)").matches) return;
-  window.setTimeout(() => {
+  if (!criterionId || typeof globalThis.matchMedia !== "function" || !globalThis.matchMedia("(max-width: 900px)").matches) return;
+  globalThis.setTimeout(() => {
     const sections = Array.from(document.querySelectorAll("[data-rubric-criterion-id]"));
     const currentIndex = sections.findIndex((section) => section.dataset.rubricCriterionId === criterionId);
     if (currentIndex === -1) return;
@@ -912,6 +912,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   appEl.addEventListener("input", handleInput);
   appEl.addEventListener("paste", handlePaste, true);
   appEl.addEventListener("keydown", handleKeydown);
+
+  // Close the account dropdown when clicking anywhere outside it. (Native
+  // <details> only toggles on its own summary, so it would otherwise stay open.)
+  document.addEventListener("click", (event) => {
+    document.querySelectorAll(".account-menu[open]").forEach((menu) => {
+      if (!menu.contains(event.target)) menu.removeAttribute("open");
+    });
+  });
 
   // Show loading screen while checking session
   appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;"><p>Loading...</p></div>`;
@@ -2029,6 +2037,7 @@ async function requestAiGenerate(payload, options = {}) {
   const MAX_BUSY_RETRIES = 3;
   const BUSY_BACKOFF_MS = 500;
   let busyRetries = 0;
+  let tokenRefreshed = false;
   let lastError = null;
 
   try {
@@ -2045,7 +2054,19 @@ async function requestAiGenerate(payload, options = {}) {
         // The one exception is the server's "AI is busy" concurrency-cap 429,
         // which it flags retryable: that's transient, so wait briefly and retry
         // (separate budget so it doesn't consume the normal attempt count).
+        // 401 means the access token expired mid-session — try refreshing once.
         const httpStatus = Number(error?.status) || 0;
+        if (httpStatus === 401 && !tokenRefreshed) {
+          tokenRefreshed = true;
+          const refreshed = await Auth.refreshToken();
+          if (refreshed) {
+            attempt -= 1;
+            continue;
+          }
+          const sessionErr = new Error("Your session has expired. Please refresh the page to sign in again.");
+          sessionErr.status = 401;
+          throw sessionErr;
+        }
         if (httpStatus >= 400 && httpStatus < 500) {
           if (error?.retryable && busyRetries < MAX_BUSY_RETRIES) {
             busyRetries += 1;
@@ -2233,8 +2254,8 @@ if (action === "generate-teacher-assist") {
       if (err.name === "AbortError") {
         ui.notice = "AI formatting cancelled.";
       } else {
-      console.error("Fetch Error:", err);
-        ui.notice = "Error: Could not reach the AI. Check console.";
+        console.error("Fetch Error:", err);
+        ui.notice = `Could not generate assignment: ${err.message || "please try again."}`;
       }
       ui.aiAssistLoading = false;
       teacherAssistAbortController = null;
@@ -3457,12 +3478,17 @@ if (action === "select-assignment") {
     }
 
     submission.teacherReview = createDefaultTeacherReview(submission.teacherReview);
+    const hadExistingNotes = Boolean(submission.teacherReview.finalNotes?.trim());
     submission.teacherReview.rowScores = safeArray(submission.teacherReview.suggestedGrade.rowScores).map((entry) => ({ ...entry }));
     submission.teacherReview.finalScore = submission.teacherReview.suggestedGrade.totalScore;
-    submission.teacherReview.finalNotes = submission.teacherReview.suggestedGrade.studentComment || "";
+    if (!hadExistingNotes) {
+      submission.teacherReview.finalNotes = submission.teacherReview.suggestedGrade.studentComment || "";
+    }
     submission.teacherReview.status = "graded";
     submission.teacherReview.acceptedAt = new Date().toISOString();
-    ui.notice = "Suggested grade and comment copied — review and submit when ready.";
+    ui.notice = hadExistingNotes
+      ? "Suggested grade copied — your existing feedback was preserved."
+      : "Suggested grade and comment copied — review and submit when ready.";
     persistState();
     scheduleTeacherReviewSync(submission);
     render();

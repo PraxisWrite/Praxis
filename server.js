@@ -1294,7 +1294,13 @@ app.post('/api/rubric/parse-text', async (req, res) => {
 
 // ── AI endpoint ─────────────────────────────────────────────
 let aiRequestsInFlight = 0;
-const AI_MAX_CONCURRENT = 10;
+// Server-wide cap on simultaneous in-flight AI calls. Sized to cover a full
+// class (~15-20 students) so our own server never turns a student away during
+// a synchronized "everyone generate now" moment; it stays low enough to act as
+// a shock absorber that keeps us inside Anthropic's per-minute token budget.
+// When this trips, the client retries after a short backoff (the 429 below is
+// flagged retryable), so students see a brief pause rather than an error.
+const AI_MAX_CONCURRENT = 20;
 // ~50k tokens of input — far above any real chat/feedback/grading payload,
 // but well under the 10mb body limit, so a single request can't run up a
 // huge input-token bill.
@@ -1326,7 +1332,10 @@ app.post('/api/generate', async (req, res) => {
     return res.status(429).json({ error: 'Too many requests in a short time. Please wait a few minutes and try again.' });
   }
   if (aiRequestsInFlight >= AI_MAX_CONCURRENT) {
-    return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.' });
+    // Transient contention (not abuse): retrying after a brief wait is safe and
+    // expected, unlike the velocity-breaker 429 above. Flagged so the client
+    // can distinguish the two and retry only this one.
+    return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.', retryable: true });
   }
   aiRequestsInFlight++;
   try {

@@ -308,6 +308,11 @@ async function runCrossRoleFlow(browser, testInfo, title, onTeacherReturn) {
 }
 
 async function deleteAssignment(page, title) {
+  // Cleanup runs from a finally block, so the page may be mid-wizard or in a
+  // failed state when a test bails early. Reload first to get a known dashboard
+  // state — otherwise selectTeacherTestClass can't find the class banner and the
+  // assignment is left orphaned in the test class.
+  await page.goto("/index.html");
   await selectTeacherTestClass(page);
   const assignmentCard = page.locator(".assignment-card").filter({ hasText: title }).first();
   if (!(await assignmentCard.count())) return;

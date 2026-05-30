@@ -39,7 +39,7 @@ test.describe("Teacher workflow", () => {
     await expect(page.locator(".assignment-card").filter({ hasText: title }).first()).toContainText(/published/i);
     expect(getErrors(), "no JS errors during create+publish flow").toEqual([]);
 
-    try { await deleteAssignment(page, title); } catch (_) {}
+    try { await deleteAssignment(page, title); } catch (e) { console.warn("Cleanup: could not delete test assignment:", e.message); }
   });
 
   test("teacher can view their assignments list", async ({ page }) => {

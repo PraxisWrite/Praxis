@@ -1979,65 +1979,88 @@ const aiRequestSemaphore = (() => {
   };
 })();
 
+// A single /api/generate attempt: wires up the timeout + external-abort signal,
+// returns parsed data on success, or throws an Error carrying .status and
+// .retryable so the caller's retry loop can decide what to do.
+async function attemptAiGenerate(payload, timeoutMs, externalSignal) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const abortHandler = () => controller.abort();
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      globalThis.clearTimeout(timeoutId);
+      throw new DOMException("Aborted", "AbortError");
+    }
+    externalSignal.addEventListener("abort", abortHandler, { once: true });
+  }
+  try {
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${Auth.getToken()}` },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      const err = new Error(data?.error || `Server ${response.status}`);
+      err.status = response.status;
+      err.retryable = data?.retryable === true;
+      throw err;
+    }
+    if (!String(data?.response || "").trim()) {
+      throw new Error("Empty AI response.");
+    }
+    return data;
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+    if (externalSignal) {
+      externalSignal.removeEventListener("abort", abortHandler);
+    }
+  }
+}
+
 async function requestAiGenerate(payload, options = {}) {
   await aiRequestSemaphore.acquire();
   const retries = Math.max(0, Number(options.retries ?? 1));
   const externalSignal = options.signal || null;
   const timeoutMs = Math.max(8000, Number(options.timeoutMs || 20000));
+  // Transient "server busy" 429s get their own short-backoff retry budget,
+  // independent of the normal attempt count.
+  const MAX_BUSY_RETRIES = 3;
+  const BUSY_BACKOFF_MS = 500;
+  let busyRetries = 0;
   let lastError = null;
 
   try {
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-    const abortHandler = () => controller.abort();
-    if (externalSignal) {
-      if (externalSignal.aborted) {
-        window.clearTimeout(timeoutId);
-        throw new DOMException("Aborted", "AbortError");
-      }
-      externalSignal.addEventListener("abort", abortHandler, { once: true });
-    }
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Auth.getToken()}` },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        const err = new Error(data?.error || `Server ${response.status}`);
-        err.status = response.status;
-        throw err;
-      }
-      if (!String(data?.response || "").trim()) {
-        throw new Error("Empty AI response.");
-      }
-      return data;
-    } catch (error) {
-      lastError = error;
-      if (error?.name === "AbortError" && externalSignal?.aborted) {
-        throw error;
-      }
-      // 4xx = client error (rate limited, too large, bad request). Retrying
-      // won't help and a 429 breaker only gets worse — surface immediately.
-      const httpStatus = Number(error?.status) || 0;
-      if (httpStatus >= 400 && httpStatus < 500) {
-        throw error;
-      }
-      if (attempt === retries) {
-        throw lastError;
-      }
-    } finally {
-      window.clearTimeout(timeoutId);
-      if (externalSignal) {
-        externalSignal.removeEventListener("abort", abortHandler);
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        return await attemptAiGenerate(payload, timeoutMs, externalSignal);
+      } catch (error) {
+        lastError = error;
+        if (error?.name === "AbortError" && externalSignal?.aborted) {
+          throw error;
+        }
+        // 4xx = client error (too large, bad request, velocity breaker). Retrying
+        // won't help and a breaker 429 only gets worse — surface immediately.
+        // The one exception is the server's "AI is busy" concurrency-cap 429,
+        // which it flags retryable: that's transient, so wait briefly and retry
+        // (separate budget so it doesn't consume the normal attempt count).
+        const httpStatus = Number(error?.status) || 0;
+        if (httpStatus >= 400 && httpStatus < 500) {
+          if (error?.retryable && busyRetries < MAX_BUSY_RETRIES) {
+            busyRetries += 1;
+            await new Promise((resolve) => { globalThis.setTimeout(resolve, BUSY_BACKOFF_MS * busyRetries); });
+            attempt -= 1;
+            continue;
+          }
+          throw error;
+        }
+        if (attempt === retries) {
+          throw lastError;
+        }
       }
     }
-  }
-
-  throw lastError || new Error("AI request failed.");
+    throw lastError || new Error("AI request failed.");
   } finally {
     aiRequestSemaphore.release();
   }

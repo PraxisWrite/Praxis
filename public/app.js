@@ -675,8 +675,8 @@ function hasLowSentenceVariety(sentences = []) {
 }
 
 function scrollToNextRubricCriterionMobile(criterionId) {
-  if (!criterionId || typeof window === "undefined" || !window.matchMedia("(max-width: 900px)").matches) return;
-  window.setTimeout(() => {
+  if (!criterionId || typeof globalThis.matchMedia !== "function" || !globalThis.matchMedia("(max-width: 900px)").matches) return;
+  globalThis.setTimeout(() => {
     const sections = Array.from(document.querySelectorAll("[data-rubric-criterion-id]"));
     const currentIndex = sections.findIndex((section) => section.dataset.rubricCriterionId === criterionId);
     if (currentIndex === -1) return;
@@ -912,6 +912,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   appEl.addEventListener("input", handleInput);
   appEl.addEventListener("paste", handlePaste, true);
   appEl.addEventListener("keydown", handleKeydown);
+
+  // Close the account dropdown when clicking anywhere outside it. (Native
+  // <details> only toggles on its own summary, so it would otherwise stay open.)
+  document.addEventListener("click", (event) => {
+    document.querySelectorAll(".account-menu[open]").forEach((menu) => {
+      if (!menu.contains(event.target)) menu.removeAttribute("open");
+    });
+  });
 
   // Show loading screen while checking session
   appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;"><p>Loading...</p></div>`;

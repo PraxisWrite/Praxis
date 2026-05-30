@@ -277,6 +277,15 @@ async function gradeSubmittedAssignment(page, title) {
   await expect(page.getByText(/last saved/i).first()).toBeVisible({ timeout: 30_000 });
 }
 
+async function deleteAssignment(page, title) {
+  await selectTeacherTestClass(page);
+  const assignmentCard = page.locator(".assignment-card").filter({ hasText: title }).first();
+  if (!(await assignmentCard.count())) return;
+  page.once("dialog", (dialog) => dialog.accept());
+  await assignmentCard.getByRole("button", { name: /^delete$/i }).click();
+  await expect(assignmentCard).toHaveCount(0, { timeout: 15_000 });
+}
+
 // Attaches console.error and uncaught-exception listeners to a page.
 // Returns a getter so tests can assert on collected errors after the fact.
 // Filters out known noisy-but-harmless browser messages.
@@ -312,5 +321,6 @@ module.exports = {
   openStudentAssignment,
   completeStudentDraftFlow,
   gradeSubmittedAssignment,
+  deleteAssignment,
   collectPageErrors,
 };

@@ -4,6 +4,7 @@ const {
   login,
   selectTeacherTestClass,
   createAndPublishAssignment,
+  deleteAssignment,
   collectPageErrors,
 } = require("./helpers");
 
@@ -37,6 +38,8 @@ test.describe("Teacher workflow", () => {
 
     await expect(page.locator(".assignment-card").filter({ hasText: title }).first()).toContainText(/published/i);
     expect(getErrors(), "no JS errors during create+publish flow").toEqual([]);
+
+    try { await deleteAssignment(page, title); } catch (_) {}
   });
 
   test("teacher can view their assignments list", async ({ page }) => {

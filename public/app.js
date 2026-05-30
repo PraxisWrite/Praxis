@@ -2479,6 +2479,12 @@ if (action === "switch-class") {
     return;
   }
 
+  if (action === "dismiss-notice") {
+    ui.notice = "";
+    render();
+    return;
+  }
+
   if (action === "create-class") {
     ui.showClassModal = true;
     ui.classModalName = "";
@@ -4135,7 +4141,7 @@ function render() {
   appEl.innerHTML = `
     <div class="app-shell">
       ${renderTopbar()}
-      ${ui.notice ? `<div class="notice">${escapeHtml(ui.notice)}</div>` : ""}
+      ${ui.notice ? `<div class="notice notice-dismissable"><span class="notice-text">${escapeHtml(ui.notice)}</span><button type="button" class="notice-dismiss" data-action="dismiss-notice" aria-label="Dismiss message">×</button></div>` : ""}
       ${window.AccountSecurity?.renderUpgradeBanner(currentProfile) || ""}
       ${ui.role === "admin" && !isAdminTeacherView() ? renderAdminWorkspace() : ui.role === "teacher" || isAdminTeacherView() ? renderTeacherWorkspace() : renderStudentWorkspace()}
     </div>

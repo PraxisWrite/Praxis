@@ -106,6 +106,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ## Refactor / architecture
 
+- [ ] **Fix stop-hook git check false positive** — `~/.claude/stop-hook-git-check.sh` compares against `origin/main` rather than the actual remote branch, so it always fires after the upstream ref is scrubbed post-push (per CLAUDE.md PAT hygiene). Hook should detect and compare against `origin/<current-branch>` instead.
 - [ ] **Continue modularizing only after pilot-critical bugs/tests are stable.**
 - [ ] Consider `student-workflow.js` for step navigation, draft/final transitions, submit, and feedback request handlers.
 - [ ] Consider `teacher-assignments.js` for create/edit/publish/delete assignment handlers.

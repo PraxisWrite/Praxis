@@ -34,24 +34,23 @@ curl -s -X POST \
 
 ## Active branch
 
-`claude/relaxed-goldberg-XYY4F` — **PR #282 open** (draft, Sentry loader guard). Otherwise reuse this branch for new work.
+`claude/fervent-newton-fHxFe` — use for new work this session.
 
 ### Recently merged (main is up to date)
 
-- **PR #281** — teacher grading autosave + Discard changes + Resubmit grade (this session)
+- **PR #284** — security/stability hardening before pilot: auth-gate AI+rubric endpoints, velocity breaker (escalating cooldowns 5m→15m→1h→24h) + 200k-char input cap on `/api/generate`, teacher-only + 10/day rubric quota, Sentry `captureException` wired, boot-time error screen, Sonar fixes
+- **PR #283** — CLAUDE.md session handoff
+- **PR #282** — Sentry loader guard (blocked CDN no longer throws)
+- **PR #281** — teacher grading autosave + Discard changes + Resubmit grade
 - **PR #280** — removed Sentry feedback widget from landing page
 - **PR #279** — Sentry user-feedback widget (`sentry-init.js`) + dedupe
 - **PR #278** — point Sentry loader at real `praxis` project DSN
 - **PR #277** — add Sentry error monitoring (loader script)
 - **PR #276** — CLAUDE.md handoff (all 7 pre-pilot fixes confirmed shipped)
-- **PR #275** — updated CLAUDE.md handoff
-- **PR #274** — half-point stepper, softer rubric pills, cleaner annotation bubbles, S5852 fix
-- **PR #273** — full grading view redesign (split pane, compact pill rubric, annotation highlights)
-- **PR #272–267** — earlier grading redesign, unit-test CI, sync deltas, approval gate (see git log)
 
 ### Open / in flight
 
-- **PR #282** (draft) — guard `sentry-init.js` so a blocked Sentry CDN (ad-blocker/VPN) doesn't throw an uncaught `ReferenceError`. Verify CI then merge.
+None.
 
 ---
 

@@ -1179,7 +1179,7 @@ const rubricUsageByUser = new Map(); // userId -> { day, count }
 function checkRubricQuota(userId) {
   const day = new Date().toISOString().slice(0, 10);
   let rec = rubricUsageByUser.get(userId);
-  if (!rec || rec.day !== day) {
+  if (rec?.day !== day) {
     rec = { day, count: 0 };
     rubricUsageByUser.set(userId, rec);
   }
@@ -1295,10 +1295,31 @@ app.post('/api/rubric/parse-text', async (req, res) => {
 // ── AI endpoint ─────────────────────────────────────────────
 let aiRequestsInFlight = 0;
 const AI_MAX_CONCURRENT = 10;
+// ~50k tokens of input — far above any real chat/feedback/grading payload,
+// but well under the 10mb body limit, so a single request can't run up a
+// huge input-token bill.
+const MAX_AI_INPUT_CHARS = 200000;
+
+function aiInputCharCount(prompt, messages, system) {
+  let total = String(system || '').length + String(prompt || '').length;
+  if (Array.isArray(messages)) {
+    for (const m of messages) {
+      total += typeof m?.content === 'string' ? m.content.length : JSON.stringify(m?.content || '').length;
+    }
+  }
+  return total;
+}
 
 app.post('/api/generate', async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  const { prompt, messages, system, maxTokens, temperature } = req.body;
+  if (messages && !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages must be an array.' });
+  }
+  if (aiInputCharCount(prompt, messages, system) > MAX_AI_INPUT_CHARS) {
+    return res.status(413).json({ error: 'Your request is too large. Please shorten it and try again.' });
+  }
   const velocity = checkAiVelocity(user.id);
   if (!velocity.allowed) {
     res.set('Retry-After', String(velocity.retryAfter));
@@ -1309,7 +1330,6 @@ app.post('/api/generate', async (req, res) => {
   }
   aiRequestsInFlight++;
   try {
-    const { prompt, messages, system, maxTokens, temperature } = req.body;
     const apiMessages = (messages || [{ role: "user", content: prompt }])
       .map(({ role, content }) => ({ role, content }));
     const requestBody = {
@@ -1340,8 +1360,10 @@ app.post('/api/generate', async (req, res) => {
     }
 
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data.error.message });
-    res.json({ response: data.content[0].text });
+    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || 'AI request failed.' });
+    const text = data?.content?.[0]?.text;
+    if (!text) return res.status(502).json({ error: 'AI returned an empty response. Please try again.' });
+    res.json({ response: text });
   } catch (error) {
     if (error.name === 'AbortError') return res.status(504).json({ error: 'AI request timed out. Please try again.' });
     res.status(500).json({ error: error.message });

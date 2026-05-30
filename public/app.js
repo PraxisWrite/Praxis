@@ -1038,46 +1038,9 @@ async function bootApp(profile) {
   }
 
   if (profile.role === 'teacher' || isAdminTeacherView()) {
-    state.assignments = [];
-    state.submissions = [];
-    currentClassMembers = [];
-    try {
-      currentClasses = await globalThis.ApiService.loadTeacherClasses();
-      currentClassId = await resolveTeacherStartingClass(profile, currentClasses);
-      if (currentClassId) {
-        await loadTeacherClassContext(currentClassId);
-      } else {
-        persistState();
-      }
-    } catch (error) {
-      console.error("Could not load teacher classes:", error.message, error);
-      sentryCapture(error, { phase: "boot-teacher" });
-      currentClasses = [];
-      currentClassId = null;
-      currentClassMembers = [];
-      state.assignments = [];
-      state.submissions = [];
-      ui.notice = "We couldn't load your classes from the server just now. Please refresh in a moment.";
-      persistState();
-    }
+    await bootTeacherWorkspace(profile);
   } else {
-    const localSubmissions = safeArray(state.submissions).slice();
-    try {
-      await refreshStudentClasses(getSavedActiveClassId(profile));
-      state.assignments = [];
-      state.submissions = localSubmissions;
-      await loadStudentAssignmentsForCurrentClass();
-      recoverStudentActiveClass(profile);
-    } catch (error) {
-      console.error("Could not load student classes:", error.message, error);
-      sentryCapture(error, { phase: "boot-student" });
-      currentClasses = [];
-      currentClassId = null;
-      state.assignments = [];
-      state.submissions = localSubmissions;
-      ui.notice = "We couldn't load your classes from the server just now. Please refresh in a moment.";
-      persistState();
-    }
+    await bootStudentWorkspace(profile);
   }
   hydrateSelections();
   if (profile.role === 'student' && ui.selectedStudentAssignmentId) {
@@ -1086,6 +1049,51 @@ async function bootApp(profile) {
   render();
 }
 if (typeof window !== "undefined") window.bootApp = bootApp;
+
+async function bootTeacherWorkspace(profile) {
+  state.assignments = [];
+  state.submissions = [];
+  currentClassMembers = [];
+  try {
+    currentClasses = await globalThis.ApiService.loadTeacherClasses();
+    currentClassId = await resolveTeacherStartingClass(profile, currentClasses);
+    if (currentClassId) {
+      await loadTeacherClassContext(currentClassId);
+    } else {
+      persistState();
+    }
+  } catch (error) {
+    console.error("Could not load teacher classes:", error.message, error);
+    sentryCapture(error, { phase: "boot-teacher" });
+    currentClasses = [];
+    currentClassId = null;
+    currentClassMembers = [];
+    state.assignments = [];
+    state.submissions = [];
+    ui.notice = "We couldn't load your classes from the server just now. Please refresh in a moment.";
+    persistState();
+  }
+}
+
+async function bootStudentWorkspace(profile) {
+  const localSubmissions = safeArray(state.submissions).slice();
+  try {
+    await refreshStudentClasses(getSavedActiveClassId(profile));
+    state.assignments = [];
+    state.submissions = localSubmissions;
+    await loadStudentAssignmentsForCurrentClass();
+    recoverStudentActiveClass(profile);
+  } catch (error) {
+    console.error("Could not load student classes:", error.message, error);
+    sentryCapture(error, { phase: "boot-student" });
+    currentClasses = [];
+    currentClassId = null;
+    state.assignments = [];
+    state.submissions = localSubmissions;
+    ui.notice = "We couldn't load your classes from the server just now. Please refresh in a moment.";
+    persistState();
+  }
+}
 async function refreshWorkspaceAfterAccountSecurity() {
   if (!currentProfile) {
     render();
@@ -2015,9 +2023,10 @@ async function requestAiGenerate(payload, options = {}) {
       if (error?.name === "AbortError" && externalSignal?.aborted) {
         throw error;
       }
-      // 429 = rate limited / velocity breaker tripped. Retrying only makes it
-      // worse, so surface it immediately instead of burning the retry.
-      if (error?.status === 429) {
+      // 4xx = client error (rate limited, too large, bad request). Retrying
+      // won't help and a 429 breaker only gets worse — surface immediately.
+      const httpStatus = Number(error?.status) || 0;
+      if (httpStatus >= 400 && httpStatus < 500) {
         throw error;
       }
       if (attempt === retries) {

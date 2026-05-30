@@ -90,6 +90,11 @@ button {
   align-items: center;
   gap: 18px;
   padding: 18px 20px;
+  /* backdrop-filter (above) creates a stacking context, trapping the account
+     dropdown inside the topbar. Lift the whole topbar above the notice banner
+     so the open menu paints in front of it. */
+  position: relative;
+  z-index: 70;
 }
 
 .brand {
@@ -1190,6 +1195,30 @@ button.rubric-level-cell:hover {
   padding: 13px 16px;
   color: #3d5238;
   background: #ecf4ea;
+}
+.notice-dismissable {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.notice-dismiss {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #3d5238;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.notice-dismiss:hover {
+  background: rgba(61, 82, 56, 0.12);
 }
 
 .empty-state {

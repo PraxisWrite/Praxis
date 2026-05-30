@@ -1166,11 +1166,67 @@ async function recomputeStaleProcessAnalyses({ limit = 50 } = {}) {
   };
 }
 
+// ── Per-user abuse guards (in-memory; reset on server restart) ──
+// These are NOT hard quotas for normal use — they sit far above what a real
+// teacher or student would ever hit. They exist to blunt a compromised or
+// fake account (e.g. someone who registers just to drain the Anthropic bill).
+
+// Rubric parsing: a teacher has no reason to parse more than a handful of
+// rubrics a day. Cap per user per calendar day.
+const RUBRIC_DAILY_MAX = 10;
+const rubricUsageByUser = new Map(); // userId -> { day, count }
+
+function checkRubricQuota(userId) {
+  const day = new Date().toISOString().slice(0, 10);
+  let rec = rubricUsageByUser.get(userId);
+  if (!rec || rec.day !== day) {
+    rec = { day, count: 0 };
+    rubricUsageByUser.set(userId, rec);
+  }
+  if (rec.count >= RUBRIC_DAILY_MAX) return false;
+  rec.count += 1;
+  return true;
+}
+
+// Chat / AI generate: no hard cap (a student may legitimately chat a lot),
+// but a velocity breaker. A human types with pauses; a bot or script fires in
+// bursts. Trip a cooldown on either a short-window burst or a runaway hourly
+// volume, then lock that user out for a few minutes.
+const AI_BURST_WINDOW_MS = 30000;
+const AI_BURST_MAX = 12; // >12 calls in 30s is not human pacing
+const AI_HOURLY_WINDOW_MS = 3600000;
+const AI_HOURLY_MAX = 150; // sustained ceiling no real user reaches
+const AI_COOLDOWN_MS = 300000; // 5-minute lockout once tripped
+const aiUsageByUser = new Map(); // userId -> { hits: number[], cooldownUntil }
+
+function checkAiVelocity(userId) {
+  const now = Date.now();
+  let rec = aiUsageByUser.get(userId);
+  if (!rec) {
+    rec = { hits: [], cooldownUntil: 0 };
+    aiUsageByUser.set(userId, rec);
+  }
+  if (now < rec.cooldownUntil) {
+    return { allowed: false, retryAfter: Math.ceil((rec.cooldownUntil - now) / 1000) };
+  }
+  rec.hits = rec.hits.filter((t) => now - t < AI_HOURLY_WINDOW_MS);
+  const burstCount = rec.hits.filter((t) => now - t < AI_BURST_WINDOW_MS).length;
+  if (burstCount >= AI_BURST_MAX || rec.hits.length >= AI_HOURLY_MAX) {
+    rec.cooldownUntil = now + AI_COOLDOWN_MS;
+    return { allowed: false, retryAfter: Math.ceil(AI_COOLDOWN_MS / 1000) };
+  }
+  rec.hits.push(now);
+  return { allowed: true, retryAfter: 0 };
+}
+
 // ── Rubric parsing endpoints ────────────────────────────────
 app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
   try {
-    const user = await getUser(req);
-    if (!user) return res.status(401).json({ success: false, error: 'Not authenticated' });
+    const { user, error, status } = await requireTeacherProfile(req);
+    if (error) return res.status(status).json({ success: false, error });
+    if (!checkRubricQuota(user.id)) {
+      return res.status(429).json({ success: false, error: 'Daily rubric parsing limit reached. Please try again tomorrow.' });
+    }
     if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
     const { text, schema, rubricData } = await parseRubricBuffer(
@@ -1192,8 +1248,11 @@ app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
 
 app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
   try {
-    const user = await getUser(req);
-    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const { user, error, status } = await requireTeacherProfile(req);
+    if (error) return res.status(status).json({ error });
+    if (!checkRubricQuota(user.id)) {
+      return res.status(429).json({ error: 'Daily rubric parsing limit reached. Please try again tomorrow.' });
+    }
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     const { text, schema, rubricData } = await parseRubricBuffer(
@@ -1210,8 +1269,11 @@ app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
 
 app.post('/api/rubric/parse-text', async (req, res) => {
   try {
-    const user = await getUser(req);
-    if (!user) return res.status(401).json({ success: false, error: 'Not authenticated' });
+    const { user, error, status } = await requireTeacherProfile(req);
+    if (error) return res.status(status).json({ success: false, error });
+    if (!checkRubricQuota(user.id)) {
+      return res.status(429).json({ success: false, error: 'Daily rubric parsing limit reached. Please try again tomorrow.' });
+    }
     const text = String(req.body?.text || '').trim();
     if (!text) return res.status(400).json({ success: false, error: 'Text is required' });
 
@@ -1234,6 +1296,11 @@ const AI_MAX_CONCURRENT = 10;
 app.post('/api/generate', async (req, res) => {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  const velocity = checkAiVelocity(user.id);
+  if (!velocity.allowed) {
+    res.set('Retry-After', String(velocity.retryAfter));
+    return res.status(429).json({ error: 'Too many requests in a short time. Please wait a few minutes and try again.' });
+  }
   if (aiRequestsInFlight >= AI_MAX_CONCURRENT) {
     return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.' });
   }

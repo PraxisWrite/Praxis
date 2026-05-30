@@ -2002,7 +2002,9 @@ async function requestAiGenerate(payload, options = {}) {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error || `Server ${response.status}`);
+        const err = new Error(data?.error || `Server ${response.status}`);
+        err.status = response.status;
+        throw err;
       }
       if (!String(data?.response || "").trim()) {
         throw new Error("Empty AI response.");
@@ -2011,6 +2013,11 @@ async function requestAiGenerate(payload, options = {}) {
     } catch (error) {
       lastError = error;
       if (error?.name === "AbortError" && externalSignal?.aborted) {
+        throw error;
+      }
+      // 429 = rate limited / velocity breaker tripped. Retrying only makes it
+      // worse, so surface it immediately instead of burning the retry.
+      if (error?.status === 429) {
         throw error;
       }
       if (attempt === retries) {

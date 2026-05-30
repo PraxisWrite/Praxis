@@ -6,6 +6,7 @@ const {
   openStudentAssignment,
   completeStudentDraftFlow,
   gradeSubmittedAssignment,
+  deleteAssignment,
 } = require("./helpers");
 
 test.describe("Full teacher to student to teacher flow", () => {
@@ -43,6 +44,7 @@ test.describe("Full teacher to student to teacher flow", () => {
 
       await expect(teacherPage.getByText(/last saved/i).first()).toBeVisible();
     } finally {
+      try { await deleteAssignment(teacherPage, title); } catch (e) { console.warn("Cleanup: could not delete test assignment:", e.message); }
       await studentContext.close();
       await teacherContext.close();
     }

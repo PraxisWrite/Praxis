@@ -272,9 +272,20 @@ async function gradeSubmittedAssignment(page, title) {
 
   await expect(page.getByText(/ai suggested grade/i).first()).toBeVisible({ timeout: 90_000 });
   await page.getByRole("button", { name: /use this score/i }).click();
-  await page.getByRole("button", { name: /submit grade/i }).click();
+  await page.getByRole("button", { name: /^submit grade$/i }).click();
 
-  await expect(page.getByText(/last saved/i).first()).toBeVisible({ timeout: 30_000 });
+  // "Resubmit grade" only appears after savedAt is set by a successful grade
+  // submission — unlike "last saved" which also appears from autosave alone.
+  await expect(page.getByRole("button", { name: /^resubmit grade$/i })).toBeVisible({ timeout: 30_000 });
+}
+
+async function deleteAssignment(page, title) {
+  await selectTeacherTestClass(page);
+  const assignmentCard = page.locator(".assignment-card").filter({ hasText: title }).first();
+  if (!(await assignmentCard.count())) return;
+  page.once("dialog", (dialog) => dialog.accept());
+  await assignmentCard.getByRole("button", { name: /^delete$/i }).click();
+  await expect(assignmentCard).toHaveCount(0, { timeout: 15_000 });
 }
 
 // Attaches console.error and uncaught-exception listeners to a page.
@@ -312,5 +323,6 @@ module.exports = {
   openStudentAssignment,
   completeStudentDraftFlow,
   gradeSubmittedAssignment,
+  deleteAssignment,
   collectPageErrors,
 };

@@ -202,6 +202,11 @@ async function deleteAssignment(assignmentId) {
     return safeArray(result?.submissions).map(mapServerSubmission);
   }
 
+  async function loadClassSubmissions(classId) {
+    const result = await apiFetch(`/api/classes/${classId}/submissions`);
+    return safeArray(result?.submissions).map(mapServerSubmission);
+  }
+
   async function loadStudentSubmission(assignmentId, studentId) {
     const result = await apiFetch(`/api/assignments/${assignmentId}/students/${studentId}/submission`);
     return result?.submission ? mapServerSubmission(result.submission) : null;
@@ -578,6 +583,7 @@ async function deleteAssignment(assignmentId) {
     buildSubmissionServerPayload,
     loadClassAssignments,
     loadAssignmentSubmissions,
+    loadClassSubmissions,
     loadStudentSubmission,
     loadMySubmission,
     loadStudentSubmissions,

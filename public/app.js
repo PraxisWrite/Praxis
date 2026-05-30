@@ -1452,11 +1452,7 @@ async function loadTeacherSubmissionsForAssignments(assignmentIds) {
   }
 
   try {
-    const results = await Promise.all(
-      ids.map((assignmentId) => globalThis.ApiService.loadAssignmentSubmissions(assignmentId))
-    );
-
-    state.submissions = results.flat();
+    state.submissions = await globalThis.ApiService.loadClassSubmissions(currentClassId);
   } catch (error) {
     console.error("Could not load teacher submissions:", error.message, error);
   }
@@ -2004,7 +2000,7 @@ async function requestAiGenerate(payload, options = {}) {
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Auth.getToken()}` },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });

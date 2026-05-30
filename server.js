@@ -2215,6 +2215,15 @@ app.delete('/api/assignments/:id', async (req, res) => {
 
 // ── Submissions endpoints ────────────────────────────────────
 
+async function querySubmissionsForAssignments(assignmentIds, client = supabase) {
+  const { data, error } = await client
+    .from('submissions')
+    .select('*, profiles(id, name)')
+    .in('assignment_id', assignmentIds);
+  return { data: data || [], error };
+}
+
+
 // Get all submissions for every assignment in a class (teacher) — single
 // round-trip replacement for the old per-assignment N+1 pattern.
 app.get('/api/classes/:classId/submissions', async (req, res) => {
@@ -2234,13 +2243,10 @@ app.get('/api/classes/:classId/submissions', async (req, res) => {
     const assignmentIds = (assignments || []).map((a) => a.id).filter(Boolean);
     if (!assignmentIds.length) return res.json({ submissions: [] });
 
-    const { data, error } = await supabase
-      .from('submissions')
-      .select('*, profiles(id, name)')
-      .in('assignment_id', assignmentIds);
+    const { data, error } = await querySubmissionsForAssignments(assignmentIds);
     if (error) return res.status(400).json({ error: error.message });
 
-    res.json({ submissions: data || [] });
+    res.json({ submissions: data });
   } catch (error) {
     console.error('Unexpected class submissions failure:', safeLogError(error));
     res.status(500).json({ error: 'Could not load submissions right now. Please refresh and try again.' });
@@ -2265,31 +2271,14 @@ app.get('/api/assignments/:assignmentId/submissions', async (req, res) => {
       return res.status(400).json({ error: 'Could not verify access to this assignment. Please refresh and try again.' });
     }
     if (!ownedAssignment) return res.status(403).json({ error: 'You can only view submissions for your own assignments.' });
-    const requestScopedSupabase = getRequestScopedSupabase(req);
-    const candidates = [];
-    if (requestScopedSupabase && requestScopedSupabase !== supabase) {
-      candidates.push(requestScopedSupabase);
-    }
-    candidates.push(supabase);
-
-    let data = null;
-    let lastError = null;
-    for (const client of candidates) {
-      const result = await client
-        .from('submissions')
-        .select('*, profiles(id, name)')
-        .eq('assignment_id', req.params.assignmentId);
-      if (!result.error) {
-        data = result.data || [];
-        lastError = null;
-        break;
-      }
-      lastError = result.error;
-    }
-    if (lastError) {
+    const { data, error: fetchError } = await querySubmissionsForAssignments(
+      [req.params.assignmentId],
+      getRequestScopedSupabase(req) || supabase
+    );
+    if (fetchError) {
       console.error('Could not load assignment submissions:', {
         assignmentRef: safeLogId(req.params.assignmentId),
-        reason: safeLogError(lastError),
+        reason: safeLogError(fetchError),
       });
       return res.status(400).json({ error: 'Could not load submissions for this assignment. Please refresh and try again.' });
     }
@@ -3001,10 +2990,7 @@ app.get('/api/admin/classes/:classId/detail', async (req, res) => {
     const assignmentIds = assignments.map(a => a.id);
     let submissions = [];
     if (assignmentIds.length) {
-      const { data: subs } = await readClient
-        .from('submissions')
-        .select('*, profiles(id, name)')
-        .in('assignment_id', assignmentIds);
+      const { data: subs } = await querySubmissionsForAssignments(assignmentIds, readClient);
       submissions = subs || [];
     }
     res.json({ assignments, members, submissions });

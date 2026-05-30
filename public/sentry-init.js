@@ -3,18 +3,18 @@
 // so guard before touching it rather than throwing at the top of the page.
 if (typeof Sentry !== "undefined" && typeof Sentry.onLoad === "function") {
   Sentry.onLoad(function () {
-    Sentry.init({
-      integrations: [
-        Sentry.feedbackIntegration({
-          colorScheme: "light",
-          buttonLabel: "Report a problem",
-          submitButtonLabel: "Send report",
-          formTitle: "Report a problem",
-          messagePlaceholder: "What happened? What were you trying to do?",
-          showBranding: false,
-        }),
-      ],
-    });
+    // The loader script already called Sentry.init() (with Replay + performance
+    // enabled via the dashboard config). Calling init() again would register a
+    // second Replay instance and throw. Use addIntegration() to attach the
+    // feedback widget to the already-running SDK instead.
+    Sentry.addIntegration(Sentry.feedbackIntegration({
+      colorScheme: "light",
+      buttonLabel: "Report a problem",
+      submitButtonLabel: "Send report",
+      formTitle: "Report a problem",
+      messagePlaceholder: "What happened? What were you trying to do?",
+      showBranding: false,
+    }));
   });
 }
 

@@ -60,6 +60,13 @@ let adminClassRefreshTimer = null;
 let storageWarningShown = false;
 let adminProcessRecomputePromise = null;
 
+function sentryCapture(err, context) {
+  if (typeof Sentry !== "undefined" && typeof Sentry.captureException === "function") {
+    if (context) Sentry.setContext("details", context);
+    Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+  }
+}
+
 function getProfileScopedStorageKey(baseKey, profile = currentProfile) {
   if (!profile?.id || !profile?.role) return baseKey;
   return `${baseKey}:${profile.role}:${profile.id}`;
@@ -900,7 +907,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindLifecycleEvents();
 
   // Bind events once here so they work on auth screen and app screen
- appEl.addEventListener("click", handleClick);
+  appEl.addEventListener("click", handleClick);
   appEl.addEventListener("change", handleChange);
   appEl.addEventListener("input", handleInput);
   appEl.addEventListener("paste", handlePaste, true);
@@ -908,44 +915,58 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Show loading screen while checking session
   appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;"><p>Loading...</p></div>`;
-  const params = new URLSearchParams(window.location.search);
-  const joinClassId = params.get('join');
-  const isResetFlow = params.get('reset') === '1';
-  let inviteInfo = null;
-  if (joinClassId) inviteInfo = await Auth.getInviteInfo(joinClassId);
-  await Auth.consumeRecoverySessionFromUrl();
-  if (isResetFlow) {
-    window.AccountSecurity.renderResetPasswordScreen({
-      appEl,
-      productName: PRODUCT_NAME,
-      auth: Auth,
-      onBeforeRender: stopTeacherReviewPolling,
-      onCancel: () => {
-        window.location.href = "/";
-      },
-      onSuccess: () => {
-        window.history.replaceState({}, "", "/");
-        renderAuthScreen();
-      },
-    });
-    return;
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const joinClassId = params.get('join');
+    const isResetFlow = params.get('reset') === '1';
+    let inviteInfo = null;
+    if (joinClassId) inviteInfo = await Auth.getInviteInfo(joinClassId);
+    await Auth.consumeRecoverySessionFromUrl();
+    if (isResetFlow) {
+      window.AccountSecurity.renderResetPasswordScreen({
+        appEl,
+        productName: PRODUCT_NAME,
+        auth: Auth,
+        onBeforeRender: stopTeacherReviewPolling,
+        onCancel: () => {
+          window.location.href = "/";
+        },
+        onSuccess: () => {
+          window.history.replaceState({}, "", "/");
+          renderAuthScreen();
+        },
+      });
+      return;
+    }
+    const profile = await Auth.restoreSession();
+    if (!profile) {
+      resetAppShellState();
+      setTimeout(() => renderAuthScreen(joinClassId, inviteInfo), 0);
+      return;
+    }
+    // When opening an invite link, a stored session from a previous login on the
+    // same device (e.g. a teacher account) could auto-sign-in to the wrong account.
+    // Force sign-out and show the auth screen so the student creates their own account.
+    if (joinClassId && profile.role !== 'student') {
+      await Auth.signOut();
+      resetAppShellState();
+      setTimeout(() => renderAuthScreen(joinClassId, inviteInfo), 0);
+      return;
+    }
+    await bootApp(profile);
+  } catch (err) {
+    sentryCapture(err, { phase: "boot" });
+    if (appEl) {
+      appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;font-family:inherit;text-align:center;padding:2rem;">
+        <div>
+          <p style="color:#c24d4d;font-weight:600;margin-bottom:0.5rem;">Praxis couldn’t load</p>
+          <p style="color:#687a98;font-size:0.9rem;margin-bottom:1.5rem;">There was a problem connecting to the server. Please check your internet connection and try again.</p>
+          <button onclick="location.reload()" style="background:#5f8fff;color:#fff;border:none;padding:0.6rem 1.4rem;border-radius:6px;cursor:pointer;font-size:0.9rem;">Refresh page</button>
+        </div>
+      </div>`;
+    }
   }
-  const profile = await Auth.restoreSession();
-  if (!profile) {
-    resetAppShellState();
-    setTimeout(() => renderAuthScreen(joinClassId, inviteInfo), 0);
-    return;
-  }
-  // When opening an invite link, a stored session from a previous login on the
-  // same device (e.g. a teacher account) could auto-sign-in to the wrong account.
-  // Force sign-out and show the auth screen so the student creates their own account.
-  if (joinClassId && profile.role !== 'student') {
-    await Auth.signOut();
-    resetAppShellState();
-    setTimeout(() => renderAuthScreen(joinClassId, inviteInfo), 0);
-    return;
-  }
-  await bootApp(profile);
 });
 
 function resetAppShellState() {
@@ -1030,6 +1051,7 @@ async function bootApp(profile) {
       }
     } catch (error) {
       console.error("Could not load teacher classes:", error.message, error);
+      sentryCapture(error, { phase: "boot-teacher" });
       currentClasses = [];
       currentClassId = null;
       currentClassMembers = [];
@@ -1040,11 +1062,22 @@ async function bootApp(profile) {
     }
   } else {
     const localSubmissions = safeArray(state.submissions).slice();
-    await refreshStudentClasses(getSavedActiveClassId(profile));
-    state.assignments = [];
-    state.submissions = localSubmissions;
-    await loadStudentAssignmentsForCurrentClass();
-    recoverStudentActiveClass(profile);
+    try {
+      await refreshStudentClasses(getSavedActiveClassId(profile));
+      state.assignments = [];
+      state.submissions = localSubmissions;
+      await loadStudentAssignmentsForCurrentClass();
+      recoverStudentActiveClass(profile);
+    } catch (error) {
+      console.error("Could not load student classes:", error.message, error);
+      sentryCapture(error, { phase: "boot-student" });
+      currentClasses = [];
+      currentClassId = null;
+      state.assignments = [];
+      state.submissions = localSubmissions;
+      ui.notice = "We couldn't load your classes from the server just now. Please refresh in a moment.";
+      persistState();
+    }
   }
   hydrateSelections();
   if (profile.role === 'student' && ui.selectedStudentAssignmentId) {

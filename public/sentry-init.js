@@ -17,3 +17,18 @@ if (typeof Sentry !== "undefined" && typeof Sentry.onLoad === "function") {
     });
   });
 }
+
+// Capture unhandled JS errors and promise rejections automatically.
+// These listeners are safe even when Sentry is blocked — they no-op if the
+// global isn't present. Registered outside onLoad so they fire immediately.
+globalThis.addEventListener("unhandledrejection", function (event) {
+  if (typeof Sentry !== "undefined" && typeof Sentry.captureException === "function") {
+    Sentry.captureException(event.reason instanceof Error ? event.reason : new Error(String(event.reason || "Unhandled promise rejection")));
+  }
+});
+
+globalThis.addEventListener("error", function (event) {
+  if (typeof Sentry !== "undefined" && typeof Sentry.captureException === "function") {
+    Sentry.captureException(event.error instanceof Error ? event.error : new Error(event.message || "Uncaught error"));
+  }
+});

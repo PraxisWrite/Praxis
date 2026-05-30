@@ -1169,6 +1169,8 @@ async function recomputeStaleProcessAnalyses({ limit = 50 } = {}) {
 // ── Rubric parsing endpoints ────────────────────────────────
 app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
   try {
+    const user = await getUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Not authenticated' });
     if (!req.file) return res.status(400).json({ success: false, error: 'No file uploaded' });
 
     const { text, schema, rubricData } = await parseRubricBuffer(
@@ -1190,6 +1192,8 @@ app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
 
 app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
   try {
+    const user = await getUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
     const { text, schema, rubricData } = await parseRubricBuffer(
@@ -1206,6 +1210,8 @@ app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
 
 app.post('/api/rubric/parse-text', async (req, res) => {
   try {
+    const user = await getUser(req);
+    if (!user) return res.status(401).json({ success: false, error: 'Not authenticated' });
     const text = String(req.body?.text || '').trim();
     if (!text) return res.status(400).json({ success: false, error: 'Text is required' });
 
@@ -1226,6 +1232,8 @@ let aiRequestsInFlight = 0;
 const AI_MAX_CONCURRENT = 10;
 
 app.post('/api/generate', async (req, res) => {
+  const user = await getUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
   if (aiRequestsInFlight >= AI_MAX_CONCURRENT) {
     return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.' });
   }

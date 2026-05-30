@@ -15,6 +15,7 @@ on:
           - auth
           - teacher
           - student
+          - cross-role-smoke
           - full-flow
           - all
 
@@ -49,7 +50,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            npx playwright test tests/e2e/auth.spec.js tests/e2e/teacher.spec.js tests/e2e/student.spec.js
+            npx playwright test tests/e2e/auth.spec.js tests/e2e/teacher.spec.js tests/e2e/cross-role-smoke.spec.js
           else
             case "${{ inputs.test_file }}" in
               auth)
@@ -60,6 +61,9 @@ jobs:
                 ;;
               student)
                 npx playwright test tests/e2e/student.spec.js
+                ;;
+              cross-role-smoke)
+                npx playwright test tests/e2e/cross-role-smoke.spec.js
                 ;;
               full-flow)
                 npx playwright test tests/e2e/full-flow.spec.js

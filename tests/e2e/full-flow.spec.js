@@ -1,12 +1,8 @@
 const { test, expect } = require("@playwright/test");
 const {
   hasAllCredentials,
-  login,
-  createAndPublishAssignment,
-  openStudentAssignment,
-  completeStudentDraftFlow,
+  runCrossRoleFlow,
   gradeSubmittedAssignment,
-  deleteAssignment,
 } = require("./helpers");
 
 test.describe("Full teacher to student to teacher flow", () => {
@@ -21,32 +17,10 @@ test.describe("Full teacher to student to teacher flow", () => {
     // This path intentionally exercises multiple AI-backed calls, so it needs a
     // longer timeout than the smaller smoke tests.
     test.setTimeout(420_000);
-
     const title = `E2E Test Assignment ${Date.now()}`;
-
-    const teacherContext = await browser.newContext();
-    const studentContext = await browser.newContext();
-    const teacherPage = await teacherContext.newPage();
-    const studentPage = await studentContext.newPage();
-
-    try {
-      await login(teacherPage, "teacher");
-      await createAndPublishAssignment(teacherPage, title);
-
-      // Save the teacher session as an artifact for debugging a failed run.
-      await teacherContext.storageState({ path: testInfo.outputPath("teacher-storage-state.json") });
-
-      await login(studentPage, "student");
-      await openStudentAssignment(studentPage, title);
-      await completeStudentDraftFlow(studentPage);
-
+    await runCrossRoleFlow(browser, testInfo, title, async (teacherPage) => {
       await gradeSubmittedAssignment(teacherPage, title);
-
       await expect(teacherPage.getByText(/last saved/i).first()).toBeVisible();
-    } finally {
-      try { await deleteAssignment(teacherPage, title); } catch (e) { console.warn("Cleanup: could not delete test assignment:", e.message); }
-      await studentContext.close();
-      await teacherContext.close();
-    }
+    });
   });
 });

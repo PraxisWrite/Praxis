@@ -1330,12 +1330,13 @@ async function loadStudentAssignmentsForCurrentClass() {
     const results = await Promise.allSettled(
       classIds.map((classId) => globalThis.ApiService.loadClassAssignments(classId))
     );
-    const rawAssignments = results
-      .filter((result) => result.status === "fulfilled")
-      .flatMap((result) => result.value);
-    if (!rawAssignments.length) {
+    const fulfilled = results.filter((result) => result.status === "fulfilled");
+    // Only a genuine failure if every request rejected. A student whose class
+    // simply has no published assignments yet is a valid empty state, not an error.
+    if (!fulfilled.length) {
       throw new Error("No class assignment requests succeeded");
     }
+    const rawAssignments = fulfilled.flatMap((result) => result.value);
 
     state.assignments = rawAssignments
       .filter((a) => a.status === 'published')

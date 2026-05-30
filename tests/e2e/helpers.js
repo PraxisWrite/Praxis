@@ -251,21 +251,12 @@ async function completeStudentDraftFlow(page) {
 }
 
 async function gradeSubmittedAssignment(page, title) {
-  await selectTeacherTestClass(page);
-
-  // Refresh the teacher view so the submission created in the student context is loaded.
-  await page.reload();
-  await selectTeacherTestClass(page);
-
-  const assignmentCard = page.locator(".assignment-card").filter({ hasText: title }).first();
-  await expect(assignmentCard).toBeVisible({ timeout: 30_000 });
-  await assignmentCard.getByRole("button", { name: /review students/i }).click();
+  await verifyStudentSubmissionAppeared(page, title);
 
   // TODO: add data-testid="submitted-student-card". For now, open the first card
   // with a Submitted status in this assignment's review list.
-  const submittedCard = page.locator(".submission-card").filter({ hasText: /submitted/i }).first();
-  await expect(submittedCard).toBeVisible({ timeout: 30_000 });
-  await submittedCard.getByRole("button", { name: /grade/i }).click();
+  await page.locator(".submission-card").filter({ hasText: /submitted/i }).first()
+    .getByRole("button", { name: /grade/i }).click();
 
   await expect(page.getByText(/student text/i).first()).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: /suggest rubric scores/i }).click();
@@ -277,6 +268,43 @@ async function gradeSubmittedAssignment(page, title) {
   // "Resubmit grade" only appears after savedAt is set by a successful grade
   // submission — unlike "last saved" which also appears from autosave alone.
   await expect(page.getByRole("button", { name: /^resubmit grade$/i })).toBeVisible({ timeout: 30_000 });
+}
+
+async function verifyStudentSubmissionAppeared(page, title) {
+  await page.reload();
+  await selectTeacherTestClass(page);
+  const assignmentCard = page.locator(".assignment-card").filter({ hasText: title }).first();
+  await expect(assignmentCard).toBeVisible({ timeout: 30_000 });
+  await assignmentCard.getByRole("button", { name: /review students/i }).click();
+  await expect(
+    page.locator(".submission-card").filter({ hasText: /submitted/i }).first()
+  ).toBeVisible({ timeout: 30_000 });
+}
+
+// Shared scaffolding for tests that need both a teacher and student context.
+// Creates both browser contexts, runs the common teacher-creates → student-submits
+// path, calls onTeacherReturn(teacherPage) for test-specific assertions, then cleans up.
+async function runCrossRoleFlow(browser, testInfo, title, onTeacherReturn) {
+  const teacherContext = await browser.newContext();
+  const studentContext = await browser.newContext();
+  const teacherPage = await teacherContext.newPage();
+  const studentPage = await studentContext.newPage();
+
+  try {
+    await login(teacherPage, "teacher");
+    await createAndPublishAssignment(teacherPage, title);
+    await teacherContext.storageState({ path: testInfo.outputPath("teacher-storage-state.json") });
+
+    await login(studentPage, "student");
+    await openStudentAssignment(studentPage, title);
+    await completeStudentDraftFlow(studentPage);
+
+    await onTeacherReturn(teacherPage);
+  } finally {
+    try { await deleteAssignment(teacherPage, title); } catch (e) { console.warn("Cleanup:", e.message); }
+    await studentContext.close();
+    await teacherContext.close();
+  }
 }
 
 async function deleteAssignment(page, title) {
@@ -322,6 +350,8 @@ module.exports = {
   openFirstStudentAssignment,
   openStudentAssignment,
   completeStudentDraftFlow,
+  verifyStudentSubmissionAppeared,
+  runCrossRoleFlow,
   gradeSubmittedAssignment,
   deleteAssignment,
   collectPageErrors,

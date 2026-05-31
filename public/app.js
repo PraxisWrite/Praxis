@@ -2454,7 +2454,7 @@ if (action === "switch-class") {
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = target.dataset.assignmentId;
     saveStudentAssignmentId(ui.selectedStudentAssignmentId);
-    rememberStudentStep(1, ui.selectedStudentAssignmentId);
+    rememberStudentStep(target.dataset.studentStep || 1, ui.selectedStudentAssignmentId);
     ui.notice = "";
     ui.draftSaveMessage = "";
     ensureStudentSubmission();
@@ -3023,6 +3023,34 @@ if (action === "delete-class") {
       });
     }
     persistState();
+    render();
+    return;
+  }
+
+  if (action === "open-paste-flag") {
+    stopPlayback();
+    const assignmentId = target.dataset.assignmentId;
+    ui.selectedAssignmentId = assignmentId;
+    ui.selectedReviewSubmissionId = null;
+    ui.selectedReviewStudentId = null;
+    ui.teacherView = "review";
+    ui.notice = "Loading paste flags...";
+    render();
+
+    const submissions = await loadReviewDataForAssignment(assignmentId);
+    const flaggedSubmission = submissions.find((submission) => (
+      safeArray(submission.writingEvents).some((entry) => isPasteLikeWritingEvent(entry))
+    ));
+    if (flaggedSubmission) {
+      ui.selectedReviewStudentId = flaggedSubmission.studentId;
+      ui.selectedReviewSubmissionId = flaggedSubmission.id;
+      ui.teacherView = "grading";
+      ui.playback.index = 0;
+      ui.playback.touched = true;
+      ui.notice = "";
+    } else {
+      ui.notice = "No paste flags found for this assignment after refreshing submissions.";
+    }
     render();
     return;
   }
@@ -3906,7 +3934,6 @@ if (target.id === "student-class-select") {
     await flushCurrentStudentWork();
     ui.selectedStudentAssignmentId = target.value;
     saveStudentAssignmentId(ui.selectedStudentAssignmentId);
-    rememberStudentStep(1, ui.selectedStudentAssignmentId);
     ui.notice = "";
     ui.draftSaveMessage = "";
     ensureStudentSubmission();
@@ -6967,4 +6994,3 @@ function hasOpeningClaim(text) {
   const firstParagraph = splitParagraphs(text)[0] || text;
   return wordCount(firstParagraph) >= 12;
 }
-

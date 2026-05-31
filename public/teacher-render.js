@@ -451,7 +451,7 @@
                           ${assignment.deadline ? `<span class="pill">Due: ${escapeHtml(new Date(assignment.deadline).toLocaleDateString(undefined, {day:"numeric",month:"short"}))}</span>` : ""}
                           <span class="pill">${submittedCount}/${totalStudents} submitted</span>
                           ${gradedCount > 0 ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ ${gradedCount} graded</span>` : ""}
-                          ${pasteCount > 0 ? `<span class="warning-pill">⚠ ${pasteCount} paste flag${pasteCount > 1 ? "s" : ""}</span>` : ""}
+                          ${pasteCount > 0 ? `<button class="warning-pill" data-action="open-paste-flag" data-assignment-id="${assignment.id}" style="cursor:pointer;">⚠ ${pasteCount} paste flag${pasteCount > 1 ? "s" : ""}</button>` : ""}
                         </div>
                       </div>
                       <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;align-items:flex-end;">

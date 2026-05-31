@@ -14,10 +14,11 @@ Supabase backend (MCP tools available for DB work).
 `origin` is a local proxy at `127.0.0.1:38081` — **pushes via `origin` are always blocked**.  
 Push using a PAT directly (user rotates PAT often):
 ```bash
-git push -u "https://x-access-token:TOKEN@github.com/PraxisWrite/Praxis.git" BRANCH
-git fetch origin BRANCH   # sync remote-tracking ref so stop-hook sees it
-git branch --unset-upstream && git config --remove-section "branch.BRANCHNAME"
+git push "https://x-access-token:TOKEN@github.com/PraxisWrite/Praxis.git" BRANCH
+git fetch "https://x-access-token:TOKEN@github.com/PraxisWrite/Praxis.git" BRANCH:refs/remotes/origin/BRANCH
 ```
+The second line syncs the remote-tracking ref so the stop-hook doesn't flag the push as missing.
+
 PR creation also requires curl with PAT — MCP `create_pull_request` returns 403:
 ```bash
 curl -s -X POST \
@@ -27,28 +28,29 @@ curl -s -X POST \
   -d '{"title":"...","body":"...","head":"BRANCH","base":"main","draft":true}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('html_url') or d)"
 ```
+Always check whether a PR already exists for the branch before creating one.
 
 ---
 
 ## Active branch
 
-`claude/fervent-newton-fHxFe` — use for new work this session.
+Start a **new branch off main** for the next session's work.
 
-### Recently merged (main is up to date)
+### Recently merged (main is up to date through PR #291)
 
-- **PR #284** — security/stability hardening before pilot: auth-gate AI+rubric endpoints, velocity breaker (escalating cooldowns 5m→15m→1h→24h) + 200k-char input cap on `/api/generate`, teacher-only + 10/day rubric quota, Sentry `captureException` wired, boot-time error screen, Sonar fixes
-- **PR #283** — CLAUDE.md session handoff
-- **PR #282** — Sentry loader guard (blocked CDN no longer throws)
+- **PR #291** — fix E2E helpers for avatar menu: `login()` now waits for `aria-label="Account menu"`, `logout()` opens the menu before clicking Sign out; dropdown z-index fix (topbar `position:relative`/`z-index:70`); dismissable notice banner (× button, `dismiss-notice` action)
+- **PR #290** — fix 401 mid-session AI calls + UX: `Auth.refreshToken()` added, called on 401 in `requestAiGenerate` before surfacing error; teacher-assist error message now shows `err.message` instead of "Check console"; `accept-suggested-grade` preserves manually-written `finalNotes`; account actions collapsed behind avatar `<details>` dropdown (B1 UX audit); Sonar `globalThis.*` fix in mobile scroll guard
+- **PR #289** — Sentry double-init fix: `sentry-init.js` uses `addIntegration()` not a second `init()` call
+- **PR #288** — AI concurrency cap 10→20 (`AI_MAX_CONCURRENT`), busy 429 flagged `retryable:true`, client retries up to 3×; E2E `workers:1`, cross-role-smoke moved to nightly cron
+- **PR #287** — empty student class not an error; cross-role smoke spec
+- **PR #286** — N+1 submissions fetch replaced with single batch call
+- **PR #285** — CLAUDE.md housekeeping
+- **PR #284** — security/stability hardening: auth-gate AI+rubric endpoints, velocity breaker (5m→15m→1h→24h), 200k-char input cap, teacher-only + 10/day rubric quota, Sentry `captureException`, boot-time error screen
 - **PR #281** — teacher grading autosave + Discard changes + Resubmit grade
-- **PR #280** — removed Sentry feedback widget from landing page
-- **PR #279** — Sentry user-feedback widget (`sentry-init.js`) + dedupe
-- **PR #278** — point Sentry loader at real `praxis` project DSN
-- **PR #277** — add Sentry error monitoring (loader script)
-- **PR #276** — CLAUDE.md handoff (all 7 pre-pilot fixes confirmed shipped)
 
 ### Open / in flight
 
-None.
+None — branch is clean, all caught up with main.
 
 ---
 
@@ -69,25 +71,50 @@ None.
 
 | File | Role |
 |------|------|
+| `public/auth.js` | Auth module: `getToken()`, `refreshToken()` (new), `restoreSession()`, `apiFetch()` |
+| `public/app.js` | Event handlers + `requestAiGenerate` / `attemptAiGenerate` (AI call + 401 refresh logic) |
 | `public/teacher-render.js` | All teacher-side HTML rendering (IIFE, globals via `globalThis.window`) |
-| `public/annotation-render.js` | `renderAnnotatedText`, `renderAnnotationHighlight`, paste highlight, annotation list |
-| `public/rubric-render.js` | `renderRubricSchemaLayout`, `levelTheme`, `getCriterionBands` (full card grid — NOT used in grading pane) |
-| `public/review-utils.js` | `getCriterionBands`, `calculateTeacherReviewSummary`, `buildTeacherReviewRowScore`, `getTeacherReviewRowScoreMap` |
+| `public/chrome-render.js` | Shared chrome: topbar (avatar dropdown), modals, hero |
+| `public/annotation-render.js` | `renderAnnotatedText`, paste highlight, annotation list |
+| `public/rubric-render.js` | `renderRubricSchemaLayout`, `levelTheme`, `getCriterionBands` (full card grid) |
+| `public/review-utils.js` | `getCriterionBands`, `calculateTeacherReviewSummary`, `buildTeacherReviewRowScore` |
 | `public/app-constants.js` | `BASE_ERROR_CODES`, `getErrorCodes()`, `loadCustomErrorCodes()`, `saveCustomErrorCodes()` |
-| `public/app.js` | Event handlers (`select-rubric-band`, `bump-rubric-band`, `add-custom-error-code`, etc.) |
 | `public/rich-text-render.js` | `renderRichTextHtml` — bold/italic/underline markdown in rubric descriptors |
-| `public/styles.css` | All CSS; grading-specific classes below |
+| `public/styles.css` | All CSS |
+| `tests/e2e/helpers.js` | Shared E2E helpers: `login()`, `logout()`, `runCrossRoleFlow()`, `deleteAssignment()` |
 
-### Grading pane CSS classes (added this session)
-`.rubric-pane-head/body/foot`, `.rubric-pane-name/meta`,
-`.rubric-total-number .score-val/.score-max`, `.rubric-total-sub`, `.rubric-foot-actions`,
-`.grading-criterion`, `.grading-criterion-title/name/range`, `.grading-score-pills`,
-`.grading-pill`, `.grading-pill.is-selected/.is-suggested`, `.grading-pill-label`,
-`.grading-criterion-desc`, `.grading-score-field`,
-`.grading-stepper`, `.grading-step-btn`, `.grading-step-value`,
-`.error-code-btn-note`, `.error-code-add-btn`,
-`.custom-code-manage`, `.custom-code-chip`, `.custom-code-remove`,
-`.review-notes-block`, `.review-secondary-row`
+---
+
+## Account menu (added PR #290)
+
+Sign out and Change password are now inside a `<details class="account-menu">` dropdown in the topbar. The trigger `<summary>` has `aria-label="Account menu"`. The avatar shows initials from `currentProfile.name`.
+
+**E2E impact**: `login()` waits for `aria-label="Account menu"`, not the hidden Sign out button. `logout()` clicks the menu open first. Any new tests that need to sign out must follow the same pattern.
+
+**CSS stacking**: `.topbar` has `position:relative; z-index:70` so the open dropdown paints above the notice banner (backdrop-filter created a stacking context that previously trapped the dropdown).
+
+---
+
+## AI call architecture (`public/app.js`)
+
+```
+requestAiGenerate(payload, options)
+  → aiRequestSemaphore.acquire()           — client-side concurrency gate (MAX_CONCURRENT=3)
+  → for attempt 0..retries:
+      attemptAiGenerate(payload, timeoutMs, signal)
+        → fetch /api/generate  Authorization: Bearer Auth.getToken()
+        → 20s AbortController timeout
+      on 401 + !tokenRefreshed:
+        → Auth.refreshToken()              — POST /api/auth/refresh with refresh_token
+        → if refreshed: retry (attempt--)
+        → if not: throw "Your session has expired…"
+      on retryable 429 (server busy):
+        → wait BUSY_BACKOFF_MS * busyRetries, retry (separate budget, max 3)
+      on other 4xx: throw immediately
+  → aiRequestSemaphore.release()
+```
+
+`Auth.refreshToken()` in `auth.js`: fetches `/api/auth/refresh`, updates `session` in memory + localStorage/sessionStorage. Returns `true` on success.
 
 ---
 
@@ -95,22 +122,21 @@ None.
 
 ```
 renderTeacherGrading(assignment, submission)
-  renderGradingNav(...)                         — nav + roster breadcrumb
-  renderTeacherSubmissionStatusPanel(...)        — status ABOVE split
+  renderGradingNav(...)
+  renderTeacherSubmissionStatusPanel(...)
   <div class="review-split">
-    renderGradingTextPane(submission, ctx)        — left: student text + annotation toolbar
-    renderGradingRubricPane(submission, ctx)      — right: pills + score field
-      buildGradingRubricModel(ctx)               — iterates reviewSummary.rubric
-        renderGradingRubricCriterion(...)        — one criterion row
-          renderGradingRubricPill(...)           — one pill button
-          renderGradingScoreStepper(...)         — ▼ value ▲ bumper
+    renderGradingTextPane(submission, ctx)
+    renderGradingRubricPane(submission, ctx)
+      buildGradingRubricModel(ctx)
+        renderGradingRubricCriterion(...)
+          renderGradingRubricPill(...)
+          renderGradingScoreStepper(...)
   renderGradingSecondary(assignment, submission, ctx)
-    — "Feedback for student" textarea (always visible)
-    — "Writing behaviour & replay" collapsible (side by side)
-    — "Planning chat & AI feedback used" collapsible (side by side)
 ```
 
-**Important**: the grading pane sources criteria from `reviewSummary.rubric` (= `assignment.rubric`), not `rubricSchema`. The `select-rubric-band` and `bump-rubric-band` handlers in `app.js` also look up from `assignment.rubric` via `getCriterionBands`. Don't mix the two.
+**Important**: grading pane sources criteria from `reviewSummary.rubric` (= `assignment.rubric`), not `rubricSchema`. `select-rubric-band` and `bump-rubric-band` handlers also use `assignment.rubric` via `getCriterionBands`. Don't mix the two.
+
+**accept-suggested-grade**: only copies `suggestedGrade.studentComment` into `finalNotes` when `finalNotes` is currently empty — preserves manually-written teacher feedback.
 
 ---
 
@@ -125,58 +151,35 @@ renderTeacherGrading(assignment, submission)
 --danger: (red, check styles.css)
 ```
 
-`levelTheme(label)` in `rubric-render.js` maps band labels to `{ ring, bg, text, badge }` colour tokens:
-- Excellent → green (`#23824c`)
-- Good → blue (`#2f67d8`)
-- Satisfactory → amber (`#cf8b1f`)
-- Needs Improvement → orange (`#c46a2b`)
-- Unsatisfactory/Weak → red (`#c24d4d`)
+`levelTheme(label)` in `rubric-render.js` maps band labels → `{ ring, bg, text, badge }`:
+- Excellent → green (`#23824c`) · Good → blue (`#2f67d8`) · Satisfactory → amber (`#cf8b1f`)
+- Needs Improvement → orange (`#c46a2b`) · Unsatisfactory/Weak → red (`#c24d4d`)
 
 ---
-
-## Pre-pilot stability fixes — ALL SHIPPED
-
-All seven issues identified in the performance audit are done. No action needed.
-
-| # | Issue | Status | Where |
-|---|-------|--------|-------|
-| 1 | Append-only sync deltas | ✅ Done | PR #269 — `public/api-service.js` |
-| 2 | Optimistic locking on saves | ✅ Already existed | `server.js` `expected_updated_at` → 409 |
-| 3 | AI endpoint timeout | ✅ Done | `server.js:1246` — `AbortController` 20s + 504 |
-| 4 | Client-side AI request queue | ✅ Done | `public/app.js:1874` — `inFlight`/`MAX_CONCURRENT` |
-| 5 | Missing DB indexes | ✅ Done | PR #269 — migration applied to production |
-| 6 | Uncompressed JS bundle | ✅ Done | `server.js:4,34` — `compression` middleware |
-| 7 | Polling too aggressive | ✅ Done | `app-constants.js:16–17` — both at 30000 ms |
-
----
-
-## Sentry (error monitoring + user feedback) — LIVE
-
-Set up this session. Org `praxiswrite`, project **`praxis`** (slug `praxis`, id `4511474897715280`).
-
-- **Loader script** in `public/index.html` head: `js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js`. DSN key `ce9396547e963ef331dbb030435c4d46`. Loader options: replay + performance + **feedback** on.
-- **`public/sentry-init.js`** — shared init (loaded only on `index.html`, NOT landing). Calls `Sentry.feedbackIntegration()` ("Report a problem" button). **Guarded** with `typeof Sentry !== "undefined"` so a blocked CDN (ad-blocker/VPN) doesn't throw — see PR #282.
-- **NOT on `landing.html`** (removed in #280) — feedback only inside the app.
-- **Alerts** (email to owner `scmc2789@hotmail.com` / `praxiswrite` team): new-issue, error spike (5+/hr), regression, high-volume (20+/hr).
-- **Inbound filters on**: browser-extensions, web-crawlers, localhost, plus `401*`/`Unauthorized*` error-message filter (expected auth noise).
-- **Config via REST API**, not MCP: `mcp.sentry.dev` is **blocked by this env's network allowlist**; `sentry.io` REST API is reachable. User holds a `sntryu_…` auth token (full scopes) — ask them for it to make Sentry changes. The user's own machine runs NordVPN Threat Protection which intermittently blocks the CDN (returns 204) — that's why the widget/events sometimes don't load for them but will for students. A long obfuscated `/...` script on the live page is NordVPN injection, not ours — safe.
 
 ## Grading autosave / publish model (PR #281) — LIVE
 
-Teacher grading no longer loses work and editing a returned grade is explicit:
+- `teacherReview` = working draft (autosaved ~1.8s via `scheduleTeacherReviewSync`)
+- `teacherReview.publishedReview` = snapshot the student sees (set on submit/resubmit)
+- Submit → "Resubmit grade" once `savedAt` is set
+- "Discard changes" appears only when draft ≠ published (`teacherReviewHasUnpublishedEdits()`)
+- Reopen clears `publishedReview` too (`resetTeacherReviewForReopen` in `review-utils.js`)
 
-- `teacherReview` = **working draft** (autosaved ~1.8s on rubric/annotation/feedback change via `scheduleTeacherReviewSync` → `syncTeacherReviewToServer`, which PATCHes `teacher_review` only, no status change, no `expected_updated_at`).
-- `teacherReview.publishedReview` = **snapshot the student sees** (set on submit/resubmit via `snapshotPublishedReview`). Students read this, never the working draft — see `studentVisibleGradeSubmission()` in `student-render.js`. Back-compat: old graded work lazily adopts its current grade as baseline in `createDefaultTeacherReview`.
-- **Submit → "Resubmit grade"** label once `savedAt` is set. **"Discard changes"** button appears only when `teacherReviewHasUnpublishedEdits()` (working draft ≠ published); reverts to published.
-- Reopen clears `publishedReview` too (`resetTeacherReviewForReopen` in `review-utils.js`).
-- Feedback textarea now has an `input` handler (previously had none).
-- No server change needed — `teacher_review` jsonb stores the new field as-is.
+---
+
+## Sentry — LIVE
+
+Org `praxiswrite`, project **`praxis`** (id `4511474897715280`).
+
+- Loader in `public/index.html` head: `js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js`
+- `public/sentry-init.js` — calls `Sentry.addIntegration(Sentry.feedbackIntegration(...))` (not `init()`). Guarded with `typeof Sentry !== "undefined"`.
+- NOT on `landing.html`.
+- Config via REST API only (`mcp.sentry.dev` blocked). User holds a `sntryu_…` token — ask them for it to make Sentry changes.
 
 ---
 
 ## Pending / next steps
 
-- [ ] Merge PR #282 once CI passes (Sentry loader guard)
-- [ ] After deploy, hard-refresh and confirm console is clean + feedback widget shows inside app
-- [ ] More grading-view UX feedback from live use (next UI session)
-- [ ] Mark the legit test feedback report in Sentry as "not spam" (AI spam filter caught it)
+- [ ] More grading-view UX feedback from live pilot use
+- [ ] C2 (progressive step disclosure in student flow) — deferred, needs flow design
+- [ ] Student-side notice banners don't have a dismiss button yet (only teacher/admin banner does)

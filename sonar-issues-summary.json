@@ -1,0 +1,397 @@
+{
+  "total": 638,
+  "by_type": {
+    "CODE_SMELL": 638
+  },
+  "by_severity": {
+    "CRITICAL": 13,
+    "MINOR": 477,
+    "MAJOR": 143,
+    "INFO": 5
+  },
+  "by_rule": [
+    {
+      "rule": "javascript:S7764",
+      "count": 360,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Prefer `globalThis` over `window`.",
+      "examples": [
+        "public/teacher-render.js:25",
+        "public/teacher-render.js:39",
+        "public/line-number-utils.js:212",
+        "public/line-number-utils.js:212",
+        "public/ai-assist-utils.js:31"
+      ]
+    },
+    {
+      "rule": "javascript:S3358",
+      "count": 86,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Extract this nested ternary operation into an independent statement.",
+      "examples": [
+        "public/student-render.js:114",
+        "public/teacher-render.js:3",
+        "public/teacher-render.js:12",
+        "public/teacher-render.js:14",
+        "public/writing-behaviour-render.js:235"
+      ]
+    },
+    {
+      "rule": "javascript:S7781",
+      "count": 22,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Prefer `String#replaceAll()` over `String#replace()`.",
+      "examples": [
+        "public/rich-text-render.js:19",
+        "public/rich-text-render.js:20",
+        "public/rich-text-render.js:21",
+        "public/rich-text-render.js:22",
+        "public/rich-text-render.js:23"
+      ]
+    },
+    {
+      "rule": "javascript:S2486",
+      "count": 19,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Handle this exception or don't catch it at all.",
+      "examples": [
+        "notification-utils.js:56",
+        "public/app-constants.js:35",
+        "public/app-constants.js:45",
+        "public/admin-utils.js:35",
+        "public/app.js:90"
+      ]
+    },
+    {
+      "rule": "javascript:S7735",
+      "count": 17,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Unexpected negated condition.",
+      "examples": [
+        "public/student-render.js:64",
+        "public/admin-render.js:346",
+        "public/teacher-render.js:409",
+        "public/teacher-render.js:739",
+        "public/teacher-render.js:740"
+      ]
+    },
+    {
+      "rule": "javascript:S7721",
+      "count": 16,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Move function 'stripCodeFence' to the outer scope.",
+      "examples": [
+        "public/ai-assist-utils.js:33",
+        "public/admin-render.js:68",
+        "public/admin-render.js:76",
+        "public/admin-render.js:93",
+        "public/admin-utils.js:10"
+      ]
+    },
+    {
+      "rule": "javascript:S4624",
+      "count": 16,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Refactor this code to not use nested template literals.",
+      "examples": [
+        "public/teacher-render.js:623",
+        "public/admin-render.js:308",
+        "public/rubric-render.js:41",
+        "public/rubric-render.js:61",
+        "public/rubric-render.js:61"
+      ]
+    },
+    {
+      "rule": "javascript:S7748",
+      "count": 13,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Don't use a zero fraction in the number.",
+      "examples": [
+        "public/admin-render.js:32",
+        "public/admin-render.js:36",
+        "public/admin-render.js:36",
+        "public/admin-render.js:36",
+        "public/admin-render.js:37"
+      ]
+    },
+    {
+      "rule": "javascript:S3776",
+      "count": 12,
+      "type": "CODE_SMELL",
+      "severity": "CRITICAL",
+      "message": "Refactor this function to reduce its Cognitive Complexity from 16 to the 15 allowed.",
+      "examples": [
+        "server.js:2641",
+        "public/app.js:2145",
+        "public/teacher-render.js:145",
+        "public/teacher-render.js:420",
+        "public/app.js:4317"
+      ]
+    },
+    {
+      "rule": "javascript:S1481",
+      "count": 11,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Remove the declaration of the unused 'ui' variable.",
+      "examples": [
+        "public/playback-render.js:7",
+        "public/student-render.js:453",
+        "public/student-render.js:454",
+        "public/student-render.js:579",
+        "public/chrome-render.js:124"
+      ]
+    },
+    {
+      "rule": "javascript:S1854",
+      "count": 10,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Remove this useless assignment to variable \"ui\".",
+      "examples": [
+        "public/playback-render.js:7",
+        "public/student-render.js:453",
+        "public/student-render.js:454",
+        "public/student-render.js:579",
+        "public/admin-render.js:440"
+      ]
+    },
+    {
+      "rule": "javascript:S7744",
+      "count": 10,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "The empty object is useless.",
+      "examples": [
+        "public/writing-process/admin.js:87",
+        "public/writing-process/analyze.js:416",
+        "public/writing-process/cohorts.js:48",
+        "public/writing-process/events.js:129",
+        "public/writing-process/render.js:150"
+      ]
+    },
+    {
+      "rule": "javascript:S6582",
+      "count": 7,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Prefer using an optional chain expression instead, as it's more concise and easier to read.",
+      "examples": [
+        "server.js:1078",
+        "public/teacher-assignment-choice.js:127",
+        "public/teacher-assignment-choice.js:131",
+        "public/app.js:5759",
+        "server.js:1794"
+      ]
+    },
+    {
+      "rule": "javascript:S7755",
+      "count": 5,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Prefer `.at(\u2026)` over `[\u2026.length - index]`.",
+      "examples": [
+        "public/playback-render.js:253",
+        "public/playback-render.js:271",
+        "public/writing-process/analyze.js:203",
+        "public/app.js:5512",
+        "public/app.js:5540"
+      ]
+    },
+    {
+      "rule": "javascript:S1135",
+      "count": 5,
+      "type": "CODE_SMELL",
+      "severity": "INFO",
+      "message": "Complete the task associated to this \"TODO\" comment.",
+      "examples": [
+        "tests/e2e/helpers.js:100",
+        "tests/e2e/helpers.js:107",
+        "tests/e2e/helpers.js:214",
+        "tests/e2e/helpers.js:231",
+        "tests/e2e/helpers.js:262"
+      ]
+    },
+    {
+      "rule": "javascript:S7773",
+      "count": 4,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Prefer `Number.parseFloat` over `parseFloat`.",
+      "examples": [
+        "public/app.js:6860",
+        "public/app.js:6861",
+        "public/app.js:6862",
+        "public/app.js:6863"
+      ]
+    },
+    {
+      "rule": "javascript:S6594",
+      "count": 4,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Use the \"RegExp.exec()\" method instead.",
+      "examples": [
+        "public/app.js:572",
+        "public/app.js:600",
+        "public/app.js:608",
+        "public/app.js:613"
+      ]
+    },
+    {
+      "rule": "javascript:S3626",
+      "count": 3,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Remove this redundant jump.",
+      "examples": [
+        "public/app.js:5013",
+        "public/app.js:3969",
+        "public/app.js:4099"
+      ]
+    },
+    {
+      "rule": "javascript:S7772",
+      "count": 2,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Prefer `node:path` over `path`.",
+      "examples": [
+        "server.js:2",
+        "rubricParser.js:1"
+      ]
+    },
+    {
+      "rule": "javascript:S4138",
+      "count": 2,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Expected a `for-of` loop instead of a `for` loop with this simple iteration.",
+      "examples": [
+        "public/app.js:4981",
+        "public/app.js:1894"
+      ]
+    },
+    {
+      "rule": "javascript:S7786",
+      "count": 2,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "`new Error()` is too unspecific for a type check. Use `new TypeError()` instead.",
+      "examples": [
+        "public/annotation-render.js:19",
+        "public/teacher-assist.js:18"
+      ]
+    },
+    {
+      "rule": "javascript:S6535",
+      "count": 2,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Unnecessary escape character: \\*.",
+      "examples": [
+        "public/rich-text-render.js:30",
+        "public/rich-text-render.js:38"
+      ]
+    },
+    {
+      "rule": "javascript:S6353",
+      "count": 2,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "Use concise character class syntax '\\D' instead of '[^0-9]'.",
+      "examples": [
+        "public/app.js:595",
+        "public/app.js:597"
+      ]
+    },
+    {
+      "rule": "javascript:S2004",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "CRITICAL",
+      "message": "Refactor this code to not nest functions more than 4 levels deep.",
+      "examples": [
+        "public/teacher-render.js:425"
+      ]
+    },
+    {
+      "rule": "javascript:S6661",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Use an object spread instead of `Object.assign` eg: `{ ...foo }`.",
+      "examples": [
+        "public/rubric-utils.js:92"
+      ]
+    },
+    {
+      "rule": "javascript:S7776",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "MINOR",
+      "message": "`classIds` should be a `Set`, and use `classIds.has()` to check existence or non-existence.",
+      "examples": [
+        "server.js:2921"
+      ]
+    },
+    {
+      "rule": "javascript:S1788",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Default parameters should be last.",
+      "examples": [
+        "public/app.js:6872"
+      ]
+    },
+    {
+      "rule": "javascript:S2681",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "This line will not be executed conditionally; only the first statement will be. The rest will execute unconditionally.",
+      "examples": [
+        "public/app.js:4597"
+      ]
+    },
+    {
+      "rule": "javascript:S5843",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Simplify this regular expression to reduce its complexity from 25 to the 20 allowed.",
+      "examples": [
+        "public/app.js:595"
+      ]
+    },
+    {
+      "rule": "javascript:S7762",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Prefer `childNode.remove()` over `parentNode.removeChild(childNode)`.",
+      "examples": [
+        "public/app.js:6014"
+      ]
+    },
+    {
+      "rule": "css:S7924",
+      "count": 1,
+      "type": "CODE_SMELL",
+      "severity": "MAJOR",
+      "message": "Text does not meet the minimal contrast requirement with its background.",
+      "examples": [
+        "public/styles.css:699"
+      ]
+    }
+  ]
+}

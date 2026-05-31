@@ -200,7 +200,7 @@
     const fallbackStart = Date.parse(submission.startedAt || submission.started_at || submission.updatedAt || submission.updated_at || "");
     const fallbackEnd = Date.parse(submission.submittedAt || submission.submitted_at || submission.updatedAt || submission.updated_at || "");
     const start = times[0] ?? (Number.isFinite(fallbackStart) ? fallbackStart : Date.now());
-    const end = times[times.length - 1] ?? (Number.isFinite(fallbackEnd) ? fallbackEnd : start);
+    const end = times.at(-1) ?? (Number.isFinite(fallbackEnd) ? fallbackEnd : start);
     const duration = Math.max(1, end - start);
     const count = Math.max(1, bucketCount);
     const buckets = Array.from({ length: count }, (_, index) => ({

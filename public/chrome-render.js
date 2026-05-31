@@ -121,7 +121,6 @@
 
   function renderTopbar() {
     const { ui, currentProfile, currentClasses, currentClassId } = globalThis.AppState;
-    const studentOptions = "";
     const classSwitcherOptions = currentClasses.filter((c) => c.id !== currentClassId);
     const accountInitials = (currentProfile?.name || "?")
       .trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase() || "?";

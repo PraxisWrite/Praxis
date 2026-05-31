@@ -32,7 +32,7 @@
       const storage = (globalThis.window !== undefined && globalThis.localStorage) || null;
       if (!storage) return [];
       return JSON.parse(storage.getItem(CUSTOM_ERROR_CODES_KEY) || "[]");
-    } catch (_) {
+    } catch {
       return [];
     }
   }
@@ -42,7 +42,7 @@
       const storage = (globalThis.window !== undefined && globalThis.localStorage) || null;
       if (!storage) return;
       storage.setItem(CUSTOM_ERROR_CODES_KEY, JSON.stringify(entries || []));
-    } catch (_) {
+    } catch {
       // Ignore localStorage failures and keep grading usable.
     }
   }

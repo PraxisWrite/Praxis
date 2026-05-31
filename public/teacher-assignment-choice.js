@@ -7,7 +7,7 @@
   function getFlow() {
     try {
       return globalThis.sessionStorage.getItem(FLOW_STORAGE_KEY) || "ai";
-    } catch (_) {
+    } catch {
       return "ai";
     }
   }
@@ -15,7 +15,7 @@
   function setFlow(flow) {
     try {
       globalThis.sessionStorage.setItem(FLOW_STORAGE_KEY, flow);
-    } catch (_) {
+    } catch {
       // Keep the UI usable even if sessionStorage is unavailable.
     }
   }

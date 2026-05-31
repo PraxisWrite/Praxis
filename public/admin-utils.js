@@ -32,7 +32,7 @@
           reviewSavedAt: submission?.teacher_review?.savedAt,
         })),
       });
-    } catch (_) {
+    } catch {
       return "";
     }
   }

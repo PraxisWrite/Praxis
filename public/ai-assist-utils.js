@@ -71,7 +71,7 @@
   function parseJsonResponse(text, fallback = null) {
     try {
       return JSON.parse(extractJsonBlock(text));
-    } catch (_) {
+    } catch {
       return fallback;
     }
   }

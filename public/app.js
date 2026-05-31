@@ -79,7 +79,7 @@ if (globalThis.window !== undefined) globalThis.isAdminTeacherView = isAdminTeac
 function isSubmissionDebugEnabled() {
   try {
     return new URLSearchParams(globalThis.location.search).get("debug") === "submission";
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -87,7 +87,7 @@ if (globalThis.window !== undefined) globalThis.isSubmissionDebugEnabled = isSub
 function isEmailDebugEnabled() {
   try {
     return new URLSearchParams(globalThis.location.search).get("debug") === "email";
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -187,7 +187,7 @@ if (globalThis.window !== undefined) {
 function loadActiveClassPreferences() {
   try {
     return JSON.parse(globalThis.localStorage.getItem(ACTIVE_CLASS_KEY) || "{}") || {};
-  } catch (_) {
+  } catch {
     return {};
   }
 }
@@ -195,7 +195,7 @@ function loadActiveClassPreferences() {
 function saveActiveClassPreferences(preferences) {
   try {
     globalThis.localStorage.setItem(ACTIVE_CLASS_KEY, JSON.stringify(preferences || {}));
-  } catch (_) {
+  } catch {
     // Ignore localStorage write failures and keep the app usable.
   }
 }
@@ -203,7 +203,7 @@ function saveActiveClassPreferences(preferences) {
 function loadActiveStudentAssignmentPreferences() {
   try {
     return JSON.parse(globalThis.localStorage.getItem(ACTIVE_STUDENT_ASSIGNMENT_KEY) || "{}") || {};
-  } catch (_) {
+  } catch {
     return {};
   }
 }
@@ -211,7 +211,7 @@ function loadActiveStudentAssignmentPreferences() {
 function saveActiveStudentAssignmentPreferences(preferences) {
   try {
     globalThis.localStorage.setItem(ACTIVE_STUDENT_ASSIGNMENT_KEY, JSON.stringify(preferences || {}));
-  } catch (_) {
+  } catch {
     // Ignore localStorage write failures and keep the app usable.
   }
 }
@@ -377,7 +377,7 @@ function getSavedRubricLibrary() {
     try {
       const stored = JSON.parse(globalThis.localStorage.getItem(RUBRIC_LIBRARY_KEY) || "[]");
       return safeArray(stored).map(normalizeRubricLibraryEntry).filter(Boolean);
-    } catch (error) {
+    } catch {
       return [];
     }
   })();
@@ -424,7 +424,7 @@ function removeSavedRubricFromLibrary(rubricId) {
       .filter(Boolean);
     const next = stored.filter((entry) => entry.id !== rubricId);
     globalThis.localStorage.setItem(RUBRIC_LIBRARY_KEY, JSON.stringify(next));
-  } catch (error) {
+  } catch {
     globalThis.localStorage.setItem(RUBRIC_LIBRARY_KEY, "[]");
   }
 }
@@ -2232,8 +2232,8 @@ if (action === "generate-teacher-assist") {
         const currentTotal = parsed.rubric.reduce((s, r) => s + r.points, 0);
         if (currentTotal !== targetPts && parsed.rubric.length > 0) {
           const diff = targetPts - currentTotal;
-          parsed.rubric[parsed.rubric.length - 1].points += diff;
-          parsed.rubric[parsed.rubric.length - 1].bands = createScoreBandsForPoints(parsed.rubric[parsed.rubric.length - 1].points);
+          parsed.rubric.at(-1).points += diff;
+          parsed.rubric.at(-1).bands = createScoreBandsForPoints(parsed.rubric.at(-1).points);
         }
       }
       applyAiSettingsToTeacherDraft(parsed);
@@ -2626,14 +2626,7 @@ if (action === "switch-class") {
 
   if (action === "invite-by-email") {
     if (!currentClassId) { alert("Select a class first."); return; }
-    const currentClass = currentClasses.find(c => c.id === currentClassId);
-    const className = currentClass?.name || "your class";
-    const appUrl = globalThis.location.origin;
-    const subject = encodeURIComponent(`You have been invited to join ${className} on ${PRODUCT_NAME}`);
-    const body = encodeURIComponent(`Hello,\n\nYou have been invited to join ${className} on ${PRODUCT_NAME}.\n\nTo get started:\n1. Go to ${appUrl}\n2. Click "Create account"\n3. Sign up with this email address as a student\n4. Your teacher will then add you to the class\n\nSee you there!`);
-    const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
-    const copyText = `You have been invited to join ${className} on ${PRODUCT_NAME}.\n\nTo get started:\n1. Go to ${appUrl}\n2. Click "Create account"\n3. Sign up with this email address as a student\n4. Your teacher will then add you to the class`;
-   ui.showInvitePanel = true;
+    ui.showInvitePanel = true;
     render();
     return;
   }
@@ -3102,8 +3095,6 @@ if (action === "select-assignment") {
       }
     }
     if (nextStep === 3) {
-      const assignment = getStudentAssignment();
-
       if (submission && !submission.finalText?.trim() && submission.draftText?.trim()) {
         submission.finalText = submission.draftText;
         submission.updatedAt = new Date().toISOString();
@@ -4229,7 +4220,7 @@ async function uploadRubricFile(file) {
       saveRubricToLibrary(file.name, data.text, data.rubricData || null, data.schema || null);
       ui.notice = `Rubric "${file.name}" loaded and saved for reuse. Click Format With AI to rebuild the assignment with it.`;
     }
-  } catch (e) {
+  } catch {
     ui.notice = 'Could not read the rubric file. Try a different format.';
   }
   render();
@@ -4329,8 +4320,6 @@ async function saveTeacherAssignment() {
   render();
 
   try {
-  // Use the editable AI draft if present, otherwise fall back to teacherDraft
-  const source = ui.teacherAssist || ui.teacherDraft;
   const editingAssignment = ui.editingAssignmentId
     ? state.assignments.find((item) => item.id === ui.editingAssignmentId) || null
     : null;
@@ -4899,7 +4888,7 @@ function getWritingTimeSummary(submission) {
   const fallbackStart = Date.parse(submission?.startedAt || submission?.updatedAt || submission?.submittedAt || "");
   const fallbackEnd = Date.parse(submission?.submittedAt || submission?.updatedAt || submission?.startedAt || "");
   const start = eventTimes[0] ?? (Number.isFinite(fallbackStart) ? fallbackStart : null);
-  const end = eventTimes[eventTimes.length - 1] ?? (Number.isFinite(fallbackEnd) ? fallbackEnd : start);
+  const end = eventTimes.at(-1) ?? (Number.isFinite(fallbackEnd) ? fallbackEnd : start);
   const durationMs = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : 0;
   const editCount = safeArray(submission?.writingEvents).length;
   const finalWords = wordCount(submission?.finalText || submission?.draftText || "");
@@ -5058,7 +5047,7 @@ function calculateFluencySummary(submission) {
 function computeProcessMetrics(assignment, submission) {
   const events = submission.writingEvents;
   const firstTimestamp = events[0]?.timestamp || submission.startedAt || submission.updatedAt || new Date().toISOString();
-  const lastTimestamp = events[events.length - 1]?.timestamp || submission.submittedAt || submission.updatedAt || firstTimestamp;
+  const lastTimestamp = events.at(-1)?.timestamp || submission.submittedAt || submission.updatedAt || firstTimestamp;
   const totalMinutes = Math.max(1, Math.round((Date.parse(lastTimestamp) - Date.parse(firstTimestamp)) / 60000) || 1);
   const draftWordCount = wordCount(submission.draftText);
   const finalWordCount = wordCount(submission.finalText || submission.draftText);
@@ -5509,7 +5498,7 @@ function findSpecificSentenceFeedback(sentenceEntries = [], { singleParagraphTas
   }
 
   if (singleParagraphTask && /concluding sentence|restates? the main idea|final comment/.test(rubricFeedbackText) && sentenceEntries.length) {
-    const finalEntry = sentenceEntries[sentenceEntries.length - 1];
+    const finalEntry = sentenceEntries.at(-1);
     const finalSentence = finalEntry.text;
     if (wordCount(finalSentence) < 7 && wordCount(finalSentence) >= 4) {
       pushIssue(`${sentenceReference(finalEntry)} feels too brief to work as a conclusion. Add a clearer final thought there.`, `weak-conclusion:${finalEntry.lineNumber}`);
@@ -5537,7 +5526,7 @@ function generateFeedback(assignment, submission) {
   const paragraphs = splitParagraphs(text);
   const sentences = nonPastedSentenceEntries.map((entry) => entry.text);
   const singleParagraphTask = assignmentUsesSingleParagraph(assignment);
-  const finalSentence = sentences[sentences.length - 1] || "";
+  const finalSentence = sentences.at(-1) || "";
   const processTask = assignment?.assignmentType === "process";
   const essayTask = assignmentLikelyEssay(assignment);
   const rubricFeedbackText = getAssignmentRubricFeedbackText(assignment);
@@ -6104,7 +6093,7 @@ function gradeSubmission(assignment, submission) {
   const severelyUnderdeveloped = !minimalSubmission && finalWordCount < Math.max(15, Math.min(Math.round((assignment.wordCountMin || 0) * 0.15), 40));
 
   const criteria = rubric.map((criterion) => {
-    let scoreRatio = 0.65;
+    let scoreRatio;
     const name = `${criterion.name} ${criterion.description}`.toLowerCase();
 
     if (minimalSubmission) {

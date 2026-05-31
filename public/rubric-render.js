@@ -190,18 +190,18 @@
       return globalThis.escapeHtml(value);
     }
     return String(value == null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
   function _escapeAttribute(value) {
     if (globalThis.window !== undefined && typeof window.escapeAttribute === "function") {
       return window.escapeAttribute(value);
     }
-    return _escapeHtml(value).replace(/`/g, "&#96;");
+    return _escapeHtml(value).replaceAll("`", "&#96;");
   }
 
   function _renderRichTextHtml(text) {

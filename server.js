@@ -310,7 +310,7 @@ function escapeHtmlEmail(value = '') {
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
-    .replace(/"/g, '&quot;')
+    .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
 

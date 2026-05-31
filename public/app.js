@@ -2232,8 +2232,8 @@ if (action === "generate-teacher-assist") {
         const currentTotal = parsed.rubric.reduce((s, r) => s + r.points, 0);
         if (currentTotal !== targetPts && parsed.rubric.length > 0) {
           const diff = targetPts - currentTotal;
-          parsed.rubric[parsed.rubric.length - 1].points += diff;
-          parsed.rubric[parsed.rubric.length - 1].bands = createScoreBandsForPoints(parsed.rubric[parsed.rubric.length - 1].points);
+          parsed.rubric.at(-1).points += diff;
+          parsed.rubric.at(-1).bands = createScoreBandsForPoints(parsed.rubric.at(-1).points);
         }
       }
       applyAiSettingsToTeacherDraft(parsed);
@@ -4899,7 +4899,7 @@ function getWritingTimeSummary(submission) {
   const fallbackStart = Date.parse(submission?.startedAt || submission?.updatedAt || submission?.submittedAt || "");
   const fallbackEnd = Date.parse(submission?.submittedAt || submission?.updatedAt || submission?.startedAt || "");
   const start = eventTimes[0] ?? (Number.isFinite(fallbackStart) ? fallbackStart : null);
-  const end = eventTimes[eventTimes.length - 1] ?? (Number.isFinite(fallbackEnd) ? fallbackEnd : start);
+  const end = eventTimes.at(-1) ?? (Number.isFinite(fallbackEnd) ? fallbackEnd : start);
   const durationMs = Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : 0;
   const editCount = safeArray(submission?.writingEvents).length;
   const finalWords = wordCount(submission?.finalText || submission?.draftText || "");
@@ -5058,7 +5058,7 @@ function calculateFluencySummary(submission) {
 function computeProcessMetrics(assignment, submission) {
   const events = submission.writingEvents;
   const firstTimestamp = events[0]?.timestamp || submission.startedAt || submission.updatedAt || new Date().toISOString();
-  const lastTimestamp = events[events.length - 1]?.timestamp || submission.submittedAt || submission.updatedAt || firstTimestamp;
+  const lastTimestamp = events.at(-1)?.timestamp || submission.submittedAt || submission.updatedAt || firstTimestamp;
   const totalMinutes = Math.max(1, Math.round((Date.parse(lastTimestamp) - Date.parse(firstTimestamp)) / 60000) || 1);
   const draftWordCount = wordCount(submission.draftText);
   const finalWordCount = wordCount(submission.finalText || submission.draftText);
@@ -5509,7 +5509,7 @@ function findSpecificSentenceFeedback(sentenceEntries = [], { singleParagraphTas
   }
 
   if (singleParagraphTask && /concluding sentence|restates? the main idea|final comment/.test(rubricFeedbackText) && sentenceEntries.length) {
-    const finalEntry = sentenceEntries[sentenceEntries.length - 1];
+    const finalEntry = sentenceEntries.at(-1);
     const finalSentence = finalEntry.text;
     if (wordCount(finalSentence) < 7 && wordCount(finalSentence) >= 4) {
       pushIssue(`${sentenceReference(finalEntry)} feels too brief to work as a conclusion. Add a clearer final thought there.`, `weak-conclusion:${finalEntry.lineNumber}`);
@@ -5537,7 +5537,7 @@ function generateFeedback(assignment, submission) {
   const paragraphs = splitParagraphs(text);
   const sentences = nonPastedSentenceEntries.map((entry) => entry.text);
   const singleParagraphTask = assignmentUsesSingleParagraph(assignment);
-  const finalSentence = sentences[sentences.length - 1] || "";
+  const finalSentence = sentences.at(-1) || "";
   const processTask = assignment?.assignmentType === "process";
   const essayTask = assignmentLikelyEssay(assignment);
   const rubricFeedbackText = getAssignmentRubricFeedbackText(assignment);

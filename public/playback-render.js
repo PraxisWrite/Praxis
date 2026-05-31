@@ -222,8 +222,8 @@
       text: frame.text,
       label: frame.label,
       elapsedMs: frame.elapsedMs || 0,
-      totalMs: frames[frames.length - 1]?.elapsedMs || 0,
-      timeLabel: formatPlaybackElapsedLabel(frame.elapsedMs || 0, frames[frames.length - 1]?.elapsedMs || 0),
+      totalMs: frames.at(-1)?.elapsedMs || 0,
+      timeLabel: formatPlaybackElapsedLabel(frame.elapsedMs || 0, frames.at(-1)?.elapsedMs || 0),
     };
   }
 
@@ -250,7 +250,7 @@
 
     for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
       const event = events[eventIndex];
-      const eventTimeMs = getEventTimeMs(event) ?? (frames[frames.length - 1]?.timeMs || firstEventTime);
+      const eventTimeMs = getEventTimeMs(event) ?? (frames.at(-1)?.timeMs || firstEventTime);
       const nextEventTimeMs = events.slice(eventIndex + 1).map(getEventTimeMs).find((time) => Number.isFinite(time));
       const intraEventDelayMs = getIntraEventDelayMs(event, nextEventTimeMs, eventTimeMs);
       text = applyPlaybackEvent({
@@ -268,7 +268,7 @@
 
     const currentWriting = submission.finalText || submission.draftText || "";
     if (currentWriting !== text) {
-      pushFrame(currentWriting, submission.finalText ? "Current final version" : "Current draft", frames[frames.length - 1]?.timeMs || firstEventTime);
+      pushFrame(currentWriting, submission.finalText ? "Current final version" : "Current draft", frames.at(-1)?.timeMs || firstEventTime);
     }
 
     finalizePlaybackFrameDelays(frames);
@@ -290,7 +290,7 @@
       frames.push({
         text: frameText,
         label,
-        timeMs: Number.isFinite(timeMs) ? timeMs : (frames[frames.length - 1]?.timeMs || firstEventTime),
+        timeMs: Number.isFinite(timeMs) ? timeMs : (frames.at(-1)?.timeMs || firstEventTime),
       });
     };
   }

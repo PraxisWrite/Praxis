@@ -7,7 +7,7 @@
 
 (function () {
   function renderAdminProcessRefreshStatus() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     if (ui.adminProcessRecomputeLoading) {
       return `<div style="padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fafaf8;margin-bottom:16px;color:var(--muted);font-size:0.84rem;">Updating writing process analytics in the background…</div>`;
     }
@@ -25,9 +25,9 @@
   }
 
   function renderAdminCefrBenchmarkPanel() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const CEFR_LEVELS = ['A0', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-    const BENCHMARKS = window.PraxisWritingProcess?.PRELIMINARY_COHORTS || {
+    const BENCHMARKS = globalThis.PraxisWritingProcess?.PRELIMINARY_COHORTS || {
       A0: { typingRate: [45, 115], longPauses: [18, 58], localRevisions: [2, 18], productProcessRatio: [0.62, 0.94], pasteShare: [0, 0.18] },
       A1: { typingRate: [55, 125], longPauses: [15, 52], localRevisions: [3, 20], productProcessRatio: [0.60, 0.94], pasteShare: [0, 0.18] },
       A2: { typingRate: [70, 145], longPauses: [10, 42], localRevisions: [4, 24], productProcessRatio: [0.58, 0.93], pasteShare: [0, 0.16] },
@@ -165,7 +165,7 @@
     `;
   }
   function renderAdminTeacherList() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const teachers = ui.adminTeachers || [];
     return `
       <section class="panel">
@@ -201,7 +201,7 @@
   }
 
   function renderAdminTeacherDetail() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const teacher = (ui.adminTeachers || []).find(t => t.id === ui.adminSelectedTeacherId);
     if (!teacher) return `<div class="empty-state"><p>Teacher not found.</p></div>`;
     return `
@@ -237,7 +237,7 @@
   }
 
   function renderAdminStudentFlagControls(member) {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const saving = ui.adminStudentFlagSavingId === member?.id;
     return `
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
@@ -259,8 +259,8 @@
     }
     const assignmentRecord = typeof assignment === "string" ? { title: assignment } : (assignment || {});
     const assignmentTitle = assignmentRecord.title || "Assignment";
-    if (window.PraxisWritingProcess?.analyzeSubmission) {
-      const analysis = window.PraxisWritingProcess.analyzeSubmission(submission, assignmentRecord);
+    if (globalThis.PraxisWritingProcess?.analyzeSubmission) {
+      const analysis = globalThis.PraxisWritingProcess.analyzeSubmission(submission, assignmentRecord);
       const metrics = analysis.metrics || {};
       const idleNote = Number(metrics.ignoredIdlePauseCount || 0) > 0
         ? `<span class="pill" title="Longer gaps over 2 minutes are treated as idle or away time.">${escapeHtml(String(metrics.ignoredIdlePauseCount))} idle gap${Number(metrics.ignoredIdlePauseCount) === 1 ? "" : "s"} ignored</span>`
@@ -428,7 +428,7 @@
   }
 
   function renderAdminClassDetail() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const detail = ui.adminClassDetail;
     if (!detail) return `<div class="empty-state"><p>Loading...</p></div>`;
     const teacher = (ui.adminTeachers || []).find(t => t.id === ui.adminSelectedTeacherId);
@@ -451,8 +451,8 @@
             <span style="font-weight:600;">${escapeHtml(assignment?.title || "Assignment")}</span>
           </div>
 
-          ${window.PraxisWritingProcess?.renderAdminDataQualityPanel
-            ? window.PraxisWritingProcess.renderAdminDataQualityPanel({
+          ${globalThis.PraxisWritingProcess?.renderAdminDataQualityPanel
+            ? globalThis.PraxisWritingProcess.renderAdminDataQualityPanel({
                 ...detail,
                 submissions: subs,
               }, escapeHtml)
@@ -490,8 +490,8 @@
         </div>
 
         <div style="margin-bottom:24px;">
-          ${window.PraxisWritingProcess?.renderAdminDataQualityPanel
-            ? window.PraxisWritingProcess.renderAdminDataQualityPanel(detail, escapeHtml)
+          ${globalThis.PraxisWritingProcess?.renderAdminDataQualityPanel
+            ? globalThis.PraxisWritingProcess.renderAdminDataQualityPanel(detail, escapeHtml)
             : ""}
           <p class="mini-label" style="margin-bottom:10px;">Assignments</p>
           ${(detail.assignments || []).length === 0
@@ -544,9 +544,9 @@
     renderAdminClassDetail,
   };
 
-  if (typeof window !== "undefined") {
-    window.AdminRender = AdminRender;
-    Object.assign(window, AdminRender);
+  if (globalThis.window !== undefined) {
+    globalThis.AdminRender = AdminRender;
+    Object.assign(globalThis, AdminRender);
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = AdminRender;

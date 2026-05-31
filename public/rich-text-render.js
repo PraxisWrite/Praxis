@@ -12,8 +12,8 @@
 
 (function () {
   function _escapeHtml(value) {
-    if (typeof window !== "undefined" && typeof window.escapeHtml === "function") {
-      return window.escapeHtml(value);
+    if (globalThis.window !== undefined && typeof globalThis.escapeHtml === "function") {
+      return globalThis.escapeHtml(value);
     }
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -45,7 +45,7 @@
   }
 
   function focusChatInput() {
-    if (typeof window === "undefined") return;
+    if (globalThis.window === undefined) return;
     window.requestAnimationFrame(() => {
       const textarea = document.getElementById("chat-input");
       if (!textarea) return;
@@ -98,7 +98,7 @@
     renderPromptFormattingToolbar,
   };
 
-  if (typeof window !== "undefined") {
+  if (globalThis.window !== undefined) {
     window.RichTextRender = RichTextRender;
     Object.entries(RichTextRender).forEach(([name, fn]) => {
       if (typeof window[name] !== "function") {

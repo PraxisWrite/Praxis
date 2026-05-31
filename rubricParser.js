@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('node:fs');
 const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 const fetch = require('node-fetch');

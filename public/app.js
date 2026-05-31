@@ -15,24 +15,24 @@ const {
   saveCustomErrorCodes,
   getErrorCodes,
   getErrorCodeLabel,
-} = window.AppConstants;
+} = globalThis.AppConstants;
 const {
   buildDeadlineTimeOptions,
   combineDeadlineParts,
   getDeadlineDatePart,
   getDeadlineTimePart,
-} = window.DeadlineUtils;
+} = globalThis.DeadlineUtils;
 const {
   loadStateSnapshot,
   persistStateSnapshot,
   safeReadJson,
-} = window.StorageUtils;
+} = globalThis.StorageUtils;
 const {
   getStudentFeedbackButtonState,
   getTeacherGenerateButtonState,
   parseJsonResponse,
   stringifyLinesWithMarkers,
-} = window.AiAssistUtils;
+} = globalThis.AiAssistUtils;
 const {
   createScoreBandsForPoints,
   getCriterionBands,
@@ -43,11 +43,11 @@ const {
   resetTeacherReviewForReopen,
   findClosestBand,
   buildCriterionAnalytics,
-} = window.ReviewUtils;
-const calculateTeacherReviewSummaryCore = window.ReviewUtils.calculateTeacherReviewSummary;
+} = globalThis.ReviewUtils;
+const calculateTeacherReviewSummaryCore = globalThis.ReviewUtils.calculateTeacherReviewSummary;
 const {
   getAdminClassDetailSignature,
-} = window.AdminUtils;
+} = globalThis.AdminUtils;
 
 // App state — now server-backed
 let currentProfile = null;
@@ -75,23 +75,23 @@ function getProfileScopedStorageKey(baseKey, profile = currentProfile) {
 function isAdminTeacherView() {
   return ui.role === "admin" && currentProfile?.role === "admin" && ui.adminViewingAsTeacher;
 }
-if (typeof window !== "undefined") window.isAdminTeacherView = isAdminTeacherView;
+if (globalThis.window !== undefined) globalThis.isAdminTeacherView = isAdminTeacherView;
 function isSubmissionDebugEnabled() {
   try {
-    return new URLSearchParams(window.location.search).get("debug") === "submission";
+    return new URLSearchParams(globalThis.location.search).get("debug") === "submission";
   } catch (_) {
     return false;
   }
 }
-if (typeof window !== "undefined") window.isSubmissionDebugEnabled = isSubmissionDebugEnabled;
+if (globalThis.window !== undefined) globalThis.isSubmissionDebugEnabled = isSubmissionDebugEnabled;
 function isEmailDebugEnabled() {
   try {
-    return new URLSearchParams(window.location.search).get("debug") === "email";
+    return new URLSearchParams(globalThis.location.search).get("debug") === "email";
   } catch (_) {
     return false;
   }
 }
-if (typeof window !== "undefined") window.isEmailDebugEnabled = isEmailDebugEnabled;
+if (globalThis.window !== undefined) globalThis.isEmailDebugEnabled = isEmailDebugEnabled;
 const ui = {
   role: "student",
   activeUserId: "",
@@ -169,8 +169,8 @@ const authUiState = {
   signupRole: "student",
 };
 
-if (typeof window !== "undefined") {
-  window.AppState = {
+if (globalThis.window !== undefined) {
+  globalThis.AppState = {
     get ui() { return ui; },
     get state() { return state; },
     get currentProfile() { return currentProfile; },
@@ -186,7 +186,7 @@ if (typeof window !== "undefined") {
 
 function loadActiveClassPreferences() {
   try {
-    return JSON.parse(window.localStorage.getItem(ACTIVE_CLASS_KEY) || "{}") || {};
+    return JSON.parse(globalThis.localStorage.getItem(ACTIVE_CLASS_KEY) || "{}") || {};
   } catch (_) {
     return {};
   }
@@ -194,7 +194,7 @@ function loadActiveClassPreferences() {
 
 function saveActiveClassPreferences(preferences) {
   try {
-    window.localStorage.setItem(ACTIVE_CLASS_KEY, JSON.stringify(preferences || {}));
+    globalThis.localStorage.setItem(ACTIVE_CLASS_KEY, JSON.stringify(preferences || {}));
   } catch (_) {
     // Ignore localStorage write failures and keep the app usable.
   }
@@ -202,7 +202,7 @@ function saveActiveClassPreferences(preferences) {
 
 function loadActiveStudentAssignmentPreferences() {
   try {
-    return JSON.parse(window.localStorage.getItem(ACTIVE_STUDENT_ASSIGNMENT_KEY) || "{}") || {};
+    return JSON.parse(globalThis.localStorage.getItem(ACTIVE_STUDENT_ASSIGNMENT_KEY) || "{}") || {};
   } catch (_) {
     return {};
   }
@@ -210,7 +210,7 @@ function loadActiveStudentAssignmentPreferences() {
 
 function saveActiveStudentAssignmentPreferences(preferences) {
   try {
-    window.localStorage.setItem(ACTIVE_STUDENT_ASSIGNMENT_KEY, JSON.stringify(preferences || {}));
+    globalThis.localStorage.setItem(ACTIVE_STUDENT_ASSIGNMENT_KEY, JSON.stringify(preferences || {}));
   } catch (_) {
     // Ignore localStorage write failures and keep the app usable.
   }
@@ -227,7 +227,7 @@ function getSavedStudentAssignmentId(profile = currentProfile, classId = current
   const preferences = loadActiveStudentAssignmentPreferences();
   return preferences[key] || null;
 }
-window.getSavedStudentAssignmentId = getSavedStudentAssignmentId;
+globalThis.getSavedStudentAssignmentId = getSavedStudentAssignmentId;
 
 function saveStudentAssignmentId(assignmentId, profile = currentProfile, classId = currentClassId) {
   const key = getStudentAssignmentPreferenceKey(profile, classId);
@@ -240,7 +240,7 @@ function saveStudentAssignmentId(assignmentId, profile = currentProfile, classId
   }
   saveActiveStudentAssignmentPreferences(preferences);
 }
-window.saveStudentAssignmentId = saveStudentAssignmentId;
+globalThis.saveStudentAssignmentId = saveStudentAssignmentId;
 
 function getActiveClassPreferenceKey(profile = currentProfile) {
   if (!profile?.id || !profile?.role) return "";
@@ -318,7 +318,7 @@ async function resolveTeacherStartingClass(profile, classes) {
   }
 
   const assignmentResults = await Promise.allSettled(
-    classes.map((cls) => window.ApiService.loadClassAssignments(cls.id))
+    classes.map((cls) => globalThis.ApiService.loadClassAssignments(cls.id))
   );
   const classAssignments = assignmentResults.map((result) => (
     result.status === "fulfilled" ? safeArray(result.value) : []
@@ -375,7 +375,7 @@ function normalizeRubricLibraryEntry(entry = {}) {
 function getSavedRubricLibrary() {
   const fromStorage = (() => {
     try {
-      const stored = JSON.parse(window.localStorage.getItem(RUBRIC_LIBRARY_KEY) || "[]");
+      const stored = JSON.parse(globalThis.localStorage.getItem(RUBRIC_LIBRARY_KEY) || "[]");
       return safeArray(stored).map(normalizeRubricLibraryEntry).filter(Boolean);
     } catch (error) {
       return [];
@@ -405,7 +405,7 @@ function getSavedRubricLibrary() {
 
   return Array.from(deduped.values()).sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
 }
-window.getSavedRubricLibrary = getSavedRubricLibrary;
+globalThis.getSavedRubricLibrary = getSavedRubricLibrary;
 
 function saveRubricToLibrary(name, text, data = null, schema = null) {
   const normalized = normalizeRubricLibraryEntry({ name, text, data, schema, source: "upload" });
@@ -414,18 +414,18 @@ function saveRubricToLibrary(name, text, data = null, schema = null) {
   const existing = getSavedRubricLibrary().filter((entry) => entry.source === "upload");
   const withoutDuplicate = existing.filter((entry) => rubricLibraryDedupKey(entry) !== rubricLibraryDedupKey(normalized));
   const next = [normalized, ...withoutDuplicate].slice(0, 25);
-  window.localStorage.setItem(RUBRIC_LIBRARY_KEY, JSON.stringify(next));
+  globalThis.localStorage.setItem(RUBRIC_LIBRARY_KEY, JSON.stringify(next));
 }
 
 function removeSavedRubricFromLibrary(rubricId) {
   try {
-    const stored = safeArray(JSON.parse(window.localStorage.getItem(RUBRIC_LIBRARY_KEY) || "[]"))
+    const stored = safeArray(JSON.parse(globalThis.localStorage.getItem(RUBRIC_LIBRARY_KEY) || "[]"))
       .map(normalizeRubricLibraryEntry)
       .filter(Boolean);
     const next = stored.filter((entry) => entry.id !== rubricId);
-    window.localStorage.setItem(RUBRIC_LIBRARY_KEY, JSON.stringify(next));
+    globalThis.localStorage.setItem(RUBRIC_LIBRARY_KEY, JSON.stringify(next));
   } catch (error) {
-    window.localStorage.setItem(RUBRIC_LIBRARY_KEY, "[]");
+    globalThis.localStorage.setItem(RUBRIC_LIBRARY_KEY, "[]");
   }
 }
 
@@ -520,7 +520,7 @@ function getTeacherAssignmentSaveLabel() {
   if (ui.assignmentSaving) return "Saving...";
   return ui.editingAssignmentId ? "Update assignment" : "Save assignment";
 }
-window.getTeacherAssignmentSaveLabel = getTeacherAssignmentSaveLabel;
+globalThis.getTeacherAssignmentSaveLabel = getTeacherAssignmentSaveLabel;
 
 function syncTeacherAssignmentSaveButtons() {
   const saveReady = isTeacherAssignmentSaveReady();
@@ -559,7 +559,7 @@ function getRemainingStudentFeedbackChecks(assignment, submission) {
     remaining: Math.max(0, limit - used),
   };
 }
-if (typeof window !== "undefined") window.getRemainingStudentFeedbackChecks = getRemainingStudentFeedbackChecks;
+if (globalThis.window !== undefined) globalThis.getRemainingStudentFeedbackChecks = getRemainingStudentFeedbackChecks;
 function shouldPromptForFinalDraftFeedback(assignment, submission) {
   const { remaining } = getRemainingStudentFeedbackChecks(assignment, submission);
   return remaining > 0 && !ui.draftFeedbackLoading;
@@ -622,16 +622,16 @@ function inferTeacherBriefSettings(text = "") {
 
   return inferred;
 }
-if (typeof window !== "undefined") window.inferTeacherBriefSettings = inferTeacherBriefSettings;
+if (globalThis.window !== undefined) globalThis.inferTeacherBriefSettings = inferTeacherBriefSettings;
 
 function isChatDisabled(config = {}) {
   return Boolean(config?.disableChatbot) || Number(config?.chatTimeLimit ?? 0) < 0;
 }
-if (typeof window !== "undefined") window.isChatDisabled = isChatDisabled;
+if (globalThis.window !== undefined) globalThis.isChatDisabled = isChatDisabled;
 function getVisibleChatTimeLimit(config = {}) {
   return isChatDisabled(config) ? 0 : Number(config?.chatTimeLimit ?? 0);
 }
-window.getVisibleChatTimeLimit = getVisibleChatTimeLimit;
+globalThis.getVisibleChatTimeLimit = getVisibleChatTimeLimit;
 
 function assignmentUsesSingleParagraph(assignment = {}) {
   const haystack = `${assignment?.title || ""} ${assignment?.brief || ""} ${assignment?.prompt || ""}`.toLowerCase();
@@ -693,7 +693,7 @@ function isChatSessionExpired(assignment, submission) {
   const elapsedMs = getActiveChatElapsedMs(assignment, submission);
   return Number.isFinite(elapsedMs) && elapsedMs >= timeLimit * 60000;
 }
-if (typeof window !== "undefined") window.isChatSessionExpired = isChatSessionExpired;
+if (globalThis.window !== undefined) globalThis.isChatSessionExpired = isChatSessionExpired;
 function getAssignmentRubricType(assignment) {
   if (assignment?.rubricType) return assignment.rubricType;
   if (assignment?.uploadedRubricSchema || safeArray(assignment?.rubricSchema?.criteria).length || safeArray(assignment?.rubric?.criteria).length) return "matrix";
@@ -727,7 +727,7 @@ function createDefaultTeacherReview(review = {}) {
   }
   return base;
 }
-if (typeof window !== "undefined") window.createDefaultTeacherReview = createDefaultTeacherReview;
+if (globalThis.window !== undefined) globalThis.createDefaultTeacherReview = createDefaultTeacherReview;
 
 // Captures just the student-visible fields of a teacher review as the published grade.
 function snapshotPublishedReview(review = {}) {
@@ -765,7 +765,7 @@ function calculateTeacherReviewSummary(assignment, submission, rowScores = submi
 async function syncTeacherReviewToServer(submission) {
   if (!submission?.id || String(submission.id).startsWith("submission-")) return;
   try {
-    await window.ApiService.patchSubmission(submission.id, {
+    await globalThis.ApiService.patchSubmission(submission.id, {
       teacher_review: submission.teacherReview,
     });
   } catch (error) {
@@ -774,7 +774,7 @@ async function syncTeacherReviewToServer(submission) {
 }
 
 async function upsertTeacherReviewSubmission(assignment, submission) {
-  return window.ApiService.saveTeacherReviewSubmission(assignment, submission);
+  return globalThis.ApiService.saveTeacherReviewSubmission(assignment, submission);
 }
 
 function replaceSubmissionInState(nextSubmission) {
@@ -803,7 +803,7 @@ function getTeacherReviewRowsForExport(assignment, submission) {
     };
   });
 }
-if (typeof window !== "undefined") window.getTeacherReviewRowsForExport = getTeacherReviewRowsForExport;
+if (globalThis.window !== undefined) globalThis.getTeacherReviewRowsForExport = getTeacherReviewRowsForExport;
 function getSubmissionStudentName(submission) {
   const studentId = submission?.studentId || submission?.student_id || "";
   return String(
@@ -894,11 +894,11 @@ async function copyLmsGradeToClipboard(assignment, submission) {
 function stopPlayback() {
   ui.playback.isPlaying = false;
   if (ui.playback.timerId) {
-    window.clearTimeout(ui.playback.timerId);
+    globalThis.clearTimeout(ui.playback.timerId);
     ui.playback.timerId = null;
   }
 }
-window.stopPlayback = stopPlayback;
+globalThis.stopPlayback = stopPlayback;
 
 let appEl = null;
 
@@ -925,23 +925,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;"><p>Loading...</p></div>`;
 
   try {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(globalThis.location.search);
     const joinClassId = params.get('join');
     const isResetFlow = params.get('reset') === '1';
     let inviteInfo = null;
     if (joinClassId) inviteInfo = await Auth.getInviteInfo(joinClassId);
     await Auth.consumeRecoverySessionFromUrl();
     if (isResetFlow) {
-      window.AccountSecurity.renderResetPasswordScreen({
+      globalThis.AccountSecurity.renderResetPasswordScreen({
         appEl,
         productName: PRODUCT_NAME,
         auth: Auth,
         onBeforeRender: stopTeacherReviewPolling,
         onCancel: () => {
-          window.location.href = "/";
+          globalThis.location.href = "/";
         },
         onSuccess: () => {
-          window.history.replaceState({}, "", "/");
+          globalThis.history.replaceState({}, "", "/");
           renderAuthScreen();
         },
       });
@@ -1056,7 +1056,7 @@ async function bootApp(profile) {
   }
   render();
 }
-if (typeof window !== "undefined") window.bootApp = bootApp;
+if (globalThis.window !== undefined) globalThis.bootApp = bootApp;
 
 async function bootTeacherWorkspace(profile) {
   state.assignments = [];
@@ -1193,7 +1193,7 @@ async function refreshAdminClassDetail({ keepNotice = false, silent = false } = 
 
 function stopAdminClassPolling() {
   if (adminClassRefreshTimer) {
-    window.clearInterval(adminClassRefreshTimer);
+    globalThis.clearInterval(adminClassRefreshTimer);
     adminClassRefreshTimer = null;
   }
 }
@@ -1233,7 +1233,7 @@ function syncAdminClassPolling() {
     return;
   }
 
-  adminClassRefreshTimer = window.setInterval(() => {
+  adminClassRefreshTimer = globalThis.setInterval(() => {
     refreshAdminClassDetailIfChanged().catch((error) => {
       console.error("Could not refresh admin class data:", error);
     });
@@ -1607,11 +1607,11 @@ async function loadReviewDataForAssignment(assignmentId) {
 
 function stopTeacherReviewPolling() {
   if (reviewRefreshTimer) {
-    window.clearInterval(reviewRefreshTimer);
+    globalThis.clearInterval(reviewRefreshTimer);
     reviewRefreshTimer = null;
   }
 }
-if (typeof window !== "undefined") window.stopTeacherReviewPolling = stopTeacherReviewPolling;
+if (globalThis.window !== undefined) globalThis.stopTeacherReviewPolling = stopTeacherReviewPolling;
 
 function getReviewRefreshSignature(submissions = []) {
   return safeArray(submissions)
@@ -1654,7 +1654,7 @@ function syncTeacherReviewPolling() {
     return;
   }
 
-  reviewRefreshTimer = window.setInterval(() => {
+  reviewRefreshTimer = globalThis.setInterval(() => {
     refreshTeacherReviewData().catch((error) => {
       console.error("Could not refresh teacher review data:", error);
     });
@@ -1695,7 +1695,7 @@ function getActiveChatElapsedMs(assignment, submission) {
   if (!resumedAt || Number.isNaN(resumedAt)) return accumulated;
   return accumulated + Math.max(0, Date.now() - resumedAt);
 }
-if (typeof window !== "undefined") window.getActiveChatElapsedMs = getActiveChatElapsedMs;
+if (globalThis.window !== undefined) globalThis.getActiveChatElapsedMs = getActiveChatElapsedMs;
 function pauseActiveChatSession() {
   const assignment = getStudentAssignment();
   const submission = getStudentSubmission();
@@ -1721,7 +1721,7 @@ function resumeActiveChatSession() {
     persistState();
   }
 }
-if (typeof window !== "undefined") window.resumeActiveChatSession = resumeActiveChatSession;
+if (globalThis.window !== undefined) globalThis.resumeActiveChatSession = resumeActiveChatSession;
 function bindLifecycleEvents() {
   if (lifecycleEventsBound) return;
   lifecycleEventsBound = true;
@@ -1734,11 +1734,11 @@ function bindLifecycleEvents() {
       render();
     }
   });
-  window.addEventListener("pagehide", () => {
+  globalThis.addEventListener("pagehide", () => {
     pauseActiveChatSession();
     flushCurrentStudentWork({ preferKeepalive: true });
   });
-  window.addEventListener("beforeunload", () => {
+  globalThis.addEventListener("beforeunload", () => {
     pauseActiveChatSession();
     flushCurrentStudentWork({ preferKeepalive: true });
   });
@@ -1752,8 +1752,8 @@ function bindLifecycleEvents() {
       });
     }
   });
-  window.addEventListener("pageshow", async () => {
-    const params = new URLSearchParams(window.location.search);
+  globalThis.addEventListener("pageshow", async () => {
+    const params = new URLSearchParams(globalThis.location.search);
     const joinClassId = params.get('join');
     const inviteInfo = joinClassId ? await Auth.getInviteInfo(joinClassId) : null;
     const profile = await Auth.restoreSession();
@@ -1893,7 +1893,7 @@ async function syncSubmissionToServerWithRetry(submission) {
   let saved = false;
   for (let attempt = 0; attempt < delays.length; attempt += 1) {
     if (delays[attempt] > 0) {
-      await new Promise((resolve) => window.setTimeout(resolve, delays[attempt]));
+      await new Promise((resolve) => globalThis.setTimeout(resolve, delays[attempt]));
     }
     const latest = getSubmissionBySyncKey(getSubmissionSyncKey(initialTarget)) || initialTarget;
     saved = await syncSubmissionToServer(latest);
@@ -2299,7 +2299,7 @@ if (action === "generate-teacher-assist") {
     const submission = getSelectedReviewSubmission();
     if (!submission) return;
     const code = target.dataset.code;
-    const selection = window.getSelection();
+    const selection = globalThis.getSelection();
     const selectedText = selection ? selection.toString().trim() : "";
     const annotationText = selectedText || ui.lastAnnotationSelection || "";
     if (!annotationText) {
@@ -2424,7 +2424,7 @@ if (action === "generate-teacher-assist") {
       ? "Draft saved. Your draft has been copied into the final version box."
       : "We couldn't save to the server just now. Your work is still on this device and you can keep going.";
     render();
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       document.querySelector(".wizard-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     return;
@@ -2545,7 +2545,7 @@ if (action === "switch-class") {
     if (!currentClassId) return;
     const studentId = target.dataset.studentId;
     const studentName = target.dataset.studentName || "this student";
-    if (!studentId || !window.confirm(`Remove ${studentName} from this class?`)) return;
+    if (!studentId || !globalThis.confirm(`Remove ${studentName} from this class?`)) return;
     try {
       await globalThis.ApiService.removeClassMember(currentClassId, studentId);
       await loadTeacherClassContext(currentClassId);
@@ -2597,7 +2597,7 @@ if (action === "switch-class") {
     const studentId = target.dataset.studentId;
     const currentName = target.dataset.studentName || "Student";
     if (!studentId) return;
-    const nextName = window.prompt("Edit student name", currentName);
+    const nextName = globalThis.prompt("Edit student name", currentName);
     if (nextName === null) return;
     const trimmed = nextName.trim();
     if (!trimmed) {
@@ -2628,7 +2628,7 @@ if (action === "switch-class") {
     if (!currentClassId) { alert("Select a class first."); return; }
     const currentClass = currentClasses.find(c => c.id === currentClassId);
     const className = currentClass?.name || "your class";
-    const appUrl = window.location.origin;
+    const appUrl = globalThis.location.origin;
     const subject = encodeURIComponent(`You have been invited to join ${className} on ${PRODUCT_NAME}`);
     const body = encodeURIComponent(`Hello,\n\nYou have been invited to join ${className} on ${PRODUCT_NAME}.\n\nTo get started:\n1. Go to ${appUrl}\n2. Click "Create account"\n3. Sign up with this email address as a student\n4. Your teacher will then add you to the class\n\nSee you there!`);
     const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
@@ -2790,12 +2790,12 @@ if (action === "sign-out") {
   if (action === "account-security-change-password") {
     ui.showPasswordModal = true;
     render();
-    window.requestAnimationFrame(() => document.getElementById("account-password-input")?.focus());
+    globalThis.requestAnimationFrame(() => document.getElementById("account-password-input")?.focus());
     return;
   }
 
   if (action === "account-security-dismiss") {
-    window.AccountSecurity?.dismissUpgradePrompt(currentProfile);
+    globalThis.AccountSecurity?.dismissUpgradePrompt(currentProfile);
     await refreshWorkspaceAfterAccountSecurity();
     return;
   }
@@ -2812,7 +2812,7 @@ if (action === "sign-out") {
     const errEl = document.getElementById("account-password-error");
     const password = passwordInput?.value || "";
     const confirm = confirmInput?.value || "";
-    const validation = window.AccountSecurity?.validatePasswordPair(password, confirm) || { ok: false, message: "Password could not be checked." };
+    const validation = globalThis.AccountSecurity?.validatePasswordPair(password, confirm) || { ok: false, message: "Password could not be checked." };
     if (errEl) {
       errEl.style.display = "none";
     }
@@ -2825,7 +2825,7 @@ if (action === "sign-out") {
     }
     try {
       await Auth.updatePassword(password);
-      window.AccountSecurity?.markPasswordUpdated(currentProfile);
+      globalThis.AccountSecurity?.markPasswordUpdated(currentProfile);
       ui.showPasswordModal = false;
       ui.notice = "Password updated.";
       await refreshWorkspaceAfterAccountSecurity();
@@ -2919,7 +2919,7 @@ if (action === "sign-out") {
     populateTeacherDraftFromAssignment(assignment);
     ui.notice = "Assignment loaded into the editor. Update the details and save when you are ready.";
     render();
-    window.setTimeout(() => {
+    globalThis.setTimeout(() => {
       document.getElementById("teacher-rubric-upload")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 40);
     return;
@@ -2985,7 +2985,7 @@ if (action === "sign-out") {
     ui.notice = newStatus === "published" ? "Publishing assignment..." : "Moving assignment back to draft...";
     render();
     try {
-      await window.ApiService.setAssignmentStatus(assignmentId, newStatus);
+      await globalThis.ApiService.setAssignmentStatus(assignmentId, newStatus);
       await loadTeacherClassContext(currentClassId);
       ui.selectedAssignmentId = assignmentId;
       ui.notice = newStatus === "published"
@@ -3011,7 +3011,7 @@ if (action === "delete-class") {
     const assignmentId = target.dataset.assignmentId;
     if (!confirm("Delete this assignment? It is removed from your dashboard along with its submissions. Student writing data is archived for research and cannot be restored to your view. This cannot be undone.")) return;
     try {
-  	  await window.ApiService.deleteAssignment(assignmentId);
+  	  await globalThis.ApiService.deleteAssignment(assignmentId);
 	} catch (error) {
       ui.notice = `Could not delete assignment: ${error.message}`;
       render();
@@ -3427,7 +3427,7 @@ if (action === "select-assignment") {
         ui.gradeSuggestionLoading = false;
         persistState();
         render();
-        window.requestAnimationFrame(() => {
+        globalThis.requestAnimationFrame(() => {
           document.getElementById("suggested-grade-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
         });
       });
@@ -3498,7 +3498,7 @@ if (action === "select-assignment") {
     persistState();
     scheduleTeacherReviewSync(submission);
     render();
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       const submitBtn = document.querySelector('[data-action="save-teacher-review"]');
       if (submitBtn) submitBtn.scrollIntoView({ behavior: "smooth", block: "center" });
     });
@@ -3553,9 +3553,9 @@ if (action === "select-assignment") {
     if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
     persistState();
     scheduleTeacherReviewSync(submission);
-    const scrollYBeforeRender = window.scrollY;
+    const scrollYBeforeRender = globalThis.scrollY;
     render();
-    window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
+    globalThis.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
     scrollToNextRubricCriterionMobile(criterion.id);
     return;
   }
@@ -3583,9 +3583,9 @@ if (action === "select-assignment") {
     if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
     persistState();
     scheduleTeacherReviewSync(submission);
-    const scrollYBeforeRender = window.scrollY;
+    const scrollYBeforeRender = globalThis.scrollY;
     render();
-    window.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
+    globalThis.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
     return;
   }
 
@@ -4130,7 +4130,7 @@ function render() {
     stopTeacherReviewPolling();
     stopAdminClassPolling();
     resetAppShellState();
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(globalThis.location.search);
     renderAuthScreen(params.get("join"));
     return;
   }
@@ -4142,10 +4142,10 @@ function render() {
     <div class="app-shell">
       ${renderTopbar()}
       ${ui.notice ? `<div class="notice notice-dismissable"><span class="notice-text">${escapeHtml(ui.notice)}</span><button type="button" class="notice-dismiss" data-action="dismiss-notice" aria-label="Dismiss message">×</button></div>` : ""}
-      ${window.AccountSecurity?.renderUpgradeBanner(currentProfile) || ""}
+      ${globalThis.AccountSecurity?.renderUpgradeBanner(currentProfile) || ""}
       ${ui.role === "admin" && !isAdminTeacherView() ? renderAdminWorkspace() : ui.role === "teacher" || isAdminTeacherView() ? renderTeacherWorkspace() : renderStudentWorkspace()}
     </div>
-  ` + renderInvitePanel() + renderPasteWarning() + renderClassModal() + renderDraftFeedbackModal() + renderReopenSubmissionModal() + (window.AccountSecurity?.renderChangePasswordModal(ui.showPasswordModal) || "");
+  ` + renderInvitePanel() + renderPasteWarning() + renderClassModal() + renderDraftFeedbackModal() + renderReopenSubmissionModal() + (globalThis.AccountSecurity?.renderChangePasswordModal(ui.showPasswordModal) || "");
 
   // Start chat timer if student is on step 1 and there's a time limit
   if (ui.role === "student" && ui.studentStep === 1) {
@@ -4154,7 +4154,7 @@ function render() {
     if (assignment?.chatTimeLimit > 0 && submission?.chatStartedAt) {
       startChatTimer();
     }
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       const win = document.getElementById("chatbot-window");
       if (win) {
         win.scrollTop = win.scrollHeight;
@@ -4162,11 +4162,11 @@ function render() {
     });
   }
 
-  window.requestAnimationFrame(() => {
+  globalThis.requestAnimationFrame(() => {
     refreshAllLineNumberGutters();
   });
 
-  window.requestAnimationFrame(() => {
+  globalThis.requestAnimationFrame(() => {
     document.querySelectorAll("#draft-editor, #final-editor, [data-outline-field]").forEach(el => {
       if (!el || el.dataset.keystrokeListenerAttached) return;
       el.addEventListener("keydown", () => {
@@ -4181,18 +4181,18 @@ function render() {
   syncAdminClassPolling();
 }
 
-window.handleRubricDrop = async (event) => {
+globalThis.handleRubricDrop = async (event) => {
   event.preventDefault();
   const file = event.dataTransfer.files[0];
   if (file) await uploadRubricFile(file);
   document.getElementById('rubric-drop-zone').style.borderColor = 'var(--line)';
 };
 
-window.handleRubricFile = async (file) => {
+globalThis.handleRubricFile = async (file) => {
   if (file) await uploadRubricFile(file);
 };
 
-window.clearUploadedRubric = () => {
+globalThis.clearUploadedRubric = () => {
   ui.teacherDraft.uploadedRubricText = '';
   ui.teacherDraft.uploadedRubricName = '';
   ui.teacherDraft.uploadedRubricData = null;
@@ -4443,7 +4443,7 @@ async function saveTeacherAssignment() {
   }
   currentClassId = selectedClassId;
 
-  const savedAssignment = await window.ApiService.saveAssignment(
+  const savedAssignment = await globalThis.ApiService.saveAssignment(
   selectedClassId,
   assignment,
   editingAssignment?.id || null
@@ -4464,7 +4464,7 @@ const savedAssignmentId = savedAssignment?.id || null;
   ui.assignmentSaving = false;
   render();
   if (savedAssignmentId && !editingAssignment) {
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       document.getElementById(`assignment-card-${savedAssignmentId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }
@@ -4479,7 +4479,7 @@ const savedAssignmentId = savedAssignment?.id || null;
 }
 
 // Expose for proxy buttons in teacher-assignment-choice.js
-window.saveCurrentTeacherAssignment = saveTeacherAssignment;
+globalThis.saveCurrentTeacherAssignment = saveTeacherAssignment;
 
 async function handleIdeaRequest() {
   const assignment = getStudentAssignment();
@@ -4574,7 +4574,7 @@ async function handleFeedbackRequest() {
     ui.draftFeedbackLoading = false;
     render();
     if (shouldScrollToFeedbackNotice) {
-      window.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(() => {
         document.querySelector(".wizard-card .notice")?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     }
@@ -4593,7 +4593,6 @@ function getRenderableDraftFeedbackEntries(assignment, submission) {
   if (history.length) {
     return history;
   }
-if (typeof window !== "undefined") window.getRenderableDraftFeedbackEntries = getRenderableDraftFeedbackEntries;
   const latestItems = safeArray(ui.latestDraftFeedbackByAssignmentId?.[assignment?.id])
     .map((item) => String(item || "").trim())
     .filter(Boolean);
@@ -4607,6 +4606,7 @@ if (typeof window !== "undefined") window.getRenderableDraftFeedbackEntries = ge
     items: latestItems,
   }];
 }
+if (globalThis.window !== undefined) globalThis.getRenderableDraftFeedbackEntries = getRenderableDraftFeedbackEntries;
 
 async function handleSubmission() {
   if (ui.studentSubmitting) {
@@ -4672,7 +4672,7 @@ async function handleSubmission() {
         ui.studentSubmitting = false;
         ui.notice = "Submission failed. Your writing was saved, but it was not sent to your teacher. Please try Submit again.";
         render();
-        window.requestAnimationFrame(() => {
+        globalThis.requestAnimationFrame(() => {
           document.getElementById("submitted-confirmation")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
         });
         return;
@@ -4689,7 +4689,7 @@ async function handleSubmission() {
       setDraftSaveMessage("Submitted successfully.");
       persistState();
       render();
-      window.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(() => {
         document.getElementById("submitted-confirmation")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     })
@@ -4704,7 +4704,7 @@ async function handleSubmission() {
       ui.studentSubmitting = false;
       ui.notice = "Submission failed. Your writing was saved, but it was not sent to your teacher. Please try Submit again.";
       render();
-      window.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(() => {
         document.getElementById("submitted-confirmation")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     });
@@ -4738,7 +4738,7 @@ function scheduleKeystrokeFlush() {
 }
 
 function buildProcessWritingEvent(previousText, nextText, { phase = "draft", field = "" } = {}) {
-  const creator = window.PraxisWritingProcess?.createWritingEvent;
+  const creator = globalThis.PraxisWritingProcess?.createWritingEvent;
   if (creator) {
     return creator({
       previousText,
@@ -4910,13 +4910,13 @@ function getWritingTimeSummary(submission) {
     finalWords,
   };
 }
-window.getWritingTimeSummary = getWritingTimeSummary;
+globalThis.getWritingTimeSummary = getWritingTimeSummary;
 
 function calculateMeanBurstLength(submission) {
   const events = safeArray(submission?.writingEvents);
   if (!events.length) return 0;
-  const minPauseMs = window.PraxisWritingProcess?.LONG_PAUSE_MIN_MS || 2000;
-  const maxThinkingPauseMs = window.PraxisWritingProcess?.THINKING_PAUSE_MAX_MS || 120000;
+  const minPauseMs = globalThis.PraxisWritingProcess?.LONG_PAUSE_MIN_MS || 2000;
+  const maxThinkingPauseMs = globalThis.PraxisWritingProcess?.THINKING_PAUSE_MAX_MS || 120000;
   const pauses = safeArray(submission?.keystrokeLog).map(e => e.gap);
   if (!pauses.length) {
     const insertEvents = events.filter(e => e.type === "insert" && e.insertedText);
@@ -4934,8 +4934,8 @@ function calculateMeanBurstLength(submission) {
 }
 
 function calculatePauseFrequency(submission) {
-  const minPauseMs = window.PraxisWritingProcess?.LONG_PAUSE_MIN_MS || 2000;
-  const maxThinkingPauseMs = window.PraxisWritingProcess?.THINKING_PAUSE_MAX_MS || 120000;
+  const minPauseMs = globalThis.PraxisWritingProcess?.LONG_PAUSE_MIN_MS || 2000;
+  const maxThinkingPauseMs = globalThis.PraxisWritingProcess?.THINKING_PAUSE_MAX_MS || 120000;
   const pauses = safeArray(submission?.keystrokeLog).filter(e => e.gap >= minPauseMs && e.gap <= maxThinkingPauseMs);
   const finalText = submission?.finalText || submission?.draftText || "";
   const words = wordCount(finalText);
@@ -5770,7 +5770,7 @@ function getAnnotationDisplayLabel(annotation, index = null) {
   const code = String(annotation?.code || "NOTE").trim() || "NOTE";
   return Number.isInteger(index) ? `${code} ${index + 1}` : code;
 }
-if (typeof window !== "undefined") window.getAnnotationDisplayLabel = getAnnotationDisplayLabel;
+if (globalThis.window !== undefined) window.getAnnotationDisplayLabel = getAnnotationDisplayLabel;
 function getSubmissionReviewText(submission) {
   return String(submission?.finalText || submission?.draftText || "");
 }
@@ -6011,7 +6011,7 @@ ${chatLines || "<p><em>No conversation recorded.</em></p>"}
   a.download = `${(assignment.title || "assignment").replace(/\s+/g, "-")}-${studentName.replace(/\s+/g, "-")}-${className.replace(/\s+/g, "-")}-${dateStr}-grade-sheet.html`;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
+  a.remove();
  URL.revokeObjectURL(url);
 }
 
@@ -6081,12 +6081,12 @@ function getOutlineFields(assignment, submission) {
     values: outline,
   };
 }
-if (typeof window !== "undefined") window.getOutlineFields = getOutlineFields;
+if (globalThis.window !== undefined) window.getOutlineFields = getOutlineFields;
 function isOutlineComplete(submission, assignment) {
   const config = getOutlineFields(assignment, submission);
   return config.fields.every((field) => String(submission.outline?.[field.key] || "").trim());
 }
-if (typeof window !== "undefined") window.isOutlineComplete = isOutlineComplete;
+if (globalThis.window !== undefined) window.isOutlineComplete = isOutlineComplete;
 function gradeSubmission(assignment, submission) {
   const rubric = assignment.rubric.length ? assignment.rubric : rubricForType(assignment.assignmentType);
   const metrics = computeProcessMetrics(assignment, submission);
@@ -6819,7 +6819,7 @@ function persistState() {
     ui.notice = "Local backup storage is nearly full. praxis saved a smaller backup on this device.";
   }
 }
-if (typeof window !== "undefined") window.persistState = persistState;
+if (globalThis.window !== undefined) window.persistState = persistState;
 function getStudentUsers() {
   return state.users.filter((user) => user.role === "student");
 }
@@ -6827,7 +6827,7 @@ function getStudentUsers() {
 function getUserById(id) {
   return state.users.find((user) => user.id === id) || null;
 }
-if (typeof window !== "undefined") window.getUserById = getUserById;
+if (globalThis.window !== undefined) window.getUserById = getUserById;
 function updateStudentDisplayName(studentId, nextName) {
   const name = String(nextName || "").trim();
   if (!studentId || !name) return;
@@ -6857,10 +6857,10 @@ function getLineMeasureContext() {
 function getElementLineWrapMetrics(element) {
   if (!element) return null;
   const style = window.getComputedStyle(element);
-  const fontSize = parseFloat(style.fontSize || "16") || 16;
-  const lineHeight = parseFloat(style.lineHeight) || (fontSize * 1.65);
-  const paddingLeft = parseFloat(style.paddingLeft || "0") || 0;
-  const paddingRight = parseFloat(style.paddingRight || "0") || 0;
+  const fontSize = Number.parseFloat(style.fontSize || "16") || 16;
+  const lineHeight = Number.parseFloat(style.lineHeight) || (fontSize * 1.65);
+  const paddingLeft = Number.parseFloat(style.paddingLeft || "0") || 0;
+  const paddingRight = Number.parseFloat(style.paddingRight || "0") || 0;
   const availableWidth = Math.max(80, element.clientWidth - paddingLeft - paddingRight);
   return {
     font: style.font || `${style.fontWeight || "400"} ${fontSize}px ${style.fontFamily || "sans-serif"}`,
@@ -6926,7 +6926,7 @@ function extractKeywords(text) {
   }
   return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([word]) => word);
 }
-if (typeof window !== "undefined") window.extractKeywords = extractKeywords;
+if (globalThis.window !== undefined) window.extractKeywords = extractKeywords;
 
 
 function renderProductWordmark(tagName = "span", className = "") {

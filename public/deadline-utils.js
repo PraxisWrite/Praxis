@@ -7,7 +7,7 @@
     module.exports = utils;
   }
 })(
-  typeof window === "undefined" ? globalThis : window,
+  globalThis,
   function deadlineUtilsFactory() {
   function getDeadlineDatePart(value) {
     return value ? String(value).slice(0, 10) : "";

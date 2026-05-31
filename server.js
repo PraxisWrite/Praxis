@@ -1,5 +1,5 @@
 require('dotenv').config();
-const path = require('path');
+const path = require('node:path');
 const express = require('express');
 const compression = require('compression');
 const crypto = require('node:crypto');

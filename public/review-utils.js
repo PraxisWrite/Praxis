@@ -205,7 +205,7 @@
     return band.id || `${criterion.id}-${band.points}`;
   }
 
-  window.ReviewUtils = {
+  globalThis.ReviewUtils = {
     createScoreBandsForPoints,
     getCriterionBands,
     buildTeacherReviewRowScore,

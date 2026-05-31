@@ -10,7 +10,7 @@
   const cleanLevelLabel = cleanRubricLevelLabel;
 
   function getRubricUtils() {
-    return (typeof window !== "undefined" && window.RubricUtils) || {};
+    return (globalThis.window !== undefined && globalThis.RubricUtils) || {};
   }
 
   function matrixRubricToSchema(source, fallbackName = "Uploaded rubric") {
@@ -186,8 +186,8 @@
   }
 
   function _escapeHtml(value) {
-    if (typeof window !== "undefined" && typeof window.escapeHtml === "function") {
-      return window.escapeHtml(value);
+    if (globalThis.window !== undefined && typeof globalThis.escapeHtml === "function") {
+      return globalThis.escapeHtml(value);
     }
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -198,14 +198,14 @@
   }
 
   function _escapeAttribute(value) {
-    if (typeof window !== "undefined" && typeof window.escapeAttribute === "function") {
+    if (globalThis.window !== undefined && typeof window.escapeAttribute === "function") {
       return window.escapeAttribute(value);
     }
     return _escapeHtml(value).replace(/`/g, "&#96;");
   }
 
   function _renderRichTextHtml(text) {
-    if (typeof window !== "undefined" && typeof window.renderRichTextHtml === "function") {
+    if (globalThis.window !== undefined && typeof window.renderRichTextHtml === "function") {
       return window.renderRichTextHtml(text);
     }
     return _escapeHtml(text).replace(/\n+/g, "<br>");
@@ -445,7 +445,7 @@
     renderUploadedRubricPreview,
   };
 
-  if (typeof window !== "undefined") {
+  if (globalThis.window !== undefined) {
     window.RubricRender = RubricRender;
     Object.entries(RubricRender).forEach(([name, fn]) => {
       if (typeof window[name] !== "function") {

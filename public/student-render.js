@@ -10,8 +10,8 @@
 
   function summarizeLocalSubmissionForDebug(submission) {
     if (!submission) return null;
-    const { isStudentSubmissionLocked, safeArray } = window;
-    const { ui } = window.AppState;
+    const { isStudentSubmissionLocked, safeArray } = globalThis;
+    const { ui } = globalThis.AppState;
     const review = submission.teacherReview || {};
     return {
       id: submission.id || null,
@@ -222,8 +222,8 @@
   }
 
   function renderSubmissionDebugPanel(assignment, submission) {
-    const { escapeHtml, isSubmissionDebugEnabled } = window;
-    const { ui } = window.AppState;
+    const { escapeHtml, isSubmissionDebugEnabled } = globalThis;
+    const { ui } = globalThis.AppState;
     if (!isSubmissionDebugEnabled()) return "";
     const localSummary = summarizeLocalSubmissionForDebug(submission);
     const serverSummary = ui.latestSubmissionDebug || { note: "Server debug has not loaded yet." };
@@ -251,8 +251,8 @@
   }
 
   function renderEmailDebugPanel(assignment, submission) {
-    const { escapeHtml, isEmailDebugEnabled } = window;
-    const { ui } = window.AppState;
+    const { escapeHtml, isEmailDebugEnabled } = globalThis;
+    const { ui } = globalThis.AppState;
     if (!isEmailDebugEnabled()) return "";
     const latest = ui.latestEmailDebug || { note: "Email diagnostic has not loaded yet." };
     return `
@@ -270,8 +270,8 @@
   }
 
   function renderStudentStep(assignment, submission) {
-    const { isStudentSubmissionLocked } = window;
-    const { ui } = window.AppState;
+    const { isStudentSubmissionLocked } = globalThis;
+    const { ui } = globalThis.AppState;
     if (isStudentSubmissionLocked(submission)) {
       return renderStudentFinalStep(assignment, submission);
     }
@@ -290,8 +290,8 @@
   function renderStudentIdeasStep(assignment, submission) {
     const { isChatDisabled, resumeActiveChatSession,
       isChatSessionExpired, getActiveChatElapsedMs, getOutlineFields, isOutlineComplete,
-      persistState } = window;
-    const { ui } = window.AppState;
+      persistState } = globalThis;
+    const { ui } = globalThis.AppState;
 
     const chatHistory = submission.chatHistory || [];
     const chatDisabled = isChatDisabled(assignment);
@@ -447,8 +447,8 @@
   }
 
   function renderStudentDraftStep(assignment, submission) {
-    const { escapeHtml, wordCount, safeArray } = window;
-    const { ui } = window.AppState;
+    const { escapeHtml, wordCount, safeArray } = globalThis;
+    const { ui } = globalThis.AppState;
 
     const feedbackUsed = Number(safeArray(submission.feedbackHistory).length || 0);
     const feedbackLimit = Number(assignment.feedbackRequestLimit || 0);
@@ -849,9 +849,9 @@
     renderStudentFinalStep,
   };
 
-  if (typeof window !== "undefined") {
-    window.StudentRender = StudentRender;
-    Object.assign(window, StudentRender);
+  if (globalThis.window !== undefined) {
+    globalThis.StudentRender = StudentRender;
+    Object.assign(globalThis, StudentRender);
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = StudentRender;

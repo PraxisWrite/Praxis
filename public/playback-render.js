@@ -3,8 +3,8 @@
   const PLAYBACK_MAX_FRAME_DELAY_MS = 1200;
 
   function renderPlaybackScreenOnly() {
-    const { escapeHtml, getSelectedReviewSubmission } = window;
-    const { ui } = window.AppState;
+    const { escapeHtml, getSelectedReviewSubmission } = globalThis;
+    const { ui } = globalThis.AppState;
     const submission = getSelectedReviewSubmission();
     const playbackScreen = document.getElementById("playback-screen");
     if (!submission || !playbackScreen) {
@@ -16,7 +16,7 @@
   }
 
   function getPlaybackSpeedMultiplier() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const speed = Number(ui.playback.speed || 1);
     return Number.isFinite(speed) && speed > 0 ? speed : 1;
   }
@@ -27,8 +27,8 @@
   }
 
   function startPlayback(frames) {
-    const { stopPlayback } = window;
-    const { ui } = window.AppState;
+    const { stopPlayback } = globalThis;
+    const { ui } = globalThis.AppState;
     if (!frames.length) {
       return;
     }
@@ -42,7 +42,7 @@
         return;
       }
       const delay = getPlaybackFrameDelayMs(frames, ui.playback.index);
-      ui.playback.timerId = window.setTimeout(() => {
+      ui.playback.timerId = globalThis.setTimeout(() => {
         ui.playback.timerId = null;
         if (!ui.playback.isPlaying) return;
         if (ui.playback.index >= frames.length - 1) {
@@ -64,14 +64,14 @@
   }
 
   function isLargeSingleInsertEvent(event) {
-    const { LARGE_PASTE_LIMIT } = window.AppConstants;
+    const { LARGE_PASTE_LIMIT } = globalThis.AppConstants;
     return event?.type === "insert"
       && String(event?.insertedText || "").length >= LARGE_PASTE_LIMIT
       && !String(event?.removedText || "");
   }
 
   function isPasteLikeWritingEvent(event) {
-    const { LARGE_PASTE_LIMIT } = window.AppConstants;
+    const { LARGE_PASTE_LIMIT } = globalThis.AppConstants;
     return Boolean(
       event?.type === "paste"
       || (event?.flagged && String(event?.insertedText || "").length >= LARGE_PASTE_LIMIT)
@@ -80,8 +80,8 @@
   }
 
   function countPlaybackOperations(event) {
-    if (window.ReviewUtils?.getPlaybackOperationCount) {
-      return window.ReviewUtils.getPlaybackOperationCount(event);
+    if (globalThis.ReviewUtils?.getPlaybackOperationCount) {
+      return globalThis.ReviewUtils.getPlaybackOperationCount(event);
     }
     if (!event || isPasteLikeWritingEvent(event) || event.type === "delete") return 1;
     if (event.type === "replace") return Math.max(1, 1 + String(event.insertedText || "").length);
@@ -128,8 +128,8 @@
   }
 
   function stepPlayback(direction) {
-    const { getSelectedReviewSubmission, stopPlayback, clamp } = window;
-    const { ui } = window.AppState;
+    const { getSelectedReviewSubmission, stopPlayback, clamp } = globalThis;
+    const { ui } = globalThis.AppState;
     const submission = getSelectedReviewSubmission();
     const frames = submission ? getPlaybackFrames(submission) : [];
     if (!frames.length) {
@@ -142,8 +142,8 @@
   }
 
   function syncPlaybackUi() {
-    const { getSelectedReviewSubmission, escapeHtml } = window;
-    const { ui } = window.AppState;
+    const { getSelectedReviewSubmission, escapeHtml } = globalThis;
+    const { ui } = globalThis.AppState;
     const submission = getSelectedReviewSubmission();
     if (!submission) {
       return;
@@ -177,7 +177,7 @@
   }
 
   function updateDraftMeters() {
-    const { getStudentSubmission, wordCount } = window;
+    const { getStudentSubmission, wordCount } = globalThis;
     const submission = getStudentSubmission();
     if (!submission) {
       return;
@@ -192,7 +192,7 @@
   }
 
   function updateFinalMeters() {
-    const { getStudentSubmission, wordCount } = window;
+    const { getStudentSubmission, wordCount } = globalThis;
     const submission = getStudentSubmission();
     if (!submission) {
       return;
@@ -209,8 +209,8 @@
   }
 
   function getPlaybackState(submission) {
-    const { clamp } = window;
-    const { ui } = window.AppState;
+    const { clamp } = globalThis;
+    const { ui } = globalThis.AppState;
     const frames = getPlaybackFrames(submission);
     const index = clamp(ui.playback.index, 0, Math.max(frames.length - 1, 0));
     ui.playback.index = index;
@@ -228,7 +228,7 @@
   }
 
   function getPlaybackFrames(submission) {
-    const { safeArray, clamp, titleCase, formatTime } = window;
+    const { safeArray, clamp, titleCase, formatTime } = globalThis;
     const events = safeArray(submission.writingEvents)
       .filter((event) => event?.phase !== "coach_outline");
     const eventSignature = getPlaybackEventSignature(events);
@@ -372,9 +372,9 @@
     getPlaybackFrames,
   };
 
-  if (typeof window !== "undefined") {
-    window.PlaybackRender = PlaybackRender;
-    Object.assign(window, PlaybackRender);
+  if (globalThis.window !== undefined) {
+    globalThis.PlaybackRender = PlaybackRender;
+    Object.assign(globalThis, PlaybackRender);
   }
 
   if (typeof module !== "undefined" && module.exports) {

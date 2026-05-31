@@ -29,7 +29,7 @@
 
   function loadCustomErrorCodes() {
     try {
-      const storage = (typeof window !== "undefined" && window.localStorage) || null;
+      const storage = (globalThis.window !== undefined && globalThis.localStorage) || null;
       if (!storage) return [];
       return JSON.parse(storage.getItem(CUSTOM_ERROR_CODES_KEY) || "[]");
     } catch (_) {
@@ -39,7 +39,7 @@
 
   function saveCustomErrorCodes(entries) {
     try {
-      const storage = (typeof window !== "undefined" && window.localStorage) || null;
+      const storage = (globalThis.window !== undefined && globalThis.localStorage) || null;
       if (!storage) return;
       storage.setItem(CUSTOM_ERROR_CODES_KEY, JSON.stringify(entries || []));
     } catch (_) {
@@ -87,8 +87,8 @@
     getErrorCodeLabel,
   };
 
-  if (typeof window !== "undefined") {
-    window.AppConstants = AppConstants;
+  if (globalThis.window !== undefined) {
+    globalThis.AppConstants = AppConstants;
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = AppConstants;

@@ -46,12 +46,17 @@
                 const deadline = assignment.deadline
                   ? `<span class="${deadlineClass}" style="font-size:0.75rem;">Due ${new Date(assignment.deadline).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span>`
                   : "";
+                const submission = globalThis.getStudentSubmissionForAssignment?.(assignment.id);
+                const isGraded = globalThis.SubmissionUtils?.isSubmissionGraded?.(submission);
+                const assignmentAction = isGraded ? "View feedback" : "Start";
+                const studentStep = isGraded ? ' data-student-step="4"' : "";
                 return `
                   <div class="upcoming-assignment-row">
                     <span>${escapeHtml(assignment.title)}</span>
                     <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
                       ${deadline}
-                      <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${cls.id}" data-assignment-id="${assignment.id}">Start</button>
+                      ${isGraded ? `<span class="pill" style="font-size:0.75rem;color:var(--sage);border-color:var(--sage);">Graded</span>` : ""}
+                      <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${cls.id}" data-assignment-id="${assignment.id}"${studentStep}>${assignmentAction}</button>
                     </span>
                   </div>
                 `;
@@ -162,9 +167,11 @@
     const submission = getStudentSubmission();
     const assignment = getStudentAssignment();
     const currentClass = currentClasses.find(c => c.id === currentClassId);
-    const hasOtherGradedWork = assignmentBuckets.submitted.some(({ assignment: item, isGraded }) =>
-      isGraded && item.id !== ui.selectedStudentAssignmentId
-    );
+    const gradedWork = assignmentBuckets.submitted.filter(({ isGraded }) => isGraded);
+    const nextGradedWork = gradedWork.find(({ assignment: item }) => item.id !== ui.selectedStudentAssignmentId) || gradedWork[0] || null;
+    const hasOtherGradedWork = Boolean(nextGradedWork && nextGradedWork.assignment.id !== ui.selectedStudentAssignmentId);
+    const hasGradedWork = Boolean(nextGradedWork);
+    const gradedWorkPill = hasGradedWork ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ Graded work available</span>` : "";
 
     return `
     <section class="student-shell">
@@ -201,10 +208,18 @@
           <div class="pill-row" style="margin-top:-4px;">
             <span class="pill">${assignmentBuckets.current.length} current</span>
             <span class="pill">${assignmentBuckets.submitted.length} submitted</span>
-            ${hasOtherGradedWork ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ Graded work available</span>` : ""}
+            ${gradedWorkPill}
           </div>
         ` : ""}
-        ${hasOtherGradedWork ? `<p class="subtle" style="margin-top:8px;font-size:0.84rem;">Open any assignment marked <strong>Graded</strong> to view your teacher's notes, rubric breakdown, and marked copy.</p>` : ""}
+        ${hasOtherGradedWork ? `
+          <div class="teacher-ready-card" style="margin-top:10px;border-left:4px solid var(--sage);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+            <div>
+              <p class="mini-label" style="margin-bottom:4px;">Feedback returned</p>
+              <p class="subtle" style="margin:0;font-size:0.86rem;">${escapeHtml(nextGradedWork.assignment.title)} is ready to review.</p>
+            </div>
+            <button class="button-secondary" data-action="open-assignment" data-class-id="${currentClassId}" data-assignment-id="${nextGradedWork.assignment.id}" data-student-step="4">View feedback</button>
+          </div>
+        ` : ""}
         ${renderStudentWorkspaceBody(assignments, assignment, submission, ui.studentStep)}
       </div>
     </section>

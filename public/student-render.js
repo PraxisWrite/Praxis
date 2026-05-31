@@ -171,6 +171,7 @@
     const nextGradedWork = gradedWork.find(({ assignment: item }) => item.id !== ui.selectedStudentAssignmentId) || gradedWork[0] || null;
     const hasOtherGradedWork = Boolean(nextGradedWork && nextGradedWork.assignment.id !== ui.selectedStudentAssignmentId);
     const hasGradedWork = Boolean(nextGradedWork);
+    const gradedWorkPill = hasGradedWork ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ Graded work available</span>` : "";
 
     return `
     <section class="student-shell">
@@ -207,7 +208,7 @@
           <div class="pill-row" style="margin-top:-4px;">
             <span class="pill">${assignmentBuckets.current.length} current</span>
             <span class="pill">${assignmentBuckets.submitted.length} submitted</span>
-            ${hasGradedWork ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ Graded work available</span>` : ""}
+            ${gradedWorkPill}
           </div>
         ` : ""}
         ${hasOtherGradedWork ? `

@@ -4,7 +4,6 @@
 
   function renderPlaybackScreenOnly() {
     const { escapeHtml, getSelectedReviewSubmission } = globalThis;
-    const { ui } = globalThis.AppState;
     const submission = getSelectedReviewSubmission();
     const playbackScreen = document.getElementById("playback-screen");
     if (!submission || !playbackScreen) {

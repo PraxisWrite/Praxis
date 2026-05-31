@@ -34,7 +34,7 @@
     if (profile.created_at && profile.created_at >= SECURITY_HARDENING_DATE) return false;
     try {
       return globalThis.localStorage.getItem(getDismissKey(profile)) !== "1";
-    } catch (_) {
+    } catch {
       return false;
     }
   }
@@ -43,7 +43,7 @@
     if (!profile?.id) return;
     try {
       globalThis.localStorage.setItem(getDismissKey(profile), "1");
-    } catch (_) {
+    } catch {
       // Ignore localStorage failures; this is only a non-blocking reminder.
     }
   }

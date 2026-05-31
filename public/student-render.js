@@ -450,8 +450,6 @@
     const { escapeHtml, wordCount, safeArray } = globalThis;
     const { ui } = globalThis.AppState;
 
-    const feedbackUsed = Number(safeArray(submission.feedbackHistory).length || 0);
-    const feedbackLimit = Number(assignment.feedbackRequestLimit || 0);
     return `
    <div class="step-card wizard-card">
       <div class="step-head">
@@ -576,7 +574,6 @@
     const { getRubricSchema } = globalThis.window;
     const { getStudentSelfAssessmentRowScoreMap, getStudentSelfAssessmentCompletion } = globalThis.window.ReviewUtils;
 
-    const selfAssessment = submission.selfAssessment || {};
     const rubricSchema = assignment.uploadedRubricSchema || assignment.rubricSchema || getRubricSchema(assignment.rubric, assignment.uploadedRubricName || assignment.title);
     const selfAssessmentRowMap = getStudentSelfAssessmentRowScoreMap(submission);
     const selfAssessmentScore = Array.from(selfAssessmentRowMap.values()).reduce((sum, entry) => sum + Number(entry?.points ?? 0), 0);

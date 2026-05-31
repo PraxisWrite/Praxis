@@ -53,7 +53,7 @@ function appendResetQuery(urlValue = "") {
     url.searchParams.set("reset", "1");
     url.hash = "";
     return url.toString();
-  } catch (_) {
+  } catch {
     let stripped = raw;
     const queryIndex = stripped.indexOf("?");
     const hashIndex = stripped.indexOf("#");

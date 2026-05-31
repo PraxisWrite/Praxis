@@ -79,7 +79,7 @@ if (globalThis.window !== undefined) globalThis.isAdminTeacherView = isAdminTeac
 function isSubmissionDebugEnabled() {
   try {
     return new URLSearchParams(globalThis.location.search).get("debug") === "submission";
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -87,7 +87,7 @@ if (globalThis.window !== undefined) globalThis.isSubmissionDebugEnabled = isSub
 function isEmailDebugEnabled() {
   try {
     return new URLSearchParams(globalThis.location.search).get("debug") === "email";
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -187,7 +187,7 @@ if (globalThis.window !== undefined) {
 function loadActiveClassPreferences() {
   try {
     return JSON.parse(globalThis.localStorage.getItem(ACTIVE_CLASS_KEY) || "{}") || {};
-  } catch (_) {
+  } catch {
     return {};
   }
 }
@@ -195,7 +195,7 @@ function loadActiveClassPreferences() {
 function saveActiveClassPreferences(preferences) {
   try {
     globalThis.localStorage.setItem(ACTIVE_CLASS_KEY, JSON.stringify(preferences || {}));
-  } catch (_) {
+  } catch {
     // Ignore localStorage write failures and keep the app usable.
   }
 }
@@ -203,7 +203,7 @@ function saveActiveClassPreferences(preferences) {
 function loadActiveStudentAssignmentPreferences() {
   try {
     return JSON.parse(globalThis.localStorage.getItem(ACTIVE_STUDENT_ASSIGNMENT_KEY) || "{}") || {};
-  } catch (_) {
+  } catch {
     return {};
   }
 }
@@ -211,7 +211,7 @@ function loadActiveStudentAssignmentPreferences() {
 function saveActiveStudentAssignmentPreferences(preferences) {
   try {
     globalThis.localStorage.setItem(ACTIVE_STUDENT_ASSIGNMENT_KEY, JSON.stringify(preferences || {}));
-  } catch (_) {
+  } catch {
     // Ignore localStorage write failures and keep the app usable.
   }
 }
@@ -377,7 +377,7 @@ function getSavedRubricLibrary() {
     try {
       const stored = JSON.parse(globalThis.localStorage.getItem(RUBRIC_LIBRARY_KEY) || "[]");
       return safeArray(stored).map(normalizeRubricLibraryEntry).filter(Boolean);
-    } catch (error) {
+    } catch {
       return [];
     }
   })();
@@ -424,7 +424,7 @@ function removeSavedRubricFromLibrary(rubricId) {
       .filter(Boolean);
     const next = stored.filter((entry) => entry.id !== rubricId);
     globalThis.localStorage.setItem(RUBRIC_LIBRARY_KEY, JSON.stringify(next));
-  } catch (error) {
+  } catch {
     globalThis.localStorage.setItem(RUBRIC_LIBRARY_KEY, "[]");
   }
 }
@@ -2631,8 +2631,6 @@ if (action === "switch-class") {
     const appUrl = globalThis.location.origin;
     const subject = encodeURIComponent(`You have been invited to join ${className} on ${PRODUCT_NAME}`);
     const body = encodeURIComponent(`Hello,\n\nYou have been invited to join ${className} on ${PRODUCT_NAME}.\n\nTo get started:\n1. Go to ${appUrl}\n2. Click "Create account"\n3. Sign up with this email address as a student\n4. Your teacher will then add you to the class\n\nSee you there!`);
-    const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
-    const copyText = `You have been invited to join ${className} on ${PRODUCT_NAME}.\n\nTo get started:\n1. Go to ${appUrl}\n2. Click "Create account"\n3. Sign up with this email address as a student\n4. Your teacher will then add you to the class`;
    ui.showInvitePanel = true;
     render();
     return;
@@ -3102,8 +3100,6 @@ if (action === "select-assignment") {
       }
     }
     if (nextStep === 3) {
-      const assignment = getStudentAssignment();
-
       if (submission && !submission.finalText?.trim() && submission.draftText?.trim()) {
         submission.finalText = submission.draftText;
         submission.updatedAt = new Date().toISOString();
@@ -4229,7 +4225,7 @@ async function uploadRubricFile(file) {
       saveRubricToLibrary(file.name, data.text, data.rubricData || null, data.schema || null);
       ui.notice = `Rubric "${file.name}" loaded and saved for reuse. Click Format With AI to rebuild the assignment with it.`;
     }
-  } catch (e) {
+  } catch {
     ui.notice = 'Could not read the rubric file. Try a different format.';
   }
   render();
@@ -4329,8 +4325,6 @@ async function saveTeacherAssignment() {
   render();
 
   try {
-  // Use the editable AI draft if present, otherwise fall back to teacherDraft
-  const source = ui.teacherAssist || ui.teacherDraft;
   const editingAssignment = ui.editingAssignmentId
     ? state.assignments.find((item) => item.id === ui.editingAssignmentId) || null
     : null;
@@ -6104,7 +6098,7 @@ function gradeSubmission(assignment, submission) {
   const severelyUnderdeveloped = !minimalSubmission && finalWordCount < Math.max(15, Math.min(Math.round((assignment.wordCountMin || 0) * 0.15), 40));
 
   const criteria = rubric.map((criterion) => {
-    let scoreRatio = 0.65;
+    let scoreRatio;
     const name = `${criterion.name} ${criterion.description}`.toLowerCase();
 
     if (minimalSubmission) {

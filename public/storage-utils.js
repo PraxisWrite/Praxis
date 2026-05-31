@@ -13,7 +13,7 @@
     try {
       const raw = global.localStorage.getItem(key);
       return raw ? JSON.parse(raw) : fallback;
-    } catch (_) {
+    } catch {
       return fallback;
     }
   }

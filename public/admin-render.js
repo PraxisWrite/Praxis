@@ -437,7 +437,6 @@
     if (ui.adminSelectedAssignmentId) {
       const assignment = (detail.assignments || []).find(a => a.id === ui.adminSelectedAssignmentId);
       const subs = (detail.submissions || []).filter(s => s.assignment_id === ui.adminSelectedAssignmentId);
-      const rubric = assignment?.rubric || [];
 
       return `
         <section class="panel">

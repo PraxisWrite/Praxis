@@ -34,13 +34,14 @@ async function login(page, role) {
 
   // "Sign out" is now inside the avatar <details> dropdown and hidden until opened.
   // Wait for the avatar trigger (aria-label="Account menu") which is always visible
-  // after a successful login.
-  await expect(page.getByRole("button", { name: /account menu/i })).toBeVisible({ timeout: 30_000 });
+  // after a successful login. Use attribute selector — Playwright's getByRole('button')
+  // does not match <summary> elements even when their implicit ARIA role is button.
+  await expect(page.locator('[aria-label="Account menu"]')).toBeVisible({ timeout: 30_000 });
 }
 
 async function logout(page) {
   // Sign out is inside the avatar dropdown — open it first.
-  const accountMenu = page.getByRole("button", { name: /account menu/i });
+  const accountMenu = page.locator('[aria-label="Account menu"]');
   await accountMenu.click();
   await page.getByRole("button", { name: /sign out/i }).click();
   await expect(page.getByRole("button", { name: /^sign in$/i }).last()).toBeVisible({ timeout: 15_000 });

@@ -10,8 +10,8 @@
 
 (function () {
   function _escapeHtml(value) {
-    if (typeof window !== "undefined" && typeof window.escapeHtml === "function") {
-      return window.escapeHtml(value);
+    if (globalThis.window !== undefined && typeof globalThis.escapeHtml === "function") {
+      return globalThis.escapeHtml(value);
     }
     return String(value == null ? "" : value)
       .replace(/&/g, "&amp;")
@@ -22,7 +22,7 @@
   }
 
   function _wordCount(text) {
-    if (typeof window !== "undefined" && typeof window.wordCount === "function") {
+    if (globalThis.window !== undefined && typeof window.wordCount === "function") {
       return window.wordCount(text);
     }
     return String(text || "").trim().split(/\s+/).filter(Boolean).length;
@@ -45,7 +45,7 @@
       return;
     }
     processAnalysisSnapshotRequests.add(submission.id);
-    const auth = (typeof window !== "undefined" && window.Auth) || null;
+    const auth = (globalThis.window !== undefined && window.Auth) || null;
     if (!auth || typeof auth.apiFetch !== "function") return;
     auth.apiFetch(`/api/submissions/${submission.id}/process-analysis`)
       .catch((error) => {
@@ -329,7 +329,7 @@
     requestProcessAnalysisSnapshot,
   };
 
-  if (typeof window !== "undefined") {
+  if (globalThis.window !== undefined) {
     window.WritingBehaviourRender = WritingBehaviourRender;
     Object.entries(WritingBehaviourRender).forEach(([name, fn]) => {
       if (typeof window[name] !== "function") {

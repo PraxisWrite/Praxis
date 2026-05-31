@@ -1,21 +1,21 @@
 (function () {
   function getAssignments() {
-    const { state } = window.AppState;
+    const { state } = globalThis.AppState;
     return state.assignments;
   }
 
   function getPublishedAssignments() {
-    const { state, currentClassId } = window.AppState;
+    const { state, currentClassId } = globalThis.AppState;
     return state.assignments.filter((a) => a.status === "published" && (!a.classId || a.classId === currentClassId));
   }
 
   function getSelectedAssignment() {
-    const { state, ui } = window.AppState;
+    const { state, ui } = globalThis.AppState;
     return state.assignments.find((assignment) => assignment.id === ui.selectedAssignmentId) || null;
   }
 
   function getStudentAssignment() {
-    const { state, ui, currentClassId } = window.AppState;
+    const { state, ui, currentClassId } = globalThis.AppState;
     return state.assignments.find((assignment) =>
       assignment.id === ui.selectedStudentAssignmentId &&
       assignment.status === "published" &&
@@ -24,7 +24,7 @@
   }
 
   function getStudentSubmissionForAssignment(assignmentId, studentId) {
-    const { state, ui } = window.AppState;
+    const { state, ui } = globalThis.AppState;
     const resolvedStudentId = studentId === undefined ? ui.activeUserId : studentId;
     if (!assignmentId || !resolvedStudentId) return null;
     return state.submissions.find((submission) => submission.assignmentId === assignmentId && submission.studentId === resolvedStudentId) || null;
@@ -55,19 +55,19 @@
   }
 
   function getAssignmentSubmissions(assignmentId) {
-    const { state } = window.AppState;
+    const { state } = globalThis.AppState;
     return state.submissions.filter((submission) => submission.assignmentId === assignmentId);
   }
 
   function getSubmissionCountsForAssignment(assignmentId, roster) {
-    const { currentClassMembers } = window.AppState;
+    const { currentClassMembers } = globalThis.AppState;
     const resolvedRoster = roster === undefined ? currentClassMembers : roster;
     return SubmissionUtils.getAssignmentSubmissionCounts(getAssignmentSubmissions(assignmentId), resolvedRoster);
   }
 
   function getReviewRoster(assignmentId) {
-    const { ui, currentClassMembers, currentProfile } = window.AppState;
-    const { getUserById } = window;
+    const { ui, currentClassMembers, currentProfile } = globalThis.AppState;
+    const { getUserById } = globalThis;
     const resolvedAssignmentId = assignmentId === undefined ? ui.selectedAssignmentId : assignmentId;
     if (currentClassMembers.length) {
       return currentClassMembers
@@ -92,14 +92,14 @@
   }
 
   function getReviewSubmissionForStudent(studentId, assignmentId) {
-    const { state, ui } = window.AppState;
+    const { state, ui } = globalThis.AppState;
     const resolvedAssignmentId = assignmentId === undefined ? ui.selectedAssignmentId : assignmentId;
     return state.submissions.find((submission) => submission.assignmentId === resolvedAssignmentId && submission.studentId === studentId) || null;
   }
 
   function ensureTeacherReviewSubmission(assignmentId, studentId) {
-    const { state, currentClassMembers } = window.AppState;
-    const { createEmptySubmission, getUserById } = window;
+    const { state, currentClassMembers } = globalThis.AppState;
+    const { createEmptySubmission, getUserById } = globalThis;
     if (!assignmentId || !studentId) return null;
     const existing = getReviewSubmissionForStudent(studentId, assignmentId);
     if (existing) return existing;
@@ -115,12 +115,12 @@
   }
 
   function getSelectedReviewStudent() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     return getReviewRoster().find((student) => student.id === ui.selectedReviewStudentId) || null;
   }
 
   function getSelectedReviewSubmission() {
-    const { state, ui } = window.AppState;
+    const { state, ui } = globalThis.AppState;
     if (ui.selectedReviewStudentId) {
       return ensureTeacherReviewSubmission(ui.selectedAssignmentId, ui.selectedReviewStudentId);
     }
@@ -132,7 +132,7 @@
   }
 
   function getStudentSubmission() {
-    const { state, ui } = window.AppState;
+    const { state, ui } = globalThis.AppState;
     if (!ui.selectedStudentAssignmentId || !ui.activeUserId) {
       return null;
     }
@@ -141,8 +141,8 @@
   }
 
   function rememberStudentStep(step, assignmentId) {
-    const { ui } = window.AppState;
-    const { clamp } = window;
+    const { ui } = globalThis.AppState;
+    const { clamp } = globalThis;
     const resolvedAssignmentId = assignmentId === undefined ? ui.selectedStudentAssignmentId : assignmentId;
     const previousStep = ui.studentStep;
     const nextStep = clamp(Number(step || 1), 1, 4);
@@ -155,7 +155,7 @@
   }
 
   function getRememberedStudentStep(assignmentId) {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const resolvedAssignmentId = assignmentId === undefined ? ui.selectedStudentAssignmentId : assignmentId;
     if (!resolvedAssignmentId) return null;
     const remembered = Number(ui.studentStepOverrides?.[resolvedAssignmentId] || 0);
@@ -163,7 +163,7 @@
   }
 
   function getStudentStepForSubmission(submission) {
-    const { safeArray } = window;
+    const { safeArray } = globalThis;
     if (isStudentSubmissionLocked(submission)) return 4;
     const hasFinalWork = Boolean(
       submission?.finalText?.trim() ||
@@ -189,7 +189,7 @@
   }
 
   function reconcileStudentStepAfterSubmissionRefresh(submission) {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     if (!submission?.assignmentId || submission.studentId !== ui.activeUserId) return;
     if (isStudentSubmissionLocked(submission)) return;
     const status = String(submission.status || "").trim().toLowerCase();
@@ -205,8 +205,8 @@
   }
 
   function ensureStudentSubmission() {
-    const { state, ui } = window.AppState;
-    const { createEmptySubmission, persistState } = window;
+    const { state, ui } = globalThis.AppState;
+    const { createEmptySubmission, persistState } = globalThis;
     const existing = getStudentSubmission();
     if (existing) {
       return existing;
@@ -223,8 +223,8 @@
   }
 
   function hydrateSelections() {
-    const { state, ui } = window.AppState;
-    const { clamp, getSavedStudentAssignmentId, saveStudentAssignmentId } = window;
+    const { state, ui } = globalThis.AppState;
+    const { clamp, getSavedStudentAssignmentId, saveStudentAssignmentId } = globalThis;
     if (!state.assignments.some((assignment) => assignment.id === ui.selectedAssignmentId)) {
       ui.selectedAssignmentId = state.assignments[0]?.id || null;
     }
@@ -264,7 +264,7 @@
   }
 
   function getSubmissionStatusDisplay(status) {
-    const { titleCase } = window;
+    const { titleCase } = globalThis;
     const labels = {
       not_started: "Not started",
       draft: "In progress",
@@ -282,7 +282,7 @@
   }
 
   function getNextReviewStudentId(currentStudentId, assignmentId) {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const resolvedAssignmentId = assignmentId === undefined ? ui.selectedAssignmentId : assignmentId;
     const roster = getReviewRoster(resolvedAssignmentId);
     const index = roster.findIndex((student) => student.id === currentStudentId);
@@ -291,7 +291,7 @@
   }
 
   function getPreviousReviewStudentId(currentStudentId, assignmentId) {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const resolvedAssignmentId = assignmentId === undefined ? ui.selectedAssignmentId : assignmentId;
     const roster = getReviewRoster(resolvedAssignmentId);
     const index = roster.findIndex((student) => student.id === currentStudentId);
@@ -327,9 +327,9 @@
     getPreviousReviewStudentId,
   };
 
-  if (typeof window !== "undefined") {
-    window.StateSelectors = StateSelectors;
-    Object.assign(window, StateSelectors);
+  if (globalThis.window !== undefined) {
+    globalThis.StateSelectors = StateSelectors;
+    Object.assign(globalThis, StateSelectors);
   }
 
   if (typeof module !== "undefined" && module.exports) {

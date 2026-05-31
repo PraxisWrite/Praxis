@@ -33,7 +33,7 @@
     if (!profile?.id) return false;
     if (profile.created_at && profile.created_at >= SECURITY_HARDENING_DATE) return false;
     try {
-      return window.localStorage.getItem(getDismissKey(profile)) !== "1";
+      return globalThis.localStorage.getItem(getDismissKey(profile)) !== "1";
     } catch (_) {
       return false;
     }
@@ -42,7 +42,7 @@
   function dismissUpgradePrompt(profile) {
     if (!profile?.id) return;
     try {
-      window.localStorage.setItem(getDismissKey(profile), "1");
+      globalThis.localStorage.setItem(getDismissKey(profile), "1");
     } catch (_) {
       // Ignore localStorage failures; this is only a non-blocking reminder.
     }

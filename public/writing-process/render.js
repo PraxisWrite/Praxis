@@ -1,5 +1,5 @@
 (() => {
-  const root = typeof window === "undefined" ? {} : window.PraxisWritingProcess || {};
+  const root = globalThis.window === undefined ? {} : globalThis.PraxisWritingProcess || {};
 
   function escapeHtml(value) {
     return String(value || "")
@@ -145,9 +145,9 @@
     module.exports = api;
   }
 
-  if (typeof window !== "undefined") {
-    window.PraxisWritingProcess = {
-      ...(window.PraxisWritingProcess || {}),
+  if (globalThis.window !== undefined) {
+    globalThis.PraxisWritingProcess = {
+      ...(globalThis.PraxisWritingProcess || {}),
       ...api,
     };
   }

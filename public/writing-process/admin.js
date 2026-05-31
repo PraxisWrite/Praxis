@@ -1,5 +1,5 @@
 (() => {
-  const types = typeof require === "function" ? require("./types.js") : (typeof window === "undefined" ? {} : window.PraxisWritingProcess);
+  const types = typeof require === "function" ? require("./types.js") : (globalThis.window === undefined ? {} : globalThis.PraxisWritingProcess);
 
   function safeArray(value) {
     return Array.isArray(value) ? value : [];
@@ -82,9 +82,9 @@
     module.exports = api;
   }
 
-  if (typeof window !== "undefined") {
-    window.PraxisWritingProcess = {
-      ...(window.PraxisWritingProcess || {}),
+  if (globalThis.window !== undefined) {
+    globalThis.PraxisWritingProcess = {
+      ...(globalThis.PraxisWritingProcess || {}),
       ...api,
     };
   }

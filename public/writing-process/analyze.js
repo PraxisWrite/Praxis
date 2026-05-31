@@ -1,7 +1,7 @@
 (() => {
-  const types = typeof require === "function" ? require("./types.js") : (typeof window === "undefined" ? {} : window.PraxisWritingProcess);
-  const cohorts = typeof require === "function" ? require("./cohorts.js") : (typeof window === "undefined" ? {} : window.PraxisWritingProcess);
-  const eventsApi = typeof require === "function" ? require("./events.js") : (typeof window === "undefined" ? {} : window.PraxisWritingProcess);
+  const types = typeof require === "function" ? require("./types.js") : (globalThis.window === undefined ? {} : globalThis.PraxisWritingProcess);
+  const cohorts = typeof require === "function" ? require("./cohorts.js") : (globalThis.window === undefined ? {} : globalThis.PraxisWritingProcess);
+  const eventsApi = typeof require === "function" ? require("./events.js") : (globalThis.window === undefined ? {} : globalThis.PraxisWritingProcess);
 
   const {
     ANALYSIS_VERSION,
@@ -411,9 +411,9 @@
     module.exports = api;
   }
 
-  if (typeof window !== "undefined") {
-    window.PraxisWritingProcess = {
-      ...(window.PraxisWritingProcess || {}),
+  if (globalThis.window !== undefined) {
+    globalThis.PraxisWritingProcess = {
+      ...(globalThis.PraxisWritingProcess || {}),
       ...api,
     };
   }

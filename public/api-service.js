@@ -621,4 +621,4 @@ async function deleteAssignment(assignmentId) {
   if (typeof module !== "undefined" && module.exports) {
     module.exports = ApiService;
   }
-})(typeof window === "undefined" ? globalThis : window);
+})(globalThis);

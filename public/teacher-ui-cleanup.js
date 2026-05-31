@@ -40,13 +40,13 @@
   function schedule() {
     if (scheduled) return;
     scheduled = true;
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       scheduled = false;
       applyMicrocopy();
     });
   }
 
-  window.addEventListener("DOMContentLoaded", () => {
+  globalThis.addEventListener("DOMContentLoaded", () => {
     applyMicrocopy();
     const app = document.getElementById("app");
     if (app) new MutationObserver(schedule).observe(app, { childList: true, subtree: true });

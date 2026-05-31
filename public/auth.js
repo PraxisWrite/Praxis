@@ -154,10 +154,10 @@ async function getInviteInfo(classId) {
   }
 
   async function joinClassIfInvited() {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(globalThis.location.search);
     const classId = params.get('join');
     // Clear the URL param immediately regardless
-    if (classId) window.history.replaceState({}, '', window.location.pathname);
+    if (classId) globalThis.history.replaceState({}, '', globalThis.location.pathname);
     if (!classId) return;
     if (!session) return;
     try {
@@ -172,7 +172,7 @@ async function getInviteInfo(classId) {
   }
 
   async function requestPasswordReset(email) {
-    const redirectTo = `${window.location.origin}/?reset=1`;
+    const redirectTo = `${globalThis.location.origin}/?reset=1`;
     const data = await fetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -183,7 +183,7 @@ async function getInviteInfo(classId) {
   }
 
   async function consumeRecoverySessionFromUrl() {
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const hash = new URLSearchParams(globalThis.location.hash.replace(/^#/, ''));
     const type = hash.get('type');
     const accessToken = hash.get('access_token');
     const refreshToken = hash.get('refresh_token');
@@ -193,7 +193,7 @@ async function getInviteInfo(classId) {
       refresh_token: refreshToken,
       token_type: hash.get('token_type') || 'bearer',
     };
-    window.history.replaceState({}, '', `${window.location.pathname}?reset=1`);
+    globalThis.history.replaceState({}, '', `${globalThis.location.pathname}?reset=1`);
     return true;
   }
 

@@ -22,7 +22,7 @@
   }
 
   function setAuthSignupRole(role) {
-    const { authUiState } = window.AppState;
+    const { authUiState } = globalThis.AppState;
     authUiState.signupRole = role === "teacher" ? "teacher" : "student";
     const studentButton = document.getElementById("role-btn-student");
     const teacherButton = document.getElementById("role-btn-teacher");
@@ -39,7 +39,7 @@
   }
 
   function bindAuthScreenEvents(joinClassId = null) {
-    const { appEl, authUiState } = window.AppState;
+    const { appEl, authUiState } = globalThis.AppState;
     authUiState.signupRole = "student";
     const search = new URLSearchParams(globalThis.location.search);
     const wantsSignup = search.get("signup") === "1" || globalThis.location.hash === "#signup";
@@ -111,7 +111,7 @@
         errEl.style.display = "block";
         return;
       }
-      const validation = window.AccountSecurity?.validatePassword(password);
+      const validation = globalThis.AccountSecurity?.validatePassword(password);
       if (validation && !validation.ok) {
         errEl.textContent = validation.message;
         errEl.style.display = "block";
@@ -119,7 +119,7 @@
       }
       try {
         const profile = await Auth.signUp(email, password, name, joinClassId ? "student" : authUiState.signupRole);
-        window.AccountSecurity?.markPasswordUpdated(profile);
+        globalThis.AccountSecurity?.markPasswordUpdated(profile);
         await Auth.joinClassIfInvited();
         await bootApp(profile);
       } catch (error) {
@@ -130,7 +130,7 @@
   }
 
   function renderAuthScreen(joinClassId = null, inviteInfo = null) {
-    const { appEl } = window.AppState;
+    const { appEl } = globalThis.AppState;
     stopTeacherReviewPolling();
     document.title = PRODUCT_NAME;
     const teacherName = inviteInfo?.teacherName || "";
@@ -176,7 +176,7 @@
               <input id="auth-signup-name" type="text" placeholder="Full name" style="border:1px solid #ddd2c2;border-radius:10px;padding:12px 14px;width:100%;font:inherit;box-sizing:border-box;" />
               <input id="auth-signup-email" type="email" placeholder="Email" style="border:1px solid #ddd2c2;border-radius:10px;padding:12px 14px;width:100%;font:inherit;box-sizing:border-box;" />
               <input id="auth-signup-password" type="password" placeholder="Password (8+ characters, 1 number)" style="border:1px solid #ddd2c2;border-radius:10px;padding:12px 14px;width:100%;font:inherit;box-sizing:border-box;" />
-              <p class="subtle" style="font-size:0.8rem;margin:-4px 0 0;">${escapeHtml(window.AccountSecurity?.PASSWORD_REQUIREMENT_TEXT || "Use at least 8 characters and 1 number.")}</p>
+              <p class="subtle" style="font-size:0.8rem;margin:-4px 0 0;">${escapeHtml(globalThis.AccountSecurity?.PASSWORD_REQUIREMENT_TEXT || "Use at least 8 characters and 1 number.")}</p>
               <div style="display:flex;gap:8px;">
                 <button type="button" data-auth-role="student" id="role-btn-student" style="flex:1;padding:10px;border:2px solid var(--accent);border-radius:10px;background:#e7eeff;font:inherit;font-weight:700;cursor:pointer;color:var(--accent-deep);">Student</button>
                 ${joinClassId ? '' : `<button type="button" data-auth-role="teacher" id="role-btn-teacher" style="flex:1;padding:10px;border:1px solid #ddd2c2;border-radius:10px;background:#fff;font:inherit;font-weight:700;cursor:pointer;color:#667063;">Teacher</button>`}
@@ -198,9 +198,9 @@
     renderAuthScreen,
   };
 
-  if (typeof window !== "undefined") {
-    window.AuthRender = AuthRender;
-    Object.assign(window, AuthRender);
+  if (globalThis.window !== undefined) {
+    globalThis.AuthRender = AuthRender;
+    Object.assign(globalThis, AuthRender);
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = AuthRender;

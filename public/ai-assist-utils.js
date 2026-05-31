@@ -28,7 +28,7 @@
     module.exports = utils;
   }
 })(
-  typeof window === "undefined" ? globalThis : window,
+  globalThis,
   function aiAssistUtilsFactory({ findJsonStart, updateJsonScanState }) {
   function stripCodeFence(text = "") {
     const raw = String(text || "").trim();

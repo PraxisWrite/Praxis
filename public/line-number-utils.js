@@ -209,7 +209,7 @@ function buildWrappedLineEntries(text = "", metrics = {}, measureText = (value) 
     module.exports = utils;
   }
 })(
-  typeof window === "undefined" ? globalThis : window,
+  globalThis,
   function lineNumberUtilsFactory() {
     return {
       splitTokenToFitWidth,

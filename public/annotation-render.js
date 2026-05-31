@@ -7,16 +7,16 @@
     wordCount,
     trimTo,
     uid,
-  } = window.CoreUtils;
+  } = globalThis.CoreUtils;
   const {
     getEvidenceKindLabel,
     getEvidenceStatusLabel,
-  } = window.PasteEvidenceUtils;
+  } = globalThis.PasteEvidenceUtils;
 
   function requireLegacyAppFunction(name) {
-    const dependency = window[name];
+    const dependency = globalThis[name];
     if (typeof dependency !== "function") {
-      throw new Error(`AnnotationRender missing dependency: window.${name}`);
+      throw new TypeError(`AnnotationRender missing dependency: window.${name}`);
     }
     return dependency;
   }
@@ -387,9 +387,9 @@
     renderOutlineSummary,
   };
 
-  if (typeof window !== "undefined") {
-    window.AnnotationRender = AnnotationRender;
-    Object.assign(window, AnnotationRender);
+  if (globalThis.window !== undefined) {
+    globalThis.AnnotationRender = AnnotationRender;
+    Object.assign(globalThis, AnnotationRender);
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = AnnotationRender;

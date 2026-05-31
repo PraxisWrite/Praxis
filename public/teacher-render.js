@@ -22,7 +22,7 @@
   }
 
   function renderTeacherGenerateButton(ui) {
-    const { getTeacherGenerateButtonState } = window.AiAssistUtils;
+    const { getTeacherGenerateButtonState } = globalThis.AiAssistUtils;
     const generateButton = getTeacherGenerateButtonState({ loading: ui.aiAssistLoading });
     return `
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-top:10px;">
@@ -36,7 +36,7 @@
 
   function renderTeacherAssignmentSettingsFields(ui, idPrefix) {
     const { escapeHtml, escapeAttribute, titleCase, getVisibleChatTimeLimit } = globalThis.window;
-    const { buildDeadlineTimeOptions, getDeadlineDatePart, getDeadlineTimePart } = window.DeadlineUtils;
+    const { buildDeadlineTimeOptions, getDeadlineDatePart, getDeadlineTimePart } = globalThis.DeadlineUtils;
     return `
       <div class="field-grid compact-grid">
         <div class="field">
@@ -143,13 +143,13 @@
   }
 
   function renderTeacherWorkspace() {
-    const { ui, state, currentClasses, currentClassId, currentClassMembers, currentProfile } = window.AppState;
+    const { ui, state, currentClasses, currentClassId, currentClassMembers, currentProfile } = globalThis.AppState;
     const { escapeHtml, escapeAttribute, renderRichTextHtml, renderUploadedRubricPreview,
       renderPromptFormattingToolbar, titleCase, truncateText, stripPromptFormatting,
       isPasteLikeWritingEvent, getSavedRubricLibrary,
       getTeacherAssignmentSaveLabel, getSubmissionCountsForAssignment,
-      getSelectedReviewSubmission } = window;
-    const { PRODUCT_NAME } = window.AppConstants;
+      getSelectedReviewSubmission } = globalThis;
+    const { PRODUCT_NAME } = globalThis.AppConstants;
 
     const assignments = currentClassId
       ? state.assignments.filter((assignment) => !assignment.classId || assignment.classId === currentClassId)
@@ -490,10 +490,10 @@
   }
 
   function renderTeacherReview(assignment, submissions) {
-    const { currentClassMembers } = window.AppState;
+    const { currentClassMembers } = globalThis.AppState;
     const { escapeHtml, getReviewRoster, levelTheme } = globalThis.window;
-    const { getAssignmentSubmissionCounts, isSubmissionGraded } = window.SubmissionUtils;
-    const { buildCriterionAnalytics } = window.ReviewUtils;
+    const { getAssignmentSubmissionCounts, isSubmissionGraded } = globalThis.SubmissionUtils;
+    const { buildCriterionAnalytics } = globalThis.ReviewUtils;
 
     const roster = currentClassMembers.length ? currentClassMembers : getReviewRoster(assignment.id);
     const statusCounts = getAssignmentSubmissionCounts(submissions, roster);
@@ -501,7 +501,7 @@
     const submittedCount = statusCounts.submitted;
     const gradedCount = statusCounts.graded;
     const flaggedCount = submissions.filter(
-      s => Array.isArray(s.writingEvents) && s.writingEvents.some((entry) => window.isPasteLikeWritingEvent(entry))
+      s => Array.isArray(s.writingEvents) && s.writingEvents.some((entry) => globalThis.isPasteLikeWritingEvent(entry))
     ).length;
     const criterionAnalytics = buildCriterionAnalytics(assignment, submissions.filter((submission) => isSubmissionGraded(submission)));
     const hasCriterionAnalytics = criterionAnalytics.some((criterion) => criterion.gradedCount > 0);
@@ -1108,9 +1108,9 @@
     renderTeacherGrading,
   };
 
-  if (typeof window !== "undefined") {
-    window.TeacherRender = TeacherRender;
-    Object.assign(window, TeacherRender);
+  if (globalThis.window !== undefined) {
+    globalThis.TeacherRender = TeacherRender;
+    Object.assign(globalThis, TeacherRender);
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = TeacherRender;

@@ -89,11 +89,11 @@
     rubricSchemaToMatrixData,
   };
 
-  window.RubricUtils = Object.assign({}, window.RubricUtils || {}, api);
+  globalThis.RubricUtils = Object.assign({}, globalThis.RubricUtils || {}, api);
 
   Object.entries(api).forEach(([name, fn]) => {
-    if (typeof window[name] !== "function") {
-      window[name] = fn;
+    if (typeof globalThis[name] !== "function") {
+      globalThis[name] = fn;
     }
   });
 })();

@@ -1,5 +1,5 @@
 (() => {
-  const root = typeof window === "undefined" ? {} : window.PraxisWritingProcess || {};
+  const root = globalThis.window === undefined ? {} : globalThis.PraxisWritingProcess || {};
   const LARGE_PASTE_LIMIT = root.LARGE_PASTE_LIMIT || 220;
   const PHASES = root.PHASES || { DRAFT: "draft", FINAL: "final", COACH_OUTLINE: "coach_outline" };
   let fallbackEventIdCounter = 0;
@@ -124,9 +124,9 @@
     module.exports = api;
   }
 
-  if (typeof window !== "undefined") {
-    window.PraxisWritingProcess = {
-      ...(window.PraxisWritingProcess || {}),
+  if (globalThis.window !== undefined) {
+    globalThis.PraxisWritingProcess = {
+      ...(globalThis.PraxisWritingProcess || {}),
       ...api,
     };
   }

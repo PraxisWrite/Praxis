@@ -6,7 +6,7 @@
 
   function getFlow() {
     try {
-      return window.sessionStorage.getItem(FLOW_STORAGE_KEY) || "ai";
+      return globalThis.sessionStorage.getItem(FLOW_STORAGE_KEY) || "ai";
     } catch (_) {
       return "ai";
     }
@@ -14,7 +14,7 @@
 
   function setFlow(flow) {
     try {
-      window.sessionStorage.setItem(FLOW_STORAGE_KEY, flow);
+      globalThis.sessionStorage.setItem(FLOW_STORAGE_KEY, flow);
     } catch (_) {
       // Keep the UI usable even if sessionStorage is unavailable.
     }
@@ -282,7 +282,7 @@
   function scheduleEnhancement() {
     if (enhanceScheduled) return;
     enhanceScheduled = true;
-    window.requestAnimationFrame(() => {
+    globalThis.requestAnimationFrame(() => {
       enhanceScheduled = false;
       enhanceTeacherAssignmentSetup();
     });
@@ -303,8 +303,8 @@
       event.preventDefault();
       event.stopPropagation();
       syncManualProxyToHiddenFields();
-      if (typeof window.saveCurrentTeacherAssignment === "function") {
-        await window.saveCurrentTeacherAssignment();
+      if (typeof globalThis.saveCurrentTeacherAssignment === "function") {
+        await globalThis.saveCurrentTeacherAssignment();
       }
     }
   });
@@ -317,7 +317,7 @@
 
   const observer = new MutationObserver(scheduleEnhancement);
 
-  window.addEventListener("DOMContentLoaded", () => {
+  globalThis.addEventListener("DOMContentLoaded", () => {
     enhanceTeacherAssignmentSetup();
     const app = document.getElementById("app");
     if (app) {

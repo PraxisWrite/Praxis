@@ -34,7 +34,7 @@
     return foundExact ? "Still found in final text" : "Edited or removed";
   }
 
-  window.PasteEvidenceUtils = {
+  globalThis.PasteEvidenceUtils = {
     buildStartExcerpt,
     compactWhitespace,
     getEvidenceKindLabel,

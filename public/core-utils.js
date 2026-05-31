@@ -268,4 +268,4 @@
   if (typeof module !== "undefined" && module.exports) {
     module.exports = CoreUtils;
   }
-})(typeof window === "undefined" ? globalThis : window);
+})(globalThis);

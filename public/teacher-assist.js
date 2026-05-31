@@ -8,14 +8,14 @@
 // which mutates window.AppState.ui.teacherDraft properties in place.
 
 (function () {
-  const { uid, trimTo, titleCase } = window.CoreUtils;
-  const { createScoreBandsForPoints } = window.ReviewUtils;
-  const { combineDeadlineParts, getDeadlineTimePart } = window.DeadlineUtils;
+  const { uid, trimTo, titleCase } = globalThis.CoreUtils;
+  const { createScoreBandsForPoints } = globalThis.ReviewUtils;
+  const { combineDeadlineParts, getDeadlineTimePart } = globalThis.DeadlineUtils;
 
   function requireLegacyAppFunction(name) {
-    const dependency = window[name];
+    const dependency = globalThis[name];
     if (typeof dependency !== "function") {
-      throw new Error(`TeacherAssist missing dependency: window.${name}`);
+      throw new TypeError(`TeacherAssist missing dependency: window.${name}`);
     }
     return dependency;
   }
@@ -242,7 +242,7 @@
   }
 
   function applyAiSettingsToTeacherDraft(parsed = {}) {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     const allowedLevels = new Set(["A0", "A1", "A2", "B1", "B2", "C1", "C2"]);
     const inferred = inferTeacherBriefSettings(ui.teacherDraft.brief);
 
@@ -303,9 +303,9 @@
     applyAiSettingsToTeacherDraft,
   };
 
-  if (typeof window !== "undefined") {
-    window.TeacherAssist = TeacherAssist;
-    Object.assign(window, TeacherAssist);
+  if (globalThis.window !== undefined) {
+    globalThis.TeacherAssist = TeacherAssist;
+    Object.assign(globalThis, TeacherAssist);
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = TeacherAssist;

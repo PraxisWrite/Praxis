@@ -43,9 +43,9 @@
     module.exports = api;
   }
 
-  if (typeof window !== "undefined") {
-    window.PraxisWritingProcess = {
-      ...(window.PraxisWritingProcess || {}),
+  if (globalThis.window !== undefined) {
+    globalThis.PraxisWritingProcess = {
+      ...(globalThis.PraxisWritingProcess || {}),
       ...api,
     };
   }

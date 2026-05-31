@@ -10,7 +10,7 @@
 
 (function () {
   function renderPasteWarning() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     if (!ui.pasteWarning) return "";
     return `
       <div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:999;display:grid;place-items:center;padding:20px;">
@@ -29,9 +29,9 @@
   }
 
   function renderInvitePanel() {
-    const { ui, currentClassId, currentClasses } = window.AppState;
+    const { ui, currentClassId, currentClasses } = globalThis.AppState;
     if (!ui.showInvitePanel) return "";
-    const appUrl = window.location.origin;
+    const appUrl = globalThis.location.origin;
     const inviteLink = `${appUrl}?join=${currentClassId}`;
     const currentClass = currentClasses.find(c => c.id === currentClassId);
     const className = currentClass?.name || "your class";
@@ -53,7 +53,7 @@
   }
 
   function renderClassModal() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     if (!ui.showClassModal) return "";
     return `
       <div style="position:fixed;inset:0;background:rgba(10,18,33,0.35);z-index:1000;display:grid;place-items:center;padding:20px;">
@@ -76,7 +76,7 @@
   }
 
   function renderDraftFeedbackModal() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     if (!ui.showDraftFeedbackPrompt) return "";
     const assignment = getStudentAssignment();
     const submission = getStudentSubmission();
@@ -101,7 +101,7 @@
     `;
   }
     function renderReopenSubmissionModal() {
-    const { ui } = window.AppState;
+    const { ui } = globalThis.AppState;
     if (!ui.reopenSubmissionPrompt) return "";
     const studentName = ui.reopenSubmissionPrompt.studentName || "this student";
     return `
@@ -120,7 +120,7 @@
   }
 
   function renderTopbar() {
-    const { ui, currentProfile, currentClasses, currentClassId } = window.AppState;
+    const { ui, currentProfile, currentClasses, currentClassId } = globalThis.AppState;
     const studentOptions = "";
     const classSwitcherOptions = currentClasses.filter((c) => c.id !== currentClassId);
     const accountInitials = (currentProfile?.name || "?")
@@ -192,9 +192,9 @@
     renderHero,
   };
 
-  if (typeof window !== "undefined") {
-    window.ChromeRender = ChromeRender;
-    Object.assign(window, ChromeRender);
+  if (globalThis.window !== undefined) {
+    globalThis.ChromeRender = ChromeRender;
+    Object.assign(globalThis, ChromeRender);
   }
   if (typeof module !== "undefined" && module.exports) {
     module.exports = ChromeRender;

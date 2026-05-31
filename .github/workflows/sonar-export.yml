@@ -1,53 +1,54 @@
 name: Export SonarCloud Issues
 
 on:
-  workflow_dispatch:
-    inputs:
-      sonar_token:
-        description: 'SonarCloud token'
-        required: true
-        type: string
+  push:
+    branches:
+      - claude/affectionate-archimedes-yIHlh
+    paths:
+      - '.github/workflows/sonar-export.yml'
 
 jobs:
   export:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: claude/affectionate-archimedes-yIHlh
 
       - name: Fetch all SonarCloud issues
+        env:
+          SONAR_TOKEN: "076cd52d84caa8c7a8c27ae0abd6ac0932d4807f"
         run: |
-          TOKEN="${{ github.event.inputs.sonar_token }}"
-          ORG="praxiswrite"
-          PROJECT="PraxisWrite_Praxis"
-          PAGE=1
-          ALL_ISSUES="[]"
+          python3 << 'EOF'
+          import urllib.request, json, base64, os
 
-          while true; do
-            RESPONSE=$(curl -sf -u "${TOKEN}:" \
-              "https://sonarcloud.io/api/issues/search?organization=${ORG}&componentKeys=${PROJECT}&resolved=false&ps=500&p=${PAGE}&additionalFields=comments")
+          token = os.environ["SONAR_TOKEN"]
+          org = "praxiswrite"
+          project = "PraxisWrite_Praxis"
+          all_issues = []
 
-            ISSUES=$(echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d['issues']))")
-            COUNT=$(echo "$ISSUES" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+          for page in range(1, 5):
+              url = (f"https://sonarcloud.io/api/issues/search"
+                     f"?organization={org}&componentKeys={project}"
+                     f"&resolved=false&ps=500&p={page}")
+              req = urllib.request.Request(url)
+              creds = base64.b64encode(f"{token}:".encode()).decode()
+              req.add_header("Authorization", f"Basic {creds}")
+              with urllib.request.urlopen(req) as resp:
+                  data = json.loads(resp.read())
+              issues = data.get("issues", [])
+              print(f"Page {page}: {len(issues)} issues")
+              all_issues.extend(issues)
+              if len(issues) < 500:
+                  break
 
-            if [ "$COUNT" -eq 0 ]; then
-              break
-            fi
-
-            ALL_ISSUES=$(python3 -c "
-          import sys, json
-          existing = json.loads('''$ALL_ISSUES''')
-          new = json.loads(sys.stdin.read())
-          existing.extend(new)
-          print(json.dumps(existing))
-          " <<< "$ISSUES")
-
-            echo "Page $PAGE: fetched $COUNT issues (total so far: $(echo "$ALL_ISSUES" | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))'))"
-            PAGE=$((PAGE + 1))
-          done
-
-          echo "$ALL_ISSUES" > sonar-issues-raw.json
+          with open("sonar-issues-raw.json", "w") as f:
+              json.dump(all_issues, f)
+          print(f"Total fetched: {len(all_issues)}")
+          EOF
 
       - name: Summarise issues
         run: |
@@ -90,18 +91,19 @@ jobs:
           with open("sonar-issues-summary.json", "w") as f:
               json.dump(summary, f, indent=2)
 
-          print(f"Total issues: {len(issues)}")
+          print(f"\n=== TOTAL: {len(issues)} issues ===")
           print(f"By type: {by_type}")
           print(f"By severity: {by_severity}")
-          print("Top rules:")
-          for r in summary["by_rule"][:20]:
-              print(f"  {r['rule']} ({r['severity']}/{r['type']}): {r['count']}  — e.g. {r['message'][:60]}")
+          print("\nTop rules:")
+          for r in summary["by_rule"][:30]:
+              print(f"  {r['rule']} ({r['severity']}/{r['type']}): {r['count']:3d}  — {r['message'][:70]}")
           EOF
 
       - name: Commit summary to branch
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add sonar-issues-summary.json sonar-issues-raw.json
+          git diff --cached --quiet && echo "Nothing to commit" && exit 0
           git commit -m "chore: export SonarCloud issues for triage"
-          git push
+          git push origin HEAD:claude/affectionate-archimedes-yIHlh

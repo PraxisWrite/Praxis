@@ -447,7 +447,7 @@
   }
 
   function renderStudentDraftStep(assignment, submission) {
-    const { escapeHtml, wordCount, safeArray } = globalThis;
+    const { escapeHtml, wordCount } = globalThis;
     const { ui } = globalThis.AppState;
 
     return `

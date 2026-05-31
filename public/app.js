@@ -2626,12 +2626,7 @@ if (action === "switch-class") {
 
   if (action === "invite-by-email") {
     if (!currentClassId) { alert("Select a class first."); return; }
-    const currentClass = currentClasses.find(c => c.id === currentClassId);
-    const className = currentClass?.name || "your class";
-    const appUrl = globalThis.location.origin;
-    const subject = encodeURIComponent(`You have been invited to join ${className} on ${PRODUCT_NAME}`);
-    const body = encodeURIComponent(`Hello,\n\nYou have been invited to join ${className} on ${PRODUCT_NAME}.\n\nTo get started:\n1. Go to ${appUrl}\n2. Click "Create account"\n3. Sign up with this email address as a student\n4. Your teacher will then add you to the class\n\nSee you there!`);
-   ui.showInvitePanel = true;
+    ui.showInvitePanel = true;
     render();
     return;
   }

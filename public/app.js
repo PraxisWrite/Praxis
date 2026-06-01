@@ -3112,22 +3112,9 @@ if (action === "select-assignment") {
       const chatHistory = submission?.chatHistory || [];
       const chatDisabled = isChatDisabled(assignment);
       const hasEnoughChat = chatDisabled || submission?.chatSkippedAt || chatHistory.length >= 2;
-      const outlineComplete = isOutlineComplete(submission, assignment);
-      const chatNeeded = !hasEnoughChat;
-      const outlineNeeded = !outlineComplete;
-      if (chatNeeded || outlineNeeded) {
-        let missing = "complete your outline";
-        if (chatNeeded && outlineNeeded) missing = "talk to the coach a bit more and complete your outline";
-        else if (chatNeeded) missing = "talk to the coach a bit more";
-        const proceed = globalThis.confirm(`Are you ready to move on to writing your draft? Most students find it helpful to ${missing} first.\n\nContinue anyway?`);
+      if (!hasEnoughChat) {
+        const proceed = globalThis.confirm("Are you ready to move on to writing your draft? Most students find it helpful to talk to the coach a bit more first.\n\nContinue anyway?");
         if (!proceed) return;
-      }
-      const notes = document.getElementById("chat-skip-notes");
-      if (notes && submission) {
-        submission.outline.partOne = notes.value.trim();
-        submission.updatedAt = new Date().toISOString();
-        persistState();
-        scheduleSubmissionSync();
       }
     }
     if (nextStep === 3) {
@@ -4328,10 +4315,6 @@ function canAdvanceToStep(nextStep) {
     const hasChat = isChatDisabled(assignment) || Boolean(submission.chatSkippedAt) || (submission.chatHistory || []).length >= 2;
     if (!hasChat) {
       ui.notice = "Have a short conversation with your writing coach first, or use Skip chat if you're ready to draft.";
-      return false;
-    }
-    if (!isOutlineComplete(submission, assignment)) {
-      ui.notice = "Complete the outline first. It gives you a plan to draft from and helps your teacher see your planning process.";
       return false;
     }
   }

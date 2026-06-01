@@ -2120,6 +2120,12 @@ button.rubric-level-cell:hover {
   display: block;
   border-radius: 8px 8px 3px 3px;
   background: linear-gradient(180deg, #6d8cf7, #a9c5ff);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.process-timeline-bucket--active .process-timeline-bar {
+  background: linear-gradient(180deg, #2f4fc0, #5f8fff);
+  box-shadow: 0 0 0 2px rgba(63, 101, 216, 0.28);
 }
 
 .process-paste-pin {
@@ -2183,6 +2189,29 @@ button.rubric-level-cell:hover {
   border: 2px solid #fff;
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
+
+/* At-a-glance status colour for each metric card: green within range, amber
+   above/below, neutral when there is no reference range yet. */
+.process-metric-card--within { border-left: 3px solid #57b98a; }
+.process-metric-card--out { border-left: 3px solid #e6b450; }
+.process-metric-card--none { border-left: 3px solid var(--line); }
+
+.process-metric-tag--within { color: #1f6b42; background: #eef9f1; }
+.process-metric-tag--out { color: #8a5a00; background: #fff8e8; }
+.process-metric-tag--none { color: var(--muted); background: #fff; }
+
+.process-range-dot--within { background: #2f9e6f; }
+.process-range-dot--out { background: #d39a2a; }
+
+.process-metric-read { color: var(--ink); }
+
+.process-verdict {
+  margin: 6px 0 12px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.process-verdict--within { color: #1f6b42; }
+.process-verdict--out { color: #8a5a00; }
 
 .process-admin-panel {
   display: flex;

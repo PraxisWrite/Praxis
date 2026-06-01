@@ -26,47 +26,108 @@
     return String(value);
   }
 
+  // Plain-language reading of where this student sits, so a teacher does not
+  // have to decode the range bar. Wording is deliberately non-accusatory —
+  // every line is a "might suggest", never a verdict.
+  const METRIC_INTERPRETATIONS = {
+    typingRate: {
+      within: "Typical typing pace for this level.",
+      below: "Slower typing than typical — often just careful or less fluent typing.",
+      above: "Faster typing than typical — worth a glance at the timeline and paste evidence.",
+    },
+    longPauses: {
+      within: "A typical amount of thinking pauses.",
+      below: "Fewer thinking pauses than typical — some text may have been planned elsewhere.",
+      above: "More thinking pauses than typical — usually careful composing.",
+    },
+    localRevisions: {
+      within: "A typical amount of in-line revising.",
+      below: "Less in-line revising than typical — little reworking while writing.",
+      above: "More in-line revising than typical — lots of reworking while drafting.",
+    },
+    productProcessRatio: {
+      within: "A typical share of typed text survived into the final.",
+      below: "Less text survived than typical — heavy rewriting.",
+      above: "Most typed text survived unchanged — little revising.",
+    },
+  };
+
+  function metricStatusKind(position) {
+    if (position === "within") return "within";
+    if (position === "below" || position === "above") return "out";
+    return "none";
+  }
+
   function renderMetricCard({ key, label, value, coachValue, range, position, help }) {
     const [low, high] = Array.isArray(range) ? range : [0, 1];
     const numeric = Number(value || 0);
     const pct = high > low ? Math.max(0, Math.min(100, ((numeric - low) / (high - low)) * 100)) : 50;
     const tag = position === "within" ? "within preliminary range" : position === "below" ? "below preliminary range" : position === "above" ? "above preliminary range" : "no range yet";
+    const kind = metricStatusKind(position);
+    const interpretation = METRIC_INTERPRETATIONS[key]?.[position] || "";
     return `
-      <div class="process-metric-card">
+      <div class="process-metric-card process-metric-card--${kind}">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
           <div>
-            <div class="mini-label">${escapeHtml(label)}</div>
+            <div class="mini-label" title="${escapeHtml(help || "")}">${escapeHtml(label)}</div>
             <div class="process-metric-value">${escapeHtml(formatMetricValue(key, value))}</div>
           </div>
-          <span class="process-metric-tag">${escapeHtml(tag)}</span>
+          <span class="process-metric-tag process-metric-tag--${kind}">${escapeHtml(tag)}</span>
         </div>
-        <p class="subtle" style="margin:6px 0 8px;font-size:0.78rem;">${escapeHtml(help || "")}</p>
         <div class="process-range">
           <div class="process-range-band"></div>
-          <div class="process-range-dot" style="left:calc(${pct}% - 5px);"></div>
+          <div class="process-range-dot process-range-dot--${kind}" style="left:calc(${pct}% - 5px);"></div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:0.72rem;color:var(--muted);">
           <span>${escapeHtml(formatMetricValue(key, low))}</span>
           <span>${escapeHtml(formatMetricValue(key, high))}</span>
         </div>
-        <p style="margin:8px 0 0;font-size:0.74rem;color:var(--muted);">Coach/outline baseline: ${coachValue === null || coachValue === undefined ? "not enough data yet" : escapeHtml(formatMetricValue(key, coachValue))}</p>
+        ${interpretation ? `<p class="process-metric-read" style="margin:8px 0 0;font-size:0.76rem;">${escapeHtml(interpretation)}</p>` : ""}
+        <p style="margin:6px 0 0;font-size:0.74rem;color:var(--muted);">Coach/outline baseline: ${coachValue === null || coachValue === undefined ? "not enough data yet" : escapeHtml(formatMetricValue(key, coachValue))}</p>
       </div>
     `;
   }
 
+  // One careful at-a-glance sentence that synthesises the four cards, so the
+  // teacher sees the headline before reading each card.
+  const METRIC_OUT_PHRASES = {
+    typingRate: { above: "faster typing", below: "slower typing" },
+    longPauses: { above: "more thinking pauses", below: "fewer thinking pauses" },
+    localRevisions: { above: "more in-line revising", below: "less in-line revising" },
+    productProcessRatio: { above: "little revising", below: "heavy rewriting" },
+  };
+
+  function buildProcessVerdict(cards) {
+    const ranked = cards.filter((card) => Array.isArray(card.range));
+    if (!ranked.length) return null;
+    const out = ranked.filter((card) => card.position === "above" || card.position === "below");
+    if (!out.length) {
+      return { allWithin: true, text: `All ${ranked.length} process measures sit within the typical range.` };
+    }
+    const phrases = out.map((card) => METRIC_OUT_PHRASES[card.key]?.[card.position]).filter(Boolean);
+    return {
+      allWithin: false,
+      text: `${out.length} of ${ranked.length} measures outside the typical range: ${phrases.join(", ")}.`,
+    };
+  }
+
   function renderTimeline(timeline = []) {
     if (!timeline.length) return "";
+    // Skip the leading empty segments (before any typing) so the chart starts
+    // at the first writing activity instead of a row of flat bars.
+    const firstActive = timeline.findIndex((bucket) => Number(bucket.typedChars || 0) > 0 || Number(bucket.pasteChars || 0) > 0);
+    const visible = firstActive > 0 ? timeline.slice(firstActive) : timeline;
     return `
       <div class="process-timeline-header">
         <span>Activity timeline</span>
-        <span>Blue bars show typed characters in each time segment. Pink dot = paste or bulk insert.</span>
+        <span>Blue bars show typed characters in each time segment. Pink dot = paste or bulk insert. The bar highlights as the replay plays.</span>
       </div>
-      <div class="process-timeline" aria-label="Writing process timeline">
-        ${timeline.map((bucket) => {
+      <div class="process-timeline" id="process-timeline" aria-label="Writing process timeline" style="grid-template-columns:repeat(${visible.length}, minmax(8px, 1fr));">
+        ${visible.map((bucket) => {
           const height = Math.max(8, Math.round(58 * Number(bucket.intensity || 0)));
           const paste = Number(bucket.pasteChars || 0) > 0;
           return `
-            <div class="process-timeline-bucket" title="${escapeHtml(bucket.label)} · ${bucket.typedChars} typed chars${paste ? ` · ${bucket.pasteChars} paste chars` : ""}">
+            <div class="process-timeline-bucket" data-start-ms="${Math.round(Number(bucket.startMs || 0))}" data-end-ms="${Math.round(Number(bucket.endMs || 0))}" title="${escapeHtml(bucket.label)} · ${bucket.typedChars} typed chars${paste ? ` · ${bucket.pasteChars} paste chars` : ""}">
               ${paste ? `<span class="process-paste-pin"></span>` : ""}
               <span class="process-timeline-bar" style="height:${height}px;"></span>
             </div>
@@ -95,6 +156,12 @@
       { key: "productProcessRatio", label: defs.productProcessRatio?.label || "Text survival", value: metrics.productProcessRatio, coachValue: null, range: ranges.productProcessRatio, position: positions.productProcessRatio, help: defs.productProcessRatio?.help },
     ];
 
+    const verdict = buildProcessVerdict(metricCards);
+    const verdictClass = verdict?.allWithin ? "process-verdict--within" : "process-verdict--out";
+    const verdictMarkup = verdict
+      ? `<p class="process-verdict ${verdictClass}">${escapeHtml(verdict.text)}</p>`
+      : "";
+
     return `
       <section class="process-panel" style="border-color:${style.border};background:${style.bg};">
         <div class="process-panel-header">
@@ -122,6 +189,7 @@
           </div>
         </div>
         <p class="process-reason" style="color:${style.color};">${escapeHtml(analysis.reason)}</p>
+        ${verdictMarkup}
         ${analysis.evidence.length ? `
           <div class="process-chip-row">
             ${analysis.evidence.map((item) => `<span class="process-chip" title="${escapeHtml(item.detail)}">${escapeHtml(item.label)}</span>`).join("")}

@@ -173,6 +173,23 @@
     if (playbackToggle) {
       playbackToggle.textContent = ui.playback.isPlaying ? "Pause" : "Play";
     }
+
+    highlightTimelineBucketForFrame(submission, ui.playback.index);
+  }
+
+  // Highlight the activity-timeline bar that covers the current replay moment,
+  // so the chart animates in step with the playback (and the scrubber).
+  function highlightTimelineBucketForFrame(submission, index) {
+    const container = document.getElementById("process-timeline");
+    if (!container) return;
+    const frames = getPlaybackFrames(submission);
+    const currentMs = Number(frames[index]?.timeMs);
+    container.querySelectorAll(".process-timeline-bucket").forEach((bucket) => {
+      const start = Number(bucket.dataset.startMs);
+      const end = Number(bucket.dataset.endMs);
+      const active = Number.isFinite(currentMs) && Number.isFinite(start) && currentMs >= start && currentMs < end;
+      bucket.classList.toggle("process-timeline-bucket--active", active);
+    });
   }
 
   function updateDraftMeters() {

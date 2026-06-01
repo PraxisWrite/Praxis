@@ -118,6 +118,9 @@
       outline.partThree,
       outline.topicSentence,
       outline.concludingSentence,
+      // Auto-generated coach outline (student-chat-outline.js). Pasting your own
+      // outline into the draft is legitimate planning, not copied text.
+      outline.chatOutlineText,
     ].filter(Boolean).join(" ");
   }
 

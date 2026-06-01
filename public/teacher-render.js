@@ -1009,7 +1009,7 @@
   function renderCoachingChat(submission, studentName) {
     const { escapeHtml } = globalThis.window;
     return `
-      <div style="max-height:240px;overflow-y:auto;display:grid;gap:6px;">
+      <div style="display:grid;gap:6px;">
         ${(submission.chatHistory || []).map((m) => `
           <div style="padding:8px 12px;border-radius:8px;background:${m.role === "user" ? "#edf4ea" : "#f4efe6"};font-size:0.85rem;">
             <strong style="font-size:0.75rem;color:var(--muted);display:block;margin-bottom:2px;">${m.role === "user" ? escapeHtml(studentName) : "Coach"}</strong>

@@ -738,7 +738,7 @@ function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, min
               <div class="notice" style="margin-top:14px;">Please rate yourself on all rubric items before submitting. (${selfAssessmentCompletion.selectedCount}/${selfAssessmentCompletion.requiredCount} complete)</div>
             ` : ""}
             <div class="field" style="margin-top:18px;">
-              <label for="student-reflection-improved">Reflection — what did you improve? (optional)</label>
+              <label for="student-reflection-improved">Reflection — what did you improve?</label>
               <textarea id="student-reflection-improved" data-reflection-field="improved" placeholder="Write a sentence or two about what you focused on improving in your final version. This helps your teacher see your thinking." style="min-height:96px;">${escapeHtml(submission.reflections?.improved || "")}</textarea>
             </div>
           </div>

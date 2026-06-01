@@ -2012,6 +2012,7 @@ const ASSIGNMENT_ALLOWED_FIELDS = new Set([
   'status',
   'deadline',
   'uploaded_rubric_text',
+  'auto_outline_from_chat',
   'class_id',
 ]);
 

@@ -74,7 +74,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [x] **"Graded work available" notification on student side** — implemented: assignment list rows show a "Graded" pill + "View feedback" button (direct to step 4); a "Feedback returned" card appears above the workspace when graded work exists but isn't selected.
 - [ ] **Student assignment tray needs structure** — separate sections for new, submitted, and graded assignments. Look at how Canvas / other LMS organise students' assignments.
 - [ ] **Make the assignment brief more obvious and unmissable** on the student assignment page.
-- [ ] **Toggleable: auto-generate outline after chat conversation** — like the chatbot on/off switch, let teachers enable auto-outline generation after the chat, viewable on the drafting page.
+- [x] **Toggleable: auto-generate outline after chat conversation** — done: teacher toggle `autoOutlineFromChat` (next to "Disable chatbot"). When on, the student draft page auto-builds an **editable** idea-outline (notes only, no sentences) from the coach chat, with a "Rebuild from chat" button. Logic lives in a self-contained `public/student-chat-outline.js` (kept out of app.js); outline text nests in the `submission.outline` jsonb so it persists with no submission-schema change. New `assignments.auto_outline_from_chat` column (migration `20260601_assignment_auto_outline.sql`).
 - [ ] **Download "my work" filename** — should be `AssignmentName-ClassName-Date` not a generic name.
 - [ ] **Remove student focus box from all workflows**.
 - [ ] **Remove skip chat button** — *note:* the old `docs/todo.md` marked this done, but `skip-chat-to-draft` + the `chat-skip-notes` textarea are still live in `student-render.js`/`app.js`, so it is **not** actually done.

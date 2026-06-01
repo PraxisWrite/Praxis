@@ -78,6 +78,15 @@
           </label>
         </div>
         <div class="field" style="grid-column:1 / -1;">
+          <label style="display:flex;gap:10px;align-items:flex-start;padding:0 4px;font-weight:600;">
+            <input id="${idPrefix}-auto-outline" data-teacher-field="autoOutlineFromChat" type="checkbox" ${ui.teacherDraft.autoOutlineFromChat ? "checked" : ""} ${ui.teacherDraft.disableChatbot ? "disabled" : ""} style="margin-top:3px;" />
+            <span>
+              Auto-build an outline from the coach chat
+              <span class="subtle" style="display:block;font-weight:400;font-size:0.82rem;">When the student reaches the draft page, the coach turns their chat into an editable idea-outline (notes only — no sentences). Needs the chatbot enabled.</span>
+            </span>
+          </label>
+        </div>
+        <div class="field" style="grid-column:1 / -1;">
           <label for="${idPrefix}-deadline-date">Deadline</label>
           <div style="display:grid;grid-template-columns:minmax(0,1fr) 160px;gap:8px;align-items:end;">
             <div style="min-width:0;">

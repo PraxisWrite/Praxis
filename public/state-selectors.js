@@ -34,24 +34,38 @@
     const publishedAssignments = getPublishedAssignments();
     const current = [];
     const submitted = [];
+    const toDo = [];
+    const awaitingReview = [];
+    const graded = [];
     publishedAssignments.forEach((assignment) => {
       const submission = getStudentSubmissionForAssignment(assignment.id);
       const status = submission?.status || "draft";
       const hasSubmitted = status !== "draft" && (SubmissionUtils.isSubmissionSubmitted(submission) || ["late", "missing"].includes(status));
+      const isGraded = SubmissionUtils.isSubmissionGraded(submission);
       const bucketItem = {
         assignment,
         submission,
         status,
-        isGraded: SubmissionUtils.isSubmissionGraded(submission),
+        isGraded,
+        started: Boolean(submission && SubmissionUtils.hasSubmissionContent(submission)),
       };
       if (hasSubmitted) {
         submitted.push(bucketItem);
+        if (isGraded) {
+          graded.push(bucketItem);
+        } else {
+          awaitingReview.push(bucketItem);
+        }
       } else {
         current.push(bucketItem);
+        toDo.push(bucketItem);
       }
     });
 
-    return { current, submitted };
+    // current/submitted are retained for callers that pre-date the
+    // three-section tray (e.g. hydrateSelections); the three new arrays are
+    // the tray's purpose-built sections.
+    return { current, submitted, toDo, awaitingReview, graded };
   }
 
   function getAssignmentSubmissions(assignmentId) {

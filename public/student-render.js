@@ -107,8 +107,9 @@
     const isSelected = assignment.id === selectedId;
 
     const overdue = assignment.deadline && new Date(assignment.deadline) < new Date();
+    const deadlineClass = overdue ? "warning-pill" : "pill";
     const deadlineMarkup = assignment.deadline
-      ? `<span class="${overdue ? "warning-pill" : "pill"}" style="font-size:0.75rem;">Due ${escapeHtml(new Date(assignment.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short" }))}</span>`
+      ? `<span class="${deadlineClass}" style="font-size:0.75rem;">Due ${escapeHtml(new Date(assignment.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short" }))}</span>`
       : "";
 
     let statusPill = `<span class="pill" style="font-size:0.75rem;">Not started</span>`;
@@ -228,16 +229,21 @@
     // the workspace with a "Back to all work" link.
     const inDetailView = !ui.studentViewingTray && Boolean(assignment && submission);
 
-    const body = inDetailView
-      ? `
+    let body;
+    if (inDetailView) {
+      body = `
         <button class="button-ghost" data-action="view-all-work" style="margin-bottom:12px;">← Back to all work</button>
         ${renderStudentActiveAssignment(assignment, submission, ui.studentStep)}
-      `
-      : `
-        ${pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : ""}
-        ${renderStudentAssignmentTray(assignmentBuckets, ui.selectedStudentAssignmentId, currentClassId)}
-        ${otherClasses.length ? renderUpcomingStudentClasses(otherClasses, currentClassId, state.assignments) : ""}
       `;
+    } else {
+      const pendingMarkup = pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : "";
+      const otherClassesMarkup = otherClasses.length ? renderUpcomingStudentClasses(otherClasses, currentClassId, state.assignments) : "";
+      body = `
+        ${pendingMarkup}
+        ${renderStudentAssignmentTray(assignmentBuckets, ui.selectedStudentAssignmentId, currentClassId)}
+        ${otherClassesMarkup}
+      `;
+    }
 
     return `
     <section class="student-shell">

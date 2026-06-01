@@ -62,9 +62,9 @@
       }
     });
 
-    // `current`/`submitted` are retained for callers that pre-date the
-    // three-section tray (e.g. hydrateSelections); `toDo`/`awaitingReview`/
-    // `graded` are the tray's purpose-built sections.
+    // current/submitted are retained for callers that pre-date the
+    // three-section tray (e.g. hydrateSelections); the three new arrays are
+    // the tray's purpose-built sections.
     return { current, submitted, toDo, awaitingReview, graded };
   }
 

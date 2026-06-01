@@ -6457,6 +6457,7 @@ function normalizeAssignment(assignment) {
     ideaRequestLimit: Number(assignment?.ideaRequestLimit ?? 3),
     feedbackRequestLimit: Number(assignment?.feedbackRequestLimit ?? 2),
     disableChatbot: isChatDisabled(assignment),
+    autoOutlineFromChat: Boolean(assignment?.autoOutlineFromChat),
     studentFocus: safeArray(assignment?.studentFocus).length ? assignment.studentFocus : focusForType(assignmentType, "the topic"),
     rubricType: rubricSchema?.criteria?.length ? "matrix" : getAssignmentRubricType(assignment),
     rubricSchema: rubricSchema || null,

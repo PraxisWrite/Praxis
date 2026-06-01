@@ -127,32 +127,22 @@ async function createAndPublishAssignment(page, title) {
 async function openStudentAssignment(page, title) {
   await selectStudentTestClass(page);
 
-  const assignmentSelect = page.getByLabel(/select assignment/i);
-  await expect(assignmentSelect).toBeVisible({ timeout: 20_000 });
+  // The assignment tray (list view) lists each assignment as a row; open it by
+  // clicking that row's action button.
+  const assignmentRow = page.locator(".upcoming-assignment-row").filter({ hasText: title }).first();
+  await expect(assignmentRow).toBeVisible({ timeout: 60_000 });
 
-  await expect
-    .poll(
-      async () => assignmentSelect.locator("option").evaluateAll((options, targetTitle) => {
-        return options.some((option) => option.textContent.trim() === targetTitle);
-      }, title),
-      { timeout: 60_000 },
-    )
-    .toBeTruthy();
-
-  await assignmentSelect.selectOption({ label: title });
+  await assignmentRow.locator('[data-action="open-assignment"]').first().click();
   await expect(page.getByRole("heading", { name: title })).toBeVisible({ timeout: 20_000 });
 }
 
 async function openFirstStudentAssignment(page) {
   await selectStudentTestClass(page);
 
-  const assignmentSelect = page.getByLabel(/select assignment/i);
-  await expect(assignmentSelect).toBeVisible({ timeout: 20_000 });
+  const firstOpenButton = page.locator('.assignment-tray [data-action="open-assignment"]').first();
+  await expect(firstOpenButton, "student should have at least one published assignment").toBeVisible({ timeout: 20_000 });
 
-  const firstAssignment = await assignmentSelect.locator("option[value]:not([value=''])").first().getAttribute("value");
-  expect(firstAssignment, "student should have at least one published assignment").toBeTruthy();
-
-  await assignmentSelect.selectOption(firstAssignment);
+  await firstOpenButton.click();
   await expect(page.getByText(/your task/i).first()).toBeVisible({ timeout: 20_000 });
 }
 

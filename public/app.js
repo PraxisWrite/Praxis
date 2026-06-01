@@ -119,6 +119,7 @@ const ui = {
   activeFocusIdeaId: "",
   pasteWarning: false,
   studentStep: 1,
+  studentViewingTray: true,
   playback: {
     isPlaying: false,
     speed: 1,
@@ -2444,6 +2445,7 @@ if (action === "switch-class") {
     currentClassId = target.dataset.classId;
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = null;
+    ui.studentViewingTray = true;
     ui.notice = "";
     ui.draftSaveMessage = "";
     hydrateSelections();
@@ -2455,9 +2457,20 @@ if (action === "switch-class") {
     return;
   }
 
+  if (action === "view-all-work") {
+    pauseActiveChatSession();
+    await flushCurrentStudentWork();
+    ui.studentViewingTray = true;
+    ui.notice = "";
+    ui.draftSaveMessage = "";
+    render();
+    return;
+  }
+
   if (action === "open-assignment") {
     pauseActiveChatSession();
     await flushCurrentStudentWork();
+    ui.studentViewingTray = false;
     currentClassId = target.dataset.classId;
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = target.dataset.assignmentId;
@@ -3871,6 +3884,7 @@ if (target.id === "student-class-select") {
     currentClassId = target.value;
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = null;
+    ui.studentViewingTray = true;
     ui.notice = "";
     hydrateSelections();
     render();
@@ -3927,19 +3941,6 @@ if (target.id === "student-class-select") {
   if (target.id === "user-select") {
     ui.activeUserId = target.value;
     hydrateSelections();
-    render();
-    return;
-  }
-
-  if (target.id === "student-assignment-select") {
-    await flushCurrentStudentWork();
-    ui.selectedStudentAssignmentId = target.value;
-    saveStudentAssignmentId(ui.selectedStudentAssignmentId);
-    ui.notice = "";
-    ui.draftSaveMessage = "";
-    ensureStudentSubmission();
-    const loaded = await loadStudentSubmissionForAssignment(target.value);
-    rememberStudentStep(getStudentStepForSubmission(loaded || getStudentSubmission()), ui.selectedStudentAssignmentId);
     render();
     return;
   }

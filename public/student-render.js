@@ -37,7 +37,7 @@
     const { escapeHtml } = globalThis.window;
     return `
       <div class="upcoming-section">
-        <p class="mini-label" style="margin-bottom:10px;">Your classes & assignments</p>
+        <p class="mini-label" style="margin-bottom:10px;">Your other classes</p>
         ${currentClasses.map((cls) => {
           const clsAssignments = assignments.filter((assignment) => assignment.status === "published" && assignment.classId === cls.id);
           const assignmentRows = clsAssignments.length
@@ -76,20 +76,76 @@
     `;
   }
 
-  function renderStudentAssignmentOptions(assignments, assignmentBuckets, selectedAssignmentId) {
-    const { escapeHtml } = globalThis.window;
-    if (!assignments.length) return `<option value="">No assignments published yet</option>`;
+  function renderStudentAssignmentTray(buckets, selectedId, currentClassId) {
+    const total = buckets.toDo.length + buckets.awaitingReview.length + buckets.graded.length;
+    if (!total) {
+      return `<div class="empty-state"><h3>Nothing here yet</h3><p>Your teacher hasn't published any assignments yet.</p></div>`;
+    }
     return `
-      ${assignmentBuckets.current.length ? `
-        <optgroup label="Current work">
-          ${assignmentBuckets.current.map(({ assignment }) => `<option value="${assignment.id}" ${selectedAssignmentId === assignment.id ? "selected" : ""}>${escapeHtml(assignment.title)}</option>`).join("")}
-        </optgroup>
-      ` : ""}
-      ${assignmentBuckets.submitted.length ? `
-        <optgroup label="Submitted work">
-          ${assignmentBuckets.submitted.map(({ assignment, isGraded }) => `<option value="${assignment.id}" ${selectedAssignmentId === assignment.id ? "selected" : ""}>${escapeHtml(assignment.title)}${isGraded ? " — Graded" : " — Awaiting review"}</option>`).join("")}
-        </optgroup>
-      ` : ""}
+      <div class="assignment-tray">
+        ${renderTraySection("To do", buckets.toDo, "todo", selectedId, currentClassId)}
+        ${renderTraySection("Awaiting feedback", buckets.awaitingReview, "awaiting", selectedId, currentClassId)}
+        ${renderTraySection("Graded", buckets.graded, "graded", selectedId, currentClassId)}
+      </div>
+    `;
+  }
+
+  function renderTraySection(label, items, kind, selectedId, currentClassId) {
+    const { escapeHtml } = globalThis.window;
+    if (!items.length) return "";
+    return `
+      <div class="tray-section">
+        <p class="mini-label tray-section-head">${escapeHtml(label)} <span class="tray-count">${items.length}</span></p>
+        ${items.map((item) => renderTrayRow(item, kind, selectedId, currentClassId)).join("")}
+      </div>
+    `;
+  }
+
+  function renderTrayRow(item, kind, selectedId, currentClassId) {
+    const { escapeHtml, formatDateTime } = globalThis.window;
+    const { assignment, submission, started } = item;
+    const isSelected = assignment.id === selectedId;
+
+    const overdue = assignment.deadline && new Date(assignment.deadline) < new Date();
+    const deadlineMarkup = assignment.deadline
+      ? `<span class="${overdue ? "warning-pill" : "pill"}" style="font-size:0.75rem;">Due ${escapeHtml(new Date(assignment.deadline).toLocaleDateString(undefined, { day: "numeric", month: "short" }))}</span>`
+      : "";
+
+    let statusPill = `<span class="pill" style="font-size:0.75rem;">Not started</span>`;
+    let meta = "";
+    let buttonLabel = "Start";
+    let step = 1;
+
+    if (kind === "graded") {
+      statusPill = `<span class="pill" style="font-size:0.75rem;color:var(--sage);border-color:var(--sage);">Graded</span>`;
+      const score = submission?.teacherReview?.finalScore;
+      if (score !== undefined && score !== null && String(score).trim() !== "") {
+        meta = `<span class="tray-grade">${escapeHtml(String(score))}/${escapeHtml(String(assignment.totalPoints || ""))}</span>`;
+      }
+      buttonLabel = "View feedback";
+      step = 4;
+    } else if (kind === "awaiting") {
+      statusPill = `<span class="pill" style="font-size:0.75rem;">Awaiting review</span>`;
+      const when = submission?.submittedAt ? `Submitted ${escapeHtml(formatDateTime(submission.submittedAt))}` : "Submitted";
+      meta = `<span class="subtle" style="font-size:0.78rem;">${when}</span>`;
+      buttonLabel = "View";
+      step = 4;
+    } else if (started) {
+      statusPill = `<span class="pill" style="font-size:0.75rem;color:var(--accent-deep);border-color:var(--accent);">In progress</span>`;
+      buttonLabel = "Continue";
+      step = globalThis.getStudentStepForSubmission?.(submission) || 1;
+    }
+
+    return `
+      <div class="upcoming-assignment-row${isSelected ? " tray-row-selected" : ""}">
+        <span class="tray-row-title">${escapeHtml(assignment.title)}</span>
+        <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+          ${meta}
+          ${deadlineMarkup}
+          ${statusPill}
+          <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${currentClassId}" data-assignment-id="${assignment.id}" data-student-step="${step}">${buttonLabel}</button>
+        </span>
+      </div>
     `;
   }
 
@@ -153,7 +209,7 @@
 
   function renderStudentWorkspace() {
     const { ui, state, currentClasses, currentClassId, currentProfile, currentPendingClasses } = globalThis.window.AppState;
-    const { escapeHtml, getPublishedAssignments, getStudentAssignmentBuckets,
+    const { escapeHtml, getStudentAssignmentBuckets,
       getUserById, getStudentSubmission, getStudentAssignment } = globalThis.window;
 
     const pendingClasses = currentPendingClasses || [];
@@ -161,17 +217,27 @@
       return renderPendingApprovalScreen(pendingClasses, true);
     }
 
-    const assignments = getPublishedAssignments();
     const assignmentBuckets = getStudentAssignmentBuckets();
     const student = getUserById(ui.activeUserId);
     const submission = getStudentSubmission();
     const assignment = getStudentAssignment();
     const currentClass = currentClasses.find(c => c.id === currentClassId);
-    const gradedWork = assignmentBuckets.submitted.filter(({ isGraded }) => isGraded);
-    const nextGradedWork = gradedWork.find(({ assignment: item }) => item.id !== ui.selectedStudentAssignmentId) || gradedWork[0] || null;
-    const hasOtherGradedWork = Boolean(nextGradedWork && nextGradedWork.assignment.id !== ui.selectedStudentAssignmentId);
-    const hasGradedWork = Boolean(nextGradedWork);
-    const gradedWorkPill = hasGradedWork ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ Graded work available</span>` : "";
+    const otherClasses = currentClasses.filter(c => c.id !== currentClassId);
+
+    // List -> detail: the tray is the home view; opening an assignment shows
+    // the workspace with a "Back to all work" link.
+    const inDetailView = !ui.studentViewingTray && Boolean(assignment && submission);
+
+    const body = inDetailView
+      ? `
+        <button class="button-ghost" data-action="view-all-work" style="margin-bottom:12px;">← Back to all work</button>
+        ${renderStudentActiveAssignment(assignment, submission, ui.studentStep)}
+      `
+      : `
+        ${pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : ""}
+        ${renderStudentAssignmentTray(assignmentBuckets, ui.selectedStudentAssignmentId, currentClassId)}
+        ${otherClasses.length ? renderUpcomingStudentClasses(otherClasses, currentClassId, state.assignments) : ""}
+      `;
 
     return `
     <section class="student-shell">
@@ -196,44 +262,10 @@
             <span><strong>${escapeHtml(currentClass.name)}</strong>${currentClass.teacher_name ? ` · ${escapeHtml(currentClass.teacher_name)}` : ""}</span>
           </div>
         ` : ""}
-        ${pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : ""}
-        ${currentClasses.length > 0 && !assignment ? renderUpcomingStudentClasses(currentClasses, currentClassId, state.assignments) : ""}
-        <div class="field">
-          <label for="student-assignment-select">Choose assignment</label>
-          <select id="student-assignment-select" aria-label="Select assignment">
-            ${renderStudentAssignmentOptions(assignments, assignmentBuckets, ui.selectedStudentAssignmentId)}
-          </select>
-        </div>
-        ${assignments.length ? `
-          <div class="pill-row" style="margin-top:-4px;">
-            <span class="pill">${assignmentBuckets.current.length} current</span>
-            <span class="pill">${assignmentBuckets.submitted.length} submitted</span>
-            ${gradedWorkPill}
-          </div>
-        ` : ""}
-        ${hasOtherGradedWork ? `
-          <div class="teacher-ready-card" style="margin-top:10px;border-left:4px solid var(--sage);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
-            <div>
-              <p class="mini-label" style="margin-bottom:4px;">Feedback returned</p>
-              <p class="subtle" style="margin:0;font-size:0.86rem;">${escapeHtml(nextGradedWork.assignment.title)} is ready to review.</p>
-            </div>
-            <button class="button-secondary" data-action="open-assignment" data-class-id="${currentClassId}" data-assignment-id="${nextGradedWork.assignment.id}" data-student-step="4">View feedback</button>
-          </div>
-        ` : ""}
-        ${renderStudentWorkspaceBody(assignments, assignment, submission, ui.studentStep)}
+        ${body}
       </div>
     </section>
   `;
-  }
-
-  function renderStudentWorkspaceBody(assignments, assignment, submission, studentStep) {
-    if (!assignments.length) {
-      return `<div class="empty-state"><h3>Nothing here yet</h3><p>Your teacher hasn't published any assignments yet.</p></div>`;
-    }
-    if (!assignment || !submission) {
-      return `<div class="empty-state"><h3>No assignment yet</h3><p>Choose an assignment from the dropdown above to get started.</p></div>`;
-    }
-    return renderStudentActiveAssignment(assignment, submission, studentStep);
   }
 
   function renderSubmissionDebugPanel(assignment, submission) {

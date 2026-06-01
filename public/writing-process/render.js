@@ -62,7 +62,9 @@
     const [low, high] = Array.isArray(range) ? range : [0, 1];
     const numeric = Number(value || 0);
     const pct = high > low ? Math.max(0, Math.min(100, ((numeric - low) / (high - low)) * 100)) : 50;
-    const tag = position === "within" ? "within preliminary range" : position === "below" ? "below preliminary range" : position === "above" ? "above preliminary range" : "no range yet";
+    // Symbol + word so the status reads without relying on colour perception.
+    const tagTexts = { within: "✓ within range", below: "↓ below range", above: "↑ above range" };
+    const tag = tagTexts[position] || "— no range yet";
     const kind = metricStatusKind(position);
     const interpretation = METRIC_INTERPRETATIONS[key]?.[position] || "";
     return `
@@ -86,29 +88,6 @@
         <p style="margin:6px 0 0;font-size:0.74rem;color:var(--muted);">Coach/outline baseline: ${coachValue === null || coachValue === undefined ? "not enough data yet" : escapeHtml(formatMetricValue(key, coachValue))}</p>
       </div>
     `;
-  }
-
-  // One careful at-a-glance sentence that synthesises the four cards, so the
-  // teacher sees the headline before reading each card.
-  const METRIC_OUT_PHRASES = {
-    typingRate: { above: "faster typing", below: "slower typing" },
-    longPauses: { above: "more thinking pauses", below: "fewer thinking pauses" },
-    localRevisions: { above: "more in-line revising", below: "less in-line revising" },
-    productProcessRatio: { above: "little revising", below: "heavy rewriting" },
-  };
-
-  function buildProcessVerdict(cards) {
-    const ranked = cards.filter((card) => Array.isArray(card.range));
-    if (!ranked.length) return null;
-    const out = ranked.filter((card) => card.position === "above" || card.position === "below");
-    if (!out.length) {
-      return { allWithin: true, text: `All ${ranked.length} process measures sit within the typical range.` };
-    }
-    const phrases = out.map((card) => METRIC_OUT_PHRASES[card.key]?.[card.position]).filter(Boolean);
-    return {
-      allWithin: false,
-      text: `${out.length} of ${ranked.length} measures outside the typical range: ${phrases.join(", ")}.`,
-    };
   }
 
   function renderTimeline(timeline = []) {
@@ -156,23 +135,17 @@
       { key: "productProcessRatio", label: defs.productProcessRatio?.label || "Text survival", value: metrics.productProcessRatio, coachValue: null, range: ranges.productProcessRatio, position: positions.productProcessRatio, help: defs.productProcessRatio?.help },
     ];
 
-    const verdict = buildProcessVerdict(metricCards);
-    const verdictClass = verdict?.allWithin ? "process-verdict--within" : "process-verdict--out";
-    const verdictMarkup = verdict
-      ? `<p class="process-verdict ${verdictClass}">${escapeHtml(verdict.text)}</p>`
-      : "";
-
     return `
       <section class="process-panel" style="border-color:${style.border};background:${style.bg};">
         <div class="process-panel-header">
           <div>
-            <p class="mini-label" style="margin:0 0 4px;">Writing process evidence</p>
+            <p class="mini-label" style="margin:0 0 4px;">Writing process check</p>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;">
               <span class="process-status-pill" style="color:${style.color};border-color:${style.border};background:#fff;">${escapeHtml(analysis.statusLabel)}</span>
               <span onclick="var t=this.nextElementSibling;var wasHidden=t.style.display==='none';t.style.display=wasHidden?'block':'none';if(wasHidden){setTimeout(function(){document.addEventListener('click',function h(){t.style.display='none';document.removeEventListener('click',h);},{once:true});},0);}" style="cursor:pointer;font-size:0.75rem;color:var(--muted);border:1px solid var(--line);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;" title="What do these labels mean?">?</span>
               <div style="display:none;position:absolute;top:100%;left:0;z-index:100;max-width:380px;margin-top:6px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.10);font-size:0.80rem;line-height:1.55;color:var(--ink);">
                 <p style="margin:0 0 6px;font-weight:600;">How this label is determined</p>
-                <p style="margin:0 0 8px;">The label combines several keystroke-process signals into one of four bands. Severity rises with the number and strength of unusual patterns.</p>
+                <p style="margin:0 0 8px;">This single label is the combined read of every process signal — pastes, revision, fluency and pauses — sorted into one of four bands. Severity rises with the number and strength of unusual patterns. The "writing-style detail" cards lower down are separate descriptive context, not part of this label.</p>
                 <p style="margin:0 0 4px;"><strong>Typical process</strong> — no unusual patterns; the writing looks like normal drafting with revisions and pauses.</p>
                 <p style="margin:0 0 4px;"><strong>Review suggested</strong> — one moderate signal worth checking (e.g. a large paste, very little revision, or unusual pause distribution).</p>
                 <p style="margin:0 0 4px;"><strong>Close review needed</strong> — three or more independent signals are unusual together. Look at the timeline, paste evidence, and playback before deciding.</p>
@@ -189,14 +162,19 @@
           </div>
         </div>
         <p class="process-reason" style="color:${style.color};">${escapeHtml(analysis.reason)}</p>
-        ${verdictMarkup}
         ${analysis.evidence.length ? `
           <div class="process-chip-row">
             ${analysis.evidence.map((item) => `<span class="process-chip" title="${escapeHtml(item.detail)}">${escapeHtml(item.label)}</span>`).join("")}
           </div>
-        ` : `<p class="subtle" style="margin:0 0 12px;">No specific process evidence needs highlighting.</p>`}
+        ` : `<p class="subtle" style="margin:0 0 12px;">No specific process signals were flagged.</p>`}
         ${idlePauseNote}
         ${renderTimeline(analysis.timeline)}
+        <div class="process-detail-head">
+          <p class="mini-label" style="margin:0;">Writing-style detail</p>
+          <p class="subtle" style="margin:2px 0 0;font-size:0.78rem;">
+            Descriptive background, <strong>not part of the check above</strong>. This shows how the student's pace, pauses and revising compare with a rough reference group at the same level — a difference here is texture, not a flag on its own.
+          </p>
+        </div>
         <div class="process-metric-grid">
           ${metricCards.map(renderMetricCard).join("")}
         </div>

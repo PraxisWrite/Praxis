@@ -13,6 +13,11 @@
   const TEXT_ID = "chat-outline-text";
   const STATUS_ID = "chat-outline-status";
   const inFlight = new Set();
+  // Per-page-load guard so we auto-build once per draft visit without spamming
+  // the AI pipeline on every MutationObserver tick. A full reload retries,
+  // which lets a transiently-failed build self-heal. (Intentionally NOT
+  // persisted — a stuck "already attempted" flag was why builds never retried.)
+  const autoTried = new Set();
 
   let enhanceScheduled = false;
   let enhancing = false;
@@ -247,14 +252,18 @@ Build the student's outline as JSON now.`,
     const submission = globalThis.getStudentSubmission?.();
     if (!assignment || !submission) return;
     if (!assignment.autoOutlineFromChat) return;
-    // #draft-editor only exists on the editable draft step (step 2).
+    // #draft-editor only exists on the editable draft step (step 2), so the
+    // panel and any auto-build only happen once the student is on the draft page.
     if (!document.getElementById("draft-editor")) return;
     if (safeArray(submission.chatHistory).length < 2) return;
 
     ensurePanel(submission);
 
-    const meta = outlineMeta(submission);
-    if (!outlineText(submission).trim() && !meta.autoAttempted && !inFlight.has(submission.id)) {
+    // Auto-build only when the outline is still empty. Existing text (even an
+    // earlier auto-build) is left alone — the student rebuilds via the button.
+    const id = submission.id;
+    if (!outlineText(submission).trim() && !inFlight.has(id) && !autoTried.has(id)) {
+      autoTried.add(id);
       generate(assignment, submission, { force: false });
     }
   }

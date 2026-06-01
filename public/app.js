@@ -1809,6 +1809,22 @@ function handleScroll(event) {
 }
 
 let chatTimerInterval = null;
+// Sticky-bottom state for the coach chat: stay pinned to the newest message
+// unless the student scrolls up to re-read earlier turns.
+let chatPinnedToBottom = true;
+
+// Pin the chat to the bottom synchronously (before paint, so there is no
+// visible jump) when the student is still reading the latest messages, and
+// keep the pin flag in sync with manual scrolling. Re-attaches the scroll
+// listener each render because render() replaces #chatbot-window's element.
+function syncChatScrollPin() {
+  const win = document.getElementById("chatbot-window");
+  if (!win) return;
+  if (chatPinnedToBottom) win.scrollTop = win.scrollHeight;
+  win.addEventListener("scroll", () => {
+    chatPinnedToBottom = win.scrollHeight - win.scrollTop - win.clientHeight < 48;
+  });
+}
 
 function startChatTimer() {
   if (chatTimerInterval) clearInterval(chatTimerInterval);
@@ -3283,16 +3299,11 @@ if (action === "select-assignment") {
     submission.chatHistory.push({ role: "user", content: text, timestamp: new Date().toISOString() });
     ui.chatInput = "";
     ui.chatLoading = true;
+    chatPinnedToBottom = true;
     persistState();
     scheduleSubmissionSync(25000);
     render();
     focusChatInput();
-
-    // Scroll chat to bottom
-    setTimeout(() => {
-      const win = document.getElementById("chatbot-window");
-      if (win) win.scrollTop = win.scrollHeight;
-    }, 50);
 
     requestAiGenerate({
         system: getChatbotSystemPrompt(assignment),
@@ -3305,14 +3316,11 @@ if (action === "select-assignment") {
         submission.chatHistory.push({ role: "assistant", content: data.response, timestamp: new Date().toISOString() });
         submission.updatedAt = new Date().toISOString();
         ui.chatLoading = false;
+        chatPinnedToBottom = true;
         persistState();
         scheduleSubmissionSync(900);
         render();
         focusChatInput();
-        setTimeout(() => {
-          const win = document.getElementById("chatbot-window");
-          if (win) win.scrollTop = win.scrollHeight;
-        }, 50);
       })
       .catch((err) => {
         console.error("Chat error:", err);
@@ -4194,12 +4202,7 @@ function render() {
     if (assignment?.chatTimeLimit > 0 && submission?.chatStartedAt) {
       startChatTimer();
     }
-    globalThis.requestAnimationFrame(() => {
-      const win = document.getElementById("chatbot-window");
-      if (win) {
-        win.scrollTop = win.scrollHeight;
-      }
-    });
+    syncChatScrollPin();
   }
 
   globalThis.requestAnimationFrame(() => {

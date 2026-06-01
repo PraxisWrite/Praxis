@@ -4588,7 +4588,13 @@ async function handleFeedbackRequest() {
       items = generateFeedback(assignment, submission);
     }
 
-    submission.feedbackHistory.push({
+    // Re-acquire the live submission: a background sync may have replaced the
+    // object in state.submissions during the await above. Pushing to the stale
+    // reference would silently drop the feedback (the re-render reads the new
+    // object) while still showing the "added" notice.
+    const liveSubmission = getStudentSubmission() || submission;
+    liveSubmission.feedbackHistory = liveSubmission.feedbackHistory || [];
+    liveSubmission.feedbackHistory.push({
       id: uid("feedback"),
       timestamp: new Date().toISOString(),
       items,
@@ -4596,7 +4602,7 @@ async function handleFeedbackRequest() {
       draftWordCountAtRequest: wordCount(draftTextAtRequest),
     });
     ui.latestDraftFeedbackByAssignmentId[assignment.id] = safeArray(items).slice();
-    submission.updatedAt = new Date().toISOString();
+    liveSubmission.updatedAt = new Date().toISOString();
     ui.notice = "Draft check added. Use it to improve your own writing.";
     shouldScrollToFeedbackNotice = true;
     persistState();
@@ -5434,11 +5440,18 @@ function sentenceExcerpt(sentence = "", maxLength = 48) {
 }
 
 function getFeedbackLineNumber(text = "", startIndex = 0) {
-  const editor = document.getElementById("draft-editor");
+  // The draft editor only exists on step 2; the feedback button lives on the
+  // review step (step 3) where the mounted editor is #final-editor. Fall back
+  // to it so wrapped line numbers still resolve, and to a logical newline count
+  // when no editor is mounted — otherwise every sentence collapsed to line 1.
+  const editor = document.getElementById("draft-editor") || document.getElementById("final-editor");
   const metrics = getElementLineWrapMetrics(editor);
-  const entries = buildWrappedLineEntries(text, metrics);
-  const matchingEntry = entries.find((entry) => startIndex >= entry.start && startIndex <= entry.end);
-  return matchingEntry?.number || 1;
+  if (metrics) {
+    const entries = buildWrappedLineEntries(text, metrics);
+    const matchingEntry = entries.find((entry) => startIndex >= entry.start && startIndex <= entry.end);
+    if (matchingEntry?.number) return matchingEntry.number;
+  }
+  return String(text || "").slice(0, Math.max(0, startIndex)).split("\n").length;
 }
 
 function buildFeedbackSentenceEntries(text = "", pasteEvents = []) {

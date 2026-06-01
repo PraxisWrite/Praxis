@@ -18,10 +18,12 @@
   let enhancing = false;
 
   const safeArray = (value) => (Array.isArray(value) ? value : []);
+  const outlineText = (submission) => (submission?.outline?.chatOutlineText || "");
+  const outlineMeta = (submission) => (submission?.outline?.chatOutlineMeta || {});
 
   function chatTranscript(submission) {
     return safeArray(submission.chatHistory)
-      .filter((message) => message && message.content)
+      .filter((message) => message?.content)
       .map((message) => `${message.role === "assistant" ? "Coach" : "Student"}: ${String(message.content).trim()}`)
       .join("\n");
   }
@@ -52,18 +54,37 @@ Build the student's outline as JSON now.`,
     };
   }
 
+  // Strip a leading/trailing markdown code fence without using a regex
+  // (avoids a ReDoS-flavoured security hotspot on user-influenced text).
+  function stripCodeFence(value) {
+    let text = String(value || "").trim();
+    if (text.startsWith("```")) {
+      const firstBreak = text.indexOf("\n");
+      text = firstBreak >= 0 ? text.slice(firstBreak + 1) : text.slice(3);
+    }
+    if (text.endsWith("```")) {
+      text = text.slice(0, -3);
+    }
+    return text.trim();
+  }
+
+  function firstBraceIndex(text) {
+    const square = text.indexOf("[");
+    const curly = text.indexOf("{");
+    if (square < 0) return curly;
+    if (curly < 0) return square;
+    return Math.min(square, curly);
+  }
+
   function safeJsonParse(raw) {
-    const text = String(raw || "")
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
+    const text = stripCodeFence(raw);
     if (!text) return null;
     try {
       return JSON.parse(text);
     } catch {
       // Fall back to slicing out the first balanced JSON-looking span.
     }
-    const start = text.search(/[[{]/);
+    const start = firstBraceIndex(text);
     const end = Math.max(text.lastIndexOf("]"), text.lastIndexOf("}"));
     if (start >= 0 && end > start) {
       try {
@@ -81,8 +102,8 @@ Build the student's outline as JSON now.`,
     const list = Array.isArray(data) ? data : safeArray(data.sections);
     return list
       .map((section) => ({
-        heading: String((section && section.heading) || "").trim(),
-        points: safeArray(section && section.points)
+        heading: String(section?.heading || "").trim(),
+        points: safeArray(section?.points)
           .map((point) => String(point || "").trim())
           .filter(Boolean),
       }))
@@ -116,14 +137,13 @@ Build the student's outline as JSON now.`,
     globalThis.scheduleSubmissionSync?.();
   }
 
-  function markAttempted(submission, extra) {
+  function markAttempted(submission, extra = {}) {
     submission.outline = submission.outline || {};
-    submission.outline.chatOutlineMeta = Object.assign(
-      {},
-      submission.outline.chatOutlineMeta,
-      { autoAttempted: true },
-      extra || {}
-    );
+    submission.outline.chatOutlineMeta = {
+      ...submission.outline.chatOutlineMeta,
+      autoAttempted: true,
+      ...extra,
+    };
   }
 
   async function generate(assignment, submission, { force }) {
@@ -131,8 +151,8 @@ Build the student's outline as JSON now.`,
     const id = submission.id;
     if (inFlight.has(id)) return;
 
-    const existing = (submission.outline && submission.outline.chatOutlineText) || "";
-    const meta = (submission.outline && submission.outline.chatOutlineMeta) || {};
+    const existing = outlineText(submission);
+    const meta = outlineMeta(submission);
     if (force && existing.trim() && meta.edited &&
       !globalThis.confirm("Rebuild your outline from the chat? This replaces your current outline text.")) {
       return;
@@ -145,7 +165,7 @@ Build the student's outline as JSON now.`,
         retries: 1,
         timeoutMs: 22000,
       });
-      const sections = parseSections(result && result.response);
+      const sections = parseSections(result?.response);
       markAttempted(submission, {
         generatedAt: new Date().toISOString(),
         sourceChatLen: safeArray(submission.chatHistory).length,
@@ -200,7 +220,7 @@ Build the student's outline as JSON now.`,
     textarea.rows = 8;
     textarea.placeholder = "Your outline will appear here. You can edit it freely before you write.";
     textarea.style.cssText = "width:100%;resize:vertical;line-height:1.6;";
-    textarea.value = (submission.outline && submission.outline.chatOutlineText) || "";
+    textarea.value = outlineText(submission);
 
     const hint = document.createElement("p");
     hint.className = "subtle";
@@ -233,9 +253,8 @@ Build the student's outline as JSON now.`,
 
     ensurePanel(submission);
 
-    const text = (submission.outline && submission.outline.chatOutlineText) || "";
-    const meta = (submission.outline && submission.outline.chatOutlineMeta) || {};
-    if (!text.trim() && !meta.autoAttempted && !inFlight.has(submission.id)) {
+    const meta = outlineMeta(submission);
+    if (!outlineText(submission).trim() && !meta.autoAttempted && !inFlight.has(submission.id)) {
       generate(assignment, submission, { force: false });
     }
   }
@@ -252,18 +271,17 @@ Build the student's outline as JSON now.`,
   // Student edits flip the "edited" flag so Rebuild warns before overwriting.
   // (The actual value autosaves via app.js's data-outline-field input handler.)
   document.addEventListener("input", (event) => {
-    if (!event.target || event.target.id !== TEXT_ID) return;
+    if (event.target?.id !== TEXT_ID) return;
     const submission = globalThis.getStudentSubmission?.();
-    if (!submission || !submission.outline) return;
-    submission.outline.chatOutlineMeta = Object.assign(
-      {},
-      submission.outline.chatOutlineMeta,
-      { edited: true }
-    );
+    if (!submission?.outline) return;
+    submission.outline.chatOutlineMeta = {
+      ...submission.outline.chatOutlineMeta,
+      edited: true,
+    };
   });
 
   document.addEventListener("click", (event) => {
-    const button = event.target.closest?.("[data-chat-outline-regen]");
+    const button = event.target?.closest?.("[data-chat-outline-regen]");
     if (!button) return;
     event.preventDefault();
     const assignment = globalThis.getStudentAssignment?.();

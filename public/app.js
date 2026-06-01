@@ -1432,9 +1432,14 @@ function mergeStudentSubmission(localSubmission, serverSubmission) {
       improved: prefer(server.reflections?.improved, local.reflections?.improved),
     },
     outline: {
+      ...server.outline,
+      ...local.outline,
       partOne: prefer(server.outline?.partOne, local.outline?.partOne),
       partTwo: prefer(server.outline?.partTwo, local.outline?.partTwo),
       partThree: prefer(server.outline?.partThree, local.outline?.partThree),
+      chatOutlineText: prefer(server.outline?.chatOutlineText, local.outline?.chatOutlineText),
+      chatOutlineMeta: prefer(server.outline?.chatOutlineMeta, local.outline?.chatOutlineMeta,
+        { isEmpty: (v) => !v || typeof v !== "object" }),
     },
     ideaResponses: preferArray(server.ideaResponses, local.ideaResponses),
     feedbackHistory: preferArray(server.feedbackHistory, local.feedbackHistory),
@@ -6523,6 +6528,7 @@ function normalizeSubmission(submission) {
       improved: submission?.reflections?.improved || "",
     },
     outline: {
+      ...submission?.outline,
       partOne: submission?.outline?.partOne || "",
       partTwo: submission?.outline?.partTwo || "",
       partThree: submission?.outline?.partThree || "",

@@ -52,13 +52,13 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ### Teacher workflow
 
-- [ ] **Manual assignment creation needs its own Save button** — current Save is locked to Format with AI. Fix: remove the lock; move Format with AI button next to Teacher Brief box; let teachers save manually or via AI.
+- [x] **Manual assignment creation needs its own Save button** — implemented: "Set up manually" mode has its own Save bar (`renderManualSaveBarHtml`, `renderManualProxyHtml` in `teacher-assignment-choice.js`); AI-assist and manual are independent workflows.
 - [ ] **Add assignment type and min/max word limits to Format with AI setup** — currently these only appear after AI formats the assignment.
 - [ ] **Notification when assignment is created and ready to publish** — teacher should see a confirmation message and a prompt to publish.
 - [ ] **Save assignment button should change to "Saving…" on click**, then scroll to the created assignment in the tray, highlight the Publish button, and suggest publishing.
 - [x] **Submit grade message** — Already implemented: submitting a grade sets the notice to "Grade submitted to student." and shows it in a green confirmation banner in the grading panel (`app.js` `save-teacher-review` handler + `teacher-render.js`).
 - [~] **Suggest rubric score button** — Renamed "Suggest rubric scores" → "Suggest score" (`teacher-render.js`). Repositioning it below the collapsible "▶ Planning chat with coach" section (after the process/chat context, before the rubric rows) is deferred to the Phase A grading redesign, which restructures this panel.
-- [ ] **"1 paste flag" in assignment tray should be clickable** — should take the teacher directly to that student.
+- [x] **"1 paste flag" in assignment tray should be clickable** — implemented: pill is now a `<button data-action="open-paste-flag">` that loads the assignment's submissions, finds the first paste-flagged one, and opens grading for that student.
 - [x] **Copy grade → rename to "Copy grade and feedback"** — Done: button relabelled in `teacher-render.js` with a `title` tooltip ("Copies the score, rubric breakdown, teacher feedback and annotation comments so you can paste them into your LMS."). Removed the now-stale runtime relabel in `teacher-ui-cleanup.js`.
 - [ ] **Coaching chat under the heat map should show the student's Reflection ("what I improved")** so teacher sees the full process.
 - [ ] **Rubric score should be bumpable in 0.5 increments** — each rubric criterion row has a selected band shown in the top-right corner (e.g. "Good · 4 pts"). Add up/down nudge controls there so the teacher can fine-tune the score by ±0.5 without having to click a different band cell.
@@ -71,7 +71,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ### Student workflow
 
-- [ ] **"Graded work available" notification on student side** — student sees the notification but can't find how to view or download graded report, rubric, and teacher comments. Needs a clear "View feedback" button.
+- [x] **"Graded work available" notification on student side** — implemented: assignment list rows show a "Graded" pill + "View feedback" button (direct to step 4); a "Feedback returned" card appears above the workspace when graded work exists but isn't selected.
 - [ ] **Student assignment tray needs structure** — separate sections for new, submitted, and graded assignments. Look at how Canvas / other LMS organise students' assignments.
 - [ ] **Make the assignment brief more obvious and unmissable** on the student assignment page.
 - [ ] **Toggleable: auto-generate outline after chat conversation** — like the chatbot on/off switch, let teachers enable auto-outline generation after the chat, viewable on the drafting page.
@@ -83,8 +83,8 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ### Naming / labels
 
-- [ ] **Remove all mentions of "AUIZero"** — replace with "praxis" throughout the app (UI text, page titles, emails, etc.). UI/branding only — do **not** rename the GitHub repo, Railway project, env vars, or the `AUIZero-v1` localStorage keys without a migration plan.
-- [ ] **Rename "Teacher notes" label → "Feedback for student"** (or similar). After the PR consolidating AI feedback into one `studentComment` field, the textbox is pre-filled with student-facing content, so the current label is misleading. Optional alternative: split into two fields — "Feedback for student" (public) + "Teacher notes" (private). The split is more product work and probably overkill unless teachers ask for it.
+- [x] **Remove all mentions of "AUIZero"** — no UI-facing text remains; all remaining occurrences are localStorage/sessionStorage key strings (`AUIZero-v1`, `auizero_session`) which must not be renamed without a migration plan.
+- [x] **Rename "Teacher notes" label → "Feedback for student"** — done: `teacher-render.js:1047` uses "Feedback for student"; student-side grading view already uses "Teacher feedback".
 
 ### Writing fluency / analytics
 

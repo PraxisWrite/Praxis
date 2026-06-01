@@ -34,14 +34,16 @@ Always check whether a PR already exists for the branch before creating one.
 
 ## Active branch
 
-`claude/affectionate-archimedes-yIHlh` — **PR #295 open (draft)**, awaiting CI/SonarCloud.  
-Start a **new branch off main** for the next session's work once #295 merges.
+`claude/todo-ux-fixes` — todo housekeeping (mark done items as done in TODO.md + CLAUDE.md sync).  
+Start a **new branch off main** for the next session's work.
 
-### Recently merged (main is up to date through PR #294)
+### Recently merged (main is up to date through PR #296)
 
+- **PR #296** — pilot feedback path: student "Graded" pill + "View feedback" button in upcoming-assignment rows; "Feedback returned" card when graded work is available; paste-flag pill → clickable button (`open-paste-flag` action navigates to first flagged student's grading view); manual assignment save bar (`teacher-assignment-choice.js`)
+- **PR #295** — Sonar batch 2: `replaceAll` for literal escapes S7781 ×22; `Array.at(-1)` for last-element access S7755 ×12; dead stores / unused locals S1481/S1854 ×11; unused catch bindings → bindingless `catch {}` S2486 ×19. Clears Reliability bucket to zero.
 - **PR #294** — Sonar batch 1: `window` → `globalThis` (353 sites, S7764); `Number.parseInt`/`Number.parseFloat` (S7773); `a.remove()` (S7762); `require('node:...')` (S7772); `TypeError` for type-checking throws (S7786); real S2681 bug fixed: `getRenderableDraftFeedbackEntries` was being exported inside a function body after an early `return`, meaning the global export only existed when `feedbackHistory` was non-empty
 - **PR #293** — fix E2E selector for `<summary aria-label="Account menu">`: `getByRole('button')` doesn't match `<summary>` elements (Playwright limitation); changed to `locator('[aria-label="Account menu"]')` in both `login()` and `logout()`
-- **PR #292** — *(merged earlier this session — see PR for details)*
+- **PR #292** — *(see PR for details)*
 - **PR #291** — fix E2E helpers for avatar menu: `login()` now waits for `aria-label="Account menu"`, `logout()` opens the menu before clicking Sign out; dropdown z-index fix (topbar `position:relative`/`z-index:70`); dismissable notice banner (× button, `dismiss-notice` action)
 - **PR #290** — fix 401 mid-session AI calls + UX: `Auth.refreshToken()` added, called on 401 in `requestAiGenerate` before surfacing error; teacher-assist error message now shows `err.message` instead of "Check console"; `accept-suggested-grade` preserves manually-written `finalNotes`; account actions collapsed behind avatar `<details>` dropdown (B1 UX audit)
 - **PR #289** — Sentry double-init fix: `sentry-init.js` uses `addIntegration()` not a second `init()` call
@@ -51,7 +53,7 @@ Start a **new branch off main** for the next session's work once #295 merges.
 
 ### Open / in flight
 
-- **PR #295** (draft) — Sonar batch 2: `replaceAll` for literal escapes S7781 ×22; `Array.at(-1)` for last-element access S7755 ×12; dead stores / unused locals S1481/S1854 ×11; unused catch bindings → bindingless `catch {}` S2486 ×19. Clears Reliability bucket to zero.
+*(none — all recent work merged)*
 
 ---
 
@@ -182,19 +184,18 @@ Org `praxiswrite`, project **`praxis`** (id `4511474897715280`).
 
 ---
 
-## SonarCloud status (as of PR #295)
+## SonarCloud status (as of PR #295, merged)
 
-Remaining issues after #295 merges (from the pre-#294 export of 638):
 - **Reliability: 0** — fully cleared
-- **Maintainability: ~540** — mostly S3358 (nested ternaries ×86), S7735 (negated conditions ×17), S7721 (inner-scope functions ×16), S4624 (nested template literals ×16), S3776 (cognitive complexity ×12). Do NOT refactor high-complexity functions before pilot — regression risk. S3626 (3 redundant `return;` flags) skipped — loads of false positives in the action-dispatch chain.
+- **Maintainability: ~540** — mostly S3358 (nested ternaries ×86), S7735 (negated conditions ×17), S7721 (inner-scope functions ×16), S4624 (nested template literals ×16), S3776 (cognitive complexity ×12). Do NOT refactor high-complexity functions before pilot — regression risk. S3626 (3 redundant `return;` flags) skipped — high false-positive rate in action-dispatch chain.
 
-The export lives at `/tmp/sonar-raw.json` in the current remote session (638 issues, pre-#294 baseline). Any new session needs a fresh export or a new token.
+The pre-#294 export (`/tmp/sonar-raw.json`, 638 issues) is stale. Any new session needs a fresh export or a new token.
 
 ---
 
 ## Pending / next steps
 
-- [ ] **PR #295** — merge once CI/SonarCloud green
 - [ ] More grading-view UX feedback from live pilot use
 - [ ] C2 (progressive step disclosure in student flow) — deferred, needs flow design
 - [ ] Student-side notice banners don't have a dismiss button yet (only teacher/admin banner does)
+- [ ] Rubric score bumpable in 0.5 increments (TODO.md)

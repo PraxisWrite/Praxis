@@ -304,7 +304,7 @@
 
   function renderStudentIdeasStep(assignment, submission) {
     const { isChatDisabled, resumeActiveChatSession,
-      isChatSessionExpired, getActiveChatElapsedMs, getOutlineFields, isOutlineComplete,
+      isChatSessionExpired, getActiveChatElapsedMs,
       persistState } = globalThis;
     const { ui } = globalThis.AppState;
 
@@ -320,8 +320,6 @@
     const minsRemaining = totalSecsRemaining !== null ? Math.floor(totalSecsRemaining / 60) : null;
     const secsRemaining = totalSecsRemaining !== null ? totalSecsRemaining % 60 : null;
     const hasEnoughChat = chatDisabled || submission.chatSkippedAt || chatHistory.length >= 2;
-    const outlineFields = getOutlineFields(assignment, submission);
-    const outlineComplete = isOutlineComplete(submission, assignment);
     if (timeExpired && !submission.chatExpiredAt) {
       submission.chatExpiredAt = new Date().toISOString();
       persistState();
@@ -335,17 +333,15 @@
         <div>
           <div class="step-number">1</div>
           <h3>Explore your ideas</h3>
-          <p class="subtle">${chatDisabled ? "Your teacher has turned off the chatbot for this assignment. You can move straight to drafting when you are ready." : "Step 1: use the coach to build your outline and test your ideas. When you feel ready, click Next to move to drafting."}</p>
+          <p class="subtle">${chatDisabled ? "Your teacher has turned off the chatbot for this assignment. You can move straight to drafting when you are ready." : "Use the coach to explore your ideas. When you feel ready, click Next to start drafting."}</p>
         </div>
       </div>
       ${renderStudentIdeasChatPanel(assignment, submission, { chatHistory, chatDisabled, locked, timeExpired, ui })}
-      ${renderStudentOutlineCard(submission, outlineFields, locked)}
       ${renderStudentIdeasNavigation({
         chatDisabled,
         hasEnoughChat,
         locked,
         minsRemaining,
-        outlineComplete,
         secsRemaining,
         timeExpired,
         timeLimit,
@@ -407,25 +403,7 @@
     `;
   }
 
-  function renderStudentOutlineCard(submission, outlineFields, locked) {
-    const { escapeHtml, escapeAttribute } = globalThis.window;
-    return `
-      <div class="teacher-ready-card" style="margin-top:14px;${locked ? "opacity:0.55;pointer-events:none;" : ""}">
-        <p class="mini-label">Build your outline</p>
-        <p class="subtle" style="margin:4px 0 12px;">Type the bones of your plan in your own words. This helps you start the draft and gives your teacher better evidence of your planning process.</p>
-        <div class="field-grid compact-grid">
-          ${outlineFields.fields.map((field) => `
-            <label class="field">
-              <span>${escapeHtml(field.label)}</span>
-              <textarea data-outline-field="${escapeAttribute(field.key)}" rows="2" placeholder="${escapeAttribute(field.placeholder)}" ${locked ? "disabled" : ""}>${escapeHtml(submission.outline?.[field.key] || "")}</textarea>
-            </label>
-          `).join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, minsRemaining, outlineComplete, secsRemaining, timeExpired, timeLimit }) {
+function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, minsRemaining, secsRemaining, timeExpired, timeLimit }) {
     return `
       <div class="wizard-nav">
         ${locked || chatDisabled ? `<span></span>` : `
@@ -437,7 +415,7 @@
             ` : ""}
           </div>
         `}
-        <button class="button" data-action="student-next-step" data-step="2"${!hasEnoughChat || !outlineComplete ? " title='You can still continue, but a short coach chat and outline help most students write better drafts.'" : ""}>Next: Write Draft</button>
+        <button class="button" data-action="student-next-step" data-step="2"${hasEnoughChat ? "" : " title='Have a short chat with your coach first — it helps most students write better drafts.'"}>Next: Write Draft</button>
       </div>
     `;
   }

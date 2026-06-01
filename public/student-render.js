@@ -415,7 +415,7 @@ function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, min
             ` : ""}
           </div>
         `}
-        <button class="button" data-action="student-next-step" data-step="2"${!hasEnoughChat ? " title='Have a short chat with your coach first — it helps most students write better drafts.'" : ""}>Next: Write Draft</button>
+        <button class="button" data-action="student-next-step" data-step="2"${hasEnoughChat ? "" : " title='Have a short chat with your coach first — it helps most students write better drafts.'"}>Next: Write Draft</button>
       </div>
     `;
   }

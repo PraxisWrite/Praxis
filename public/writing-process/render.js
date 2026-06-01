@@ -157,8 +157,9 @@
     ];
 
     const verdict = buildProcessVerdict(metricCards);
+    const verdictClass = verdict?.allWithin ? "process-verdict--within" : "process-verdict--out";
     const verdictMarkup = verdict
-      ? `<p class="process-verdict ${verdict.allWithin ? "process-verdict--within" : "process-verdict--out"}">${escapeHtml(verdict.text)}</p>`
+      ? `<p class="process-verdict ${verdictClass}">${escapeHtml(verdict.text)}</p>`
       : "";
 
     return `

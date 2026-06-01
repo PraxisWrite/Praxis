@@ -468,6 +468,7 @@ function createBlankTeacherDraft() {
     feedbackRequestLimit: 2,
     chatTimeLimit: 0,
     disableChatbot: false,
+    autoOutlineFromChat: false,
     deadline: "",
     studentFocus: "",
     rubric: [],
@@ -494,6 +495,7 @@ function populateTeacherDraftFromAssignment(assignment) {
     feedbackRequestLimit: Number(assignment.feedbackRequestLimit || 2),
     chatTimeLimit: Number(assignment.chatTimeLimit ?? 0),
     disableChatbot: isChatDisabled(assignment),
+    autoOutlineFromChat: Boolean(assignment.autoOutlineFromChat),
     deadline: assignment.deadline || "",
     studentFocus: Array.isArray(assignment.studentFocus) ? assignment.studentFocus.join("\n") : String(assignment.studentFocus || ""),
     rubric: safeArray(assignment.rubric).map((item) => normalizeRubricRow(item)),
@@ -1860,6 +1862,9 @@ function scheduleSubmissionSync(delay = 1800) {
     queueSubmissionSync(submission);
   }, delay);
 }
+// Exposed for the student-chat-outline module, which writes the generated
+// outline into submission.outline and needs to flush it to the server.
+if (globalThis.window !== undefined) globalThis.scheduleSubmissionSync = scheduleSubmissionSync;
 
 // Debounced autosave of in-progress teacher grading (rubric, annotations,
 // feedback) so nothing is lost if the tab closes mid-grade. This never changes
@@ -2086,6 +2091,9 @@ async function requestAiGenerate(payload, options = {}) {
     aiRequestSemaphore.release();
   }
 }
+// Exposed so the student-chat-outline module can reuse the shared AI pipeline
+// (concurrency gate, timeout, 401 refresh) without duplicating it.
+if (globalThis.window !== undefined) globalThis.requestAiGenerate = requestAiGenerate;
 
 function buildFormatPrompt() {
   const d = ui.teacherDraft;
@@ -3239,6 +3247,12 @@ if (action === "select-assignment") {
     const submission = getStudentSubmission();
     const assignment = getStudentAssignment();
     if (!submission || !assignment || ui.chatLoading) return;
+    if (isStudentSubmissionLocked(submission)) {
+      rememberStudentStep(4);
+      ui.notice = "This assignment has already been submitted. Ask your teacher if you need to submit again.";
+      render();
+      return;
+    }
     if (isChatSessionExpired(assignment, submission)) {
       submission.chatExpiredAt = submission.chatExpiredAt || new Date().toISOString();
       ui.notice = "Your chat time has finished. Move on to your draft when you are ready.";
@@ -3996,6 +4010,21 @@ function handleInput(event) {
     return;
   }
 
+  // Once a submission is locked (submitted, or graded and not reopened) no
+  // student-authored content may change until the teacher reopens it. This is
+  // the central guard for every editable student field below.
+  if (
+    target.id === "draft-editor" ||
+    target.id === "final-editor" ||
+    target.dataset.saKey ||
+    target.dataset.reflectionField ||
+    target.dataset.outlineField ||
+    target.dataset.ideaField
+  ) {
+    const lockedSubmission = getStudentSubmission();
+    if (lockedSubmission && isStudentSubmissionLocked(lockedSubmission)) return;
+  }
+
   if (target.id === "teacher-review-notes") {
     const submission = getSelectedReviewSubmission();
     if (!submission) return;
@@ -4270,6 +4299,7 @@ function renderAdminWorkspace() {
 async function saveCurrentDraftFromEditor({ renderAfter = false } = {}) {
   const submission = getStudentSubmission();
   if (!submission) return false;
+  if (isStudentSubmissionLocked(submission)) return false;
   const draftEditor = document.getElementById("draft-editor");
   if (draftEditor) {
     submission.draftText = draftEditor.value;
@@ -4368,6 +4398,7 @@ async function saveTeacherAssignment() {
         ideaRequestLimit: Number(ui.teacherDraft.ideaRequestLimit || 3),
         feedbackRequestLimit: Number(ui.teacherDraft.feedbackRequestLimit || 2),
         disableChatbot: Boolean(ui.teacherDraft.disableChatbot),
+        autoOutlineFromChat: Boolean(ui.teacherDraft.autoOutlineFromChat),
         studentFocus: ui.teacherAssist.studentFocus || [],
         rubric: (ui.teacherAssist.rubric || []).filter((item) => (item.name || "").trim()),
       }
@@ -4424,6 +4455,7 @@ async function saveTeacherAssignment() {
     ideaRequestLimit: draft.ideaRequestLimit,
     feedbackRequestLimit: draft.feedbackRequestLimit,
     disableChatbot: Boolean(draft.disableChatbot),
+    autoOutlineFromChat: Boolean(draft.autoOutlineFromChat),
     studentFocus: studentFocusArray,
     rubricSchema: ui.teacherDraft.uploadedRubricSchema || null,
     rubric: ui.teacherDraft.uploadedRubricSchema?.criteria?.length
@@ -6321,6 +6353,7 @@ function normalizeTeacherDraft(draft) {
     ideaRequestLimit: Number(draft.ideaRequestLimit || 0),
     feedbackRequestLimit: Number(draft.feedbackRequestLimit || 0),
     disableChatbot: Boolean(draft.disableChatbot),
+    autoOutlineFromChat: Boolean(draft.autoOutlineFromChat),
     studentFocus: draft.studentFocus.trim(),
     rubric: draft.rubric.map((item) => ({
       ...item,

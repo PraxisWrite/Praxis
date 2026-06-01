@@ -45,6 +45,7 @@
       feedbackRequestLimit: Number(record.feedbackRequestLimit ?? record.feedback_request_limit ?? 2),
       chatTimeLimit: Number(record.chatTimeLimit ?? record.chat_time_limit ?? 0),
       disableChatbot: Boolean(record.disableChatbot ?? record.disable_chatbot ?? false),
+      autoOutlineFromChat: Boolean(record.autoOutlineFromChat ?? record.auto_outline_from_chat ?? false),
       deadline: record.deadline || "",
       studentFocus: record.studentFocus ?? record.student_focus ?? [],
       rubric: record.rubric || [],
@@ -135,6 +136,7 @@ function buildAssignmentServerPayload(assignment = {}, overrides = {}) {
     deadline: assignment.deadline || null,
     chat_time_limit: assignment.chatTimeLimit,
     uploaded_rubric_text: assignment.uploadedRubricText,
+    auto_outline_from_chat: Boolean(assignment.autoOutlineFromChat),
     status: assignment.status || "draft",
     ...overrides,
   };

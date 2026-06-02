@@ -435,6 +435,114 @@ button {
   }
 }
 
+/* ── Teacher top-level tabs ────────────────────────────────────────────────
+   Always-available navigation between the assignment list and the cross-
+   assignment grading queue. */
+.teacher-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.teacher-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.teacher-tab:hover {
+  color: var(--ink);
+}
+
+.teacher-tab.is-active {
+  color: var(--accent-deep);
+  border-bottom-color: var(--accent);
+}
+
+.teacher-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ── Cross-assignment "to grade" queue ─────────────────────────────────────*/
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.queue-row:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(95, 143, 255, 0.12);
+}
+
+.queue-row-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.queue-row-student {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.queue-row-assignment {
+  font-size: 0.82rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.queue-row-go {
+  font-weight: 700;
+  color: var(--accent-deep);
+  font-size: 0.85rem;
+}
+
 /* ── Teacher grading workspace ────────────────────────────────────────────
    Persistent student rail + content area. Replaces the old assignments →
    review → grading page stack so switching students never reloads the screen. */

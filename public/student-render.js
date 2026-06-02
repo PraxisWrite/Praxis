@@ -33,42 +33,28 @@
     };
   }
 
-  function renderUpcomingStudentClasses(currentClasses, currentClassId, assignments) {
-    const { escapeHtml } = globalThis.window;
+  // Compact class navigator. Each class shows an at-a-glance summary (to-do /
+  // graded counts) and opens into its own filtered view — no flat dump of every
+  // assignment on the home screen.
+  function renderStudentClassList(classes) {
+    const { escapeHtml, getStudentAssignmentBuckets } = globalThis.window;
     return `
-      <div class="upcoming-section">
-        <p class="mini-label" style="margin-bottom:10px;">Your other classes</p>
-        ${currentClasses.map((cls) => {
-          const clsAssignments = assignments.filter((assignment) => assignment.status === "published" && assignment.classId === cls.id);
-          const assignmentRows = clsAssignments.length
-            ? clsAssignments.map((assignment) => {
-                const deadlineClass = new Date(assignment.deadline) < new Date() ? "warning-pill" : "pill";
-                const deadline = assignment.deadline
-                  ? `<span class="${deadlineClass}" style="font-size:0.75rem;">Due ${new Date(assignment.deadline).toLocaleDateString(undefined,{day:"numeric",month:"short"})}</span>`
-                  : "";
-                const submission = globalThis.getStudentSubmissionForAssignment?.(assignment.id);
-                const isGraded = globalThis.SubmissionUtils?.isSubmissionGraded?.(submission);
-                const assignmentAction = isGraded ? "View feedback" : "Start";
-                const studentStep = isGraded ? ' data-student-step="4"' : "";
-                return `
-                  <div class="upcoming-assignment-row">
-                    <span>${escapeHtml(assignment.title)}</span>
-                    <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-                      ${deadline}
-                      ${isGraded ? `<span class="pill" style="font-size:0.75rem;color:var(--sage);border-color:var(--sage);">Graded</span>` : ""}
-                      <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${cls.id}" data-assignment-id="${assignment.id}"${studentStep}>${assignmentAction}</button>
-                    </span>
-                  </div>
-                `;
-              }).join("")
-            : `<p class="subtle" style="font-size:0.85rem;margin:6px 0;">No published assignments yet.</p>`;
+      <div class="student-class-list">
+        <p class="mini-label" style="margin-bottom:10px;">Your classes</p>
+        ${classes.map((cls) => {
+          const buckets = getStudentAssignmentBuckets(cls.id);
+          const summaryParts = [];
+          if (buckets.toDo.length) summaryParts.push(`${buckets.toDo.length} to do`);
+          if (buckets.awaitingReview.length) summaryParts.push(`${buckets.awaitingReview.length} awaiting`);
+          if (buckets.graded.length) summaryParts.push(`${buckets.graded.length} graded`);
+          const summary = summaryParts.join(" · ") || "Nothing published yet";
           return `
-            <div class="upcoming-class-block">
-              <div class="upcoming-class-header">
+            <div class="student-class-card">
+              <div class="student-class-card-meta">
                 <strong>${escapeHtml(cls.name)}</strong>
-                ${cls.id !== currentClassId ? `<button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="switch-class" data-class-id="${cls.id}">Open</button>` : `<span class="pill">Current</span>`}
+                <span class="subtle" style="font-size:0.82rem;">${escapeHtml(summary)}</span>
               </div>
-              ${assignmentRows}
+              <button class="button-ghost" style="font-size:0.82rem;min-height:32px;padding:0 12px;" data-action="switch-class" data-class-id="${escapeHtml(cls.id)}">Open</button>
             </div>
           `;
         }).join("")}
@@ -76,35 +62,40 @@
     `;
   }
 
-  function renderStudentAssignmentTray(buckets, selectedId, currentClassId) {
+  function renderStudentAssignmentTray(buckets, selectedId, showClassTag) {
     const total = buckets.toDo.length + buckets.awaitingReview.length + buckets.graded.length;
     if (!total) {
-      return `<div class="empty-state"><h3>Nothing here yet</h3><p>Your teacher hasn't published any assignments yet.</p></div>`;
+      return `<div class="empty-state"><h3>You're all caught up 🎉</h3><p>Nothing to do right now. New assignments will appear here as your teachers publish them.</p></div>`;
     }
     return `
       <div class="assignment-tray">
-        ${renderTraySection("To do", buckets.toDo, "todo", selectedId, currentClassId)}
-        ${renderTraySection("Awaiting feedback", buckets.awaitingReview, "awaiting", selectedId, currentClassId)}
-        ${renderTraySection("Graded", buckets.graded, "graded", selectedId, currentClassId)}
+        ${renderTraySection("To do", buckets.toDo, "todo", selectedId, showClassTag)}
+        ${renderTraySection("Awaiting feedback", buckets.awaitingReview, "awaiting", selectedId, showClassTag)}
+        ${renderTraySection("Graded", buckets.graded, "graded", selectedId, showClassTag)}
       </div>
     `;
   }
 
-  function renderTraySection(label, items, kind, selectedId, currentClassId) {
+  function renderTraySection(label, items, kind, selectedId, showClassTag) {
     const { escapeHtml } = globalThis.window;
     if (!items.length) return "";
     return `
       <div class="tray-section">
         <p class="mini-label tray-section-head">${escapeHtml(label)} <span class="tray-count">${items.length}</span></p>
-        ${items.map((item) => renderTrayRow(item, kind, selectedId, currentClassId)).join("")}
+        ${items.map((item) => renderTrayRow(item, kind, selectedId, showClassTag)).join("")}
       </div>
     `;
   }
 
-  function renderTrayRow(item, kind, selectedId, currentClassId) {
+  function renderTrayRow(item, kind, selectedId, showClassTag) {
     const { escapeHtml, formatDateTime } = globalThis.window;
-    const { assignment, submission, started } = item;
+    const { assignment, submission, started, className } = item;
     const isSelected = assignment.id === selectedId;
+    // In the unified "all work" view each row names its class; inside a single
+    // class the tag is redundant and suppressed.
+    const classTag = showClassTag && className
+      ? `<span class="tray-class-tag">${escapeHtml(className)}</span>`
+      : "";
 
     const overdue = assignment.deadline && new Date(assignment.deadline) < new Date();
     const deadlineClass = overdue ? "warning-pill" : "pill";
@@ -139,12 +130,12 @@
 
     return `
       <div class="upcoming-assignment-row${isSelected ? " tray-row-selected" : ""}">
-        <span class="tray-row-title">${escapeHtml(assignment.title)}</span>
+        <span class="tray-row-title">${escapeHtml(assignment.title)}${classTag}</span>
         <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
           ${meta}
           ${deadlineMarkup}
           ${statusPill}
-          <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${currentClassId}" data-assignment-id="${assignment.id}" data-student-step="${step}">${buttonLabel}</button>
+          <button class="button-ghost" style="font-size:0.8rem;min-height:30px;padding:0 10px;" data-action="open-assignment" data-class-id="${assignment.classId || ""}" data-assignment-id="${assignment.id}" data-student-step="${step}">${buttonLabel}</button>
         </span>
       </div>
     `;
@@ -209,7 +200,7 @@
   }
 
   function renderStudentWorkspace() {
-    const { ui, state, currentClasses, currentClassId, currentProfile, currentPendingClasses } = globalThis.window.AppState;
+    const { ui, currentClasses, currentClassId, currentProfile, currentPendingClasses } = globalThis.window.AppState;
     const { escapeHtml, getStudentAssignmentBuckets,
       getUserById, getStudentSubmission, getStudentAssignment } = globalThis.window;
 
@@ -218,32 +209,66 @@
       return renderPendingApprovalScreen(pendingClasses, true);
     }
 
-    const assignmentBuckets = getStudentAssignmentBuckets();
     const student = getUserById(ui.activeUserId);
     const submission = getStudentSubmission();
     const assignment = getStudentAssignment();
     const currentClass = currentClasses.find(c => c.id === currentClassId);
-    const otherClasses = currentClasses.filter(c => c.id !== currentClassId);
+    const multiClass = currentClasses.length > 1;
+
+    // Scope: "all" = unified cross-class home (default); otherwise a single
+    // class. A single-class student is always effectively scoped to their class.
+    const scope = (multiClass && ui.studentScope === "class" && currentClass) ? "class" : "all";
+    const buckets = getStudentAssignmentBuckets(scope === "all" ? "all" : currentClassId);
+    const showClassTag = scope === "all" && multiClass;
 
     // List -> detail: the tray is the home view; opening an assignment shows
-    // the workspace with a "Back to all work" link.
+    // the workspace with a back link.
     const inDetailView = !ui.studentViewingTray && Boolean(assignment && submission);
 
     let body;
     if (inDetailView) {
       body = `
-        <button class="button-ghost" data-action="view-all-work" style="margin-bottom:12px;">← Back to all work</button>
+        <button class="button-ghost" data-action="view-all-work" style="margin-bottom:12px;">← Back</button>
         ${renderStudentActiveAssignment(assignment, submission, ui.studentStep)}
       `;
     } else {
       const pendingMarkup = pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : "";
-      const otherClassesMarkup = otherClasses.length ? renderUpcomingStudentClasses(otherClasses, currentClassId, state.assignments) : "";
+      let scopeHeader = "";
+      let classListMarkup = "";
+      if (scope === "class") {
+        // Viewing one class: a back link to the unified home + the class banner.
+        scopeHeader = `
+          <button class="button-ghost" data-action="view-all-classes" style="margin-bottom:12px;">← All work</button>
+          ${currentClass ? `
+            <div class="class-banner">
+              <span class="class-banner-icon">🎓</span>
+              <span><strong>${escapeHtml(currentClass.name)}</strong>${currentClass.teacher_name ? ` · ${escapeHtml(currentClass.teacher_name)}` : ""}</span>
+            </div>
+          ` : ""}
+        `;
+      } else if (multiClass) {
+        // Unified home: compact class navigator under the tray.
+        classListMarkup = renderStudentClassList(currentClasses);
+      }
       body = `
         ${pendingMarkup}
-        ${renderStudentAssignmentTray(assignmentBuckets, ui.selectedStudentAssignmentId, currentClassId)}
-        ${otherClassesMarkup}
+        ${scopeHeader}
+        ${renderStudentAssignmentTray(buckets, ui.selectedStudentAssignmentId, showClassTag)}
+        ${classListMarkup}
       `;
     }
+
+    // The class <select> doubles as the scope switcher: "All classes" → unified
+    // home, a class → that class's filtered view. aria-label kept for E2E.
+    const classControl = multiClass ? `
+      <div class="field" style="min-width:180px;">
+        <label for="student-class-select" style="font-size:0.82rem;">Class</label>
+        <select id="student-class-select" aria-label="Switch class">
+          <option value="__all__" ${scope === "all" ? "selected" : ""}>All classes</option>
+          ${currentClasses.map(c => `<option value="${c.id}" ${scope === "class" && currentClassId === c.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
+        </select>
+      </div>
+    ` : "";
 
     return `
     <section class="student-shell">
@@ -253,21 +278,8 @@
             <p class="mini-label">Student View</p>
             <h2 class="panel-title">${escapeHtml(student?.name || currentProfile?.name || "Student")}</h2>
           </div>
-          ${currentClasses.length > 1 ? `
-            <div class="field" style="min-width:180px;">
-              <label for="student-class-select" style="font-size:0.82rem;">Class</label>
-              <select id="student-class-select" aria-label="Switch class">
-                ${currentClasses.map(c => `<option value="${c.id}" ${currentClassId === c.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
-              </select>
-            </div>
-          ` : ""}
+          ${classControl}
         </div>
-        ${currentClass ? `
-          <div class="class-banner">
-            <span class="class-banner-icon">🎓</span>
-            <span><strong>${escapeHtml(currentClass.name)}</strong>${currentClass.teacher_name ? ` · ${escapeHtml(currentClass.teacher_name)}` : ""}</span>
-          </div>
-        ` : ""}
         ${body}
       </div>
     </section>

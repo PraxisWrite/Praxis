@@ -15,7 +15,9 @@ test.describe("Student workflow", () => {
     await login(page, "student");
 
     await expect(page.getByText(/student view/i).first()).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByLabel(/select assignment/i)).toBeVisible();
+    // The student home is a tray of assignment rows (unified across classes by
+    // default), not a dropdown.
+    await expect(page.locator(".assignment-tray")).toBeVisible();
     expect(getErrors(), "no JS errors on student dashboard").toEqual([]);
   });
 
@@ -26,11 +28,9 @@ test.describe("Student workflow", () => {
     // VERIFY: The student may belong to more than one class, so helper switches to
     // the known E2E class when the dropdown exists.
     await selectStudentTestClass(page);
-    const assignmentSelect = page.getByLabel(/select assignment/i);
-    await expect(assignmentSelect).toBeVisible();
-
-    const assignmentCount = await assignmentSelect.locator("option[value]:not([value=''])").count();
-    expect(assignmentCount).toBeGreaterThan(0);
+    const assignmentRows = page.locator(".assignment-tray .upcoming-assignment-row");
+    await expect(assignmentRows.first()).toBeVisible({ timeout: 20_000 });
+    expect(await assignmentRows.count()).toBeGreaterThan(0);
     expect(getErrors(), "no JS errors when listing student assignments").toEqual([]);
   });
 

@@ -4,9 +4,17 @@
     return state.assignments;
   }
 
-  function getPublishedAssignments() {
+  function getPublishedAssignments(classId) {
     const { state, currentClassId } = globalThis.AppState;
-    return state.assignments.filter((a) => a.status === "published" && (!a.classId || a.classId === currentClassId));
+    const resolvedClassId = classId === undefined ? currentClassId : classId;
+    return state.assignments.filter((a) => a.status === "published" && (!a.classId || a.classId === resolvedClassId));
+  }
+
+  // Every published assignment across all the student's classes (state.assignments
+  // only ever holds the student's own classes, so no cross-tenant leak).
+  function getAllPublishedAssignments() {
+    const { state } = globalThis.AppState;
+    return state.assignments.filter((a) => a.status === "published");
   }
 
   function getSelectedAssignment() {
@@ -30,8 +38,24 @@
     return state.submissions.find((submission) => submission.assignmentId === assignmentId && submission.studentId === resolvedStudentId) || null;
   }
 
-  function getStudentAssignmentBuckets() {
-    const publishedAssignments = getPublishedAssignments();
+  // Earliest deadline first; undated assignments sink to the bottom. Keeps the
+  // unified To-do list answering "what's due next" at a glance.
+  function compareByDeadline(a, b) {
+    const aTime = a.assignment.deadline ? Date.parse(a.assignment.deadline) : Infinity;
+    const bTime = b.assignment.deadline ? Date.parse(b.assignment.deadline) : Infinity;
+    if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+    return (Number.isNaN(aTime) ? Infinity : aTime) - (Number.isNaN(bTime) ? Infinity : bTime);
+  }
+
+  // scope: undefined → current class (preserves legacy callers like
+  // hydrateSelections); "all" → every class the student is in; otherwise a
+  // specific classId. Each bucket item carries its className for cross-class tags.
+  function getStudentAssignmentBuckets(scope) {
+    const { currentClasses } = globalThis.AppState;
+    const publishedAssignments = scope === "all"
+      ? getAllPublishedAssignments()
+      : getPublishedAssignments(scope);
+    const classNameById = new Map((currentClasses || []).map((cls) => [cls.id, cls.name]));
     const current = [];
     const submitted = [];
     const toDo = [];
@@ -48,6 +72,7 @@
         status,
         isGraded,
         started: Boolean(submission && SubmissionUtils.hasSubmissionContent(submission)),
+        className: classNameById.get(assignment.classId) || "",
       };
       if (hasSubmitted) {
         submitted.push(bucketItem);
@@ -61,6 +86,9 @@
         toDo.push(bucketItem);
       }
     });
+
+    toDo.sort(compareByDeadline);
+    awaitingReview.sort(compareByDeadline);
 
     // current/submitted are retained for callers that pre-date the
     // three-section tray (e.g. hydrateSelections); the three new arrays are
@@ -316,6 +344,7 @@
   const StateSelectors = {
     getAssignments,
     getPublishedAssignments,
+    getAllPublishedAssignments,
     getSelectedAssignment,
     getStudentAssignment,
     getStudentSubmissionForAssignment,

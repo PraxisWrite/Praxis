@@ -169,6 +169,14 @@
     const selectedSubmission = selectedAssignment && ui.teacherView === "grading"
       ? getSelectedReviewSubmission()
       : (state.submissions.find(s => s.id === ui.selectedReviewSubmissionId) || null);
+
+    // Two top-level layout states: the assignment picker (below) and the grading
+    // workspace (persistent student rail + content area). Entering an assignment
+    // swaps the whole screen to the workspace rather than stacking panels.
+    if (ui.teacherView === "grading" && selectedAssignment) {
+      return renderGradingWorkspace(selectedAssignment, submissions, selectedSubmission);
+    }
+
     const savedRubrics = getSavedRubricLibrary();
     const selectedSavedRubric = savedRubrics.find((entry) => entry.id === ui.selectedSavedRubricId) || null;
     const manualSaveReady = Boolean(
@@ -493,12 +501,13 @@
         </div>
       ` : ""}
     </section>
-    ${ui.teacherView === "review" && selectedAssignment ? renderTeacherReview(selectedAssignment, submissions) : ""}
-    ${ui.teacherView === "grading" && selectedAssignment && selectedSubmission ? renderTeacherGrading(selectedAssignment, selectedSubmission) : ""}
   `;
   }
 
-  function renderTeacherReview(assignment, submissions) {
+  // Workspace content shown when no student is selected: at-a-glance class
+  // status plus the post-grading criterion analytics. The student list now lives
+  // in the persistent rail, so it is intentionally absent here.
+  function renderAssignmentOverview(assignment, submissions) {
     const { currentClassMembers } = globalThis.AppState;
     const { escapeHtml, getReviewRoster, levelTheme } = globalThis.window;
     const { getAssignmentSubmissionCounts, isSubmissionGraded } = globalThis.SubmissionUtils;
@@ -516,11 +525,10 @@
     const hasCriterionAnalytics = criterionAnalytics.some((criterion) => criterion.gradedCount > 0);
 
     return `
-          <section id="teacher-review-section" class="panel review-shell">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
-        <button class="button-ghost" data-action="back-to-assignments" style="font-size:0.85rem;">← Assignments</button>
-        <span style="color:var(--muted);font-size:0.85rem;">/</span>
-        <span style="font-weight:600;font-size:0.95rem;">${escapeHtml(assignment.title)}</span>
+      <div id="teacher-review-section" class="workspace-overview">
+      <div style="margin-bottom:18px;">
+        <p class="mini-label" style="margin-bottom:4px;">Class overview</p>
+        <p class="subtle" style="margin:0;">Pick a student from the list to start grading, or check who still needs to submit.</p>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;">
@@ -542,7 +550,7 @@
         </div>
       </div>
 
-      <details id="teacher-review-panel" class="teacher-ready-card" style="margin-bottom:18px;">
+      <details id="teacher-review-panel" class="teacher-ready-card" style="margin-bottom:18px;" ${gradedCount > 0 ? "open" : ""}>
         <summary style="cursor:pointer;list-style-position:inside;">
           <span class="mini-label" style="margin-right:8px;">Grade analytics</span>
           <span class="pill">${gradedCount} graded so far</span>
@@ -577,70 +585,92 @@
           ` : `<div class="empty-state compact-empty"><h3>No analytics yet</h3><p>Once you save some grades, the criterion distributions will appear here automatically.</p></div>`}
         </div>
       </details>
-
-      <div id="student-review-list" class="student-list">
-        ${roster.length === 0 && submissions.length === 0
-          ? `<div class="empty-state compact-empty"><h3>No students yet</h3><p>Invite students to this class using the ✉ Invite students button.</p></div>`
-          : roster.map((member) => renderTeacherReviewSubmissionCard(
-              member,
-              submissions.find((submission) => submission.studentId === member.id)
-            )).join("")
-        }
-      </div>
-    </section>
+    </div>
   `;
   }
 
-  function renderTeacherReviewSubmissionCard(member, submission) {
-    const { escapeHtml, getPasteEvidenceItems, getSubmissionStatusDisplay } = globalThis.window;
+  // Resolve a student's rail status into a single dot + word. Order matters:
+  // a flagged submission outranks "graded" so the teacher never misses a paste
+  // flag just because a score was already entered.
+  function getRailStudentStatus(submission) {
+    const { getPasteEvidenceItems } = globalThis.window;
     const { isSubmissionGraded } = globalThis.window.SubmissionUtils;
-    if (!submission) {
-      return `
-        <div class="submission-card simple-card">
-          <div class="card-top">
-            <div>
-              <h3 style="margin:0 0 4px;">${escapeHtml(member.name)}</h3>
-              <span class="warning-pill">Not started</span>
-            </div>
-            <button class="button" data-action="inspect-submission" data-student-id="${member.id}" style="flex-shrink:0;">Grade →</button>
-          </div>
-        </div>
-      `;
+    const hasText = Boolean(submission && (submission.finalText || submission.draftText));
+    if (!submission || !hasText) {
+      return { key: "not-started", dot: "·", label: "Not started" };
     }
-    const events = Array.isArray(submission.writingEvents) ? submission.writingEvents : [];
-    const finalText = submission.finalText || submission.draftText || "";
-    const startedAt = submission.startedAt || submission.updatedAt || submission.submittedAt;
-    const endedAt = submission.submittedAt || submission.updatedAt || startedAt;
-    const totalMinutes = startedAt && endedAt
-      ? Math.max(1, Math.round((new Date(endedAt) - new Date(startedAt)) / 60000))
-      : 0;
-    const metrics = {
-      largePasteCount: getPasteEvidenceItems(submission).length,
-      finalWordCount: finalText.trim() ? finalText.trim().split(/\s+/).length : 0,
-      revisionCount: events.length,
-      totalMinutes,
-    };
-    const isGraded = isSubmissionGraded(submission);
-    const score = submission.teacherReview?.finalScore;
+    if (getPasteEvidenceItems(submission).length) {
+      return { key: "flagged", dot: "⚠", label: "Paste flag" };
+    }
+    if (isSubmissionGraded(submission)) {
+      return { key: "graded", dot: "✓", label: "Graded" };
+    }
+    const status = submission.status || "";
+    if (status === "submitted" || status === "late") {
+      return { key: "submitted", dot: "●", label: "Submitted" };
+    }
+    return { key: "in-progress", dot: "●", label: "In progress" };
+  }
+
+  // Compact rail row. Whole card is the click target (opens the student); the
+  // status word stays in the markup so it reads for screen readers and survives
+  // when the rail is collapsed to an icon strip.
+  function renderRailStudent(member, submission, isActive, collapsed) {
+    const { escapeHtml, escapeAttribute } = globalThis.window;
+    const status = getRailStudentStatus(submission);
+    const initials = String(member.name || "?").trim().split(/\s+/).map((part) => part[0] || "").slice(0, 2).join("").toUpperCase() || "?";
+    const score = submission?.teacherReview?.finalScore;
+    const scoreText = status.key === "graded" && score !== "" && score != null ? ` · ${escapeHtml(String(score))}` : "";
     return `
-      <div class="submission-card simple-card">
-        <div class="card-top">
-          <div style="flex:1;">
-            <h3 style="margin:0 0 6px;">${escapeHtml(member.name)}</h3>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <span class="status-pill">${escapeHtml(getSubmissionStatusDisplay(submission.status))}</span>
-              ${isGraded ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ Graded${score !== "" && score != null ? ` · ${escapeHtml(String(score))}` : ""}</span>` : ""}
-              ${metrics.largePasteCount ? `<span class="warning-pill">⚠ Paste</span>` : ""}
-            </div>
-            <div class="pill-row" style="margin-top:6px;">
-              <span class="pill">${metrics.finalWordCount} words</span>
-              <span class="pill">${metrics.revisionCount} edits</span>
-              <span class="pill">${metrics.totalMinutes} min</span>
-            </div>
+      <button type="button"
+        class="rail-student rail-student--${status.key}${isActive ? " is-active" : ""}"
+        data-action="inspect-submission"
+        data-student-id="${escapeAttribute(member.id)}"
+        ${submission ? `data-submission-id="${escapeAttribute(submission.id)}"` : ""}
+        aria-pressed="${isActive ? "true" : "false"}"
+        title="${escapeAttribute(`${member.name} — ${status.label}`)}">
+        <span class="rail-student-dot" aria-hidden="true">${collapsed ? escapeHtml(initials) : status.dot}</span>
+        <span class="rail-student-body">
+          <span class="rail-student-name">${escapeHtml(member.name)}</span>
+          <span class="rail-student-status">${escapeHtml(status.label)}${scoreText}</span>
+        </span>
+      </button>
+    `;
+  }
+
+  // Persistent left rail: assignment context up top, every student below. Stays
+  // mounted across grading so switching students is one click with no page
+  // transition.
+  function renderTeacherRail(assignment, submissions, selectedStudentId, collapsed) {
+    const { currentClassMembers } = globalThis.AppState;
+    const { escapeHtml, getReviewRoster } = globalThis.window;
+    const { getAssignmentSubmissionCounts } = globalThis.SubmissionUtils;
+
+    const roster = currentClassMembers.length ? currentClassMembers.filter((m) => m?.id !== globalThis.AppState.currentProfile?.id) : getReviewRoster(assignment.id);
+    const statusCounts = getAssignmentSubmissionCounts(submissions, roster);
+    const students = roster.length
+      ? roster.map((member) => renderRailStudent(
+          member,
+          submissions.find((submission) => submission.studentId === member.id),
+          member.id === selectedStudentId,
+          collapsed,
+        )).join("")
+      : `<p class="subtle rail-empty" style="padding:12px;">No students yet. Invite students to this class to build the roster.</p>`;
+
+    return `
+      <aside class="teacher-rail${collapsed ? " teacher-rail--collapsed" : ""}" aria-label="Students">
+        <div class="rail-head">
+          <button class="button-ghost rail-back" data-action="back-to-assignments" title="Back to assignments" aria-label="Back to assignments">←</button>
+          <div class="rail-head-meta">
+            <p class="rail-assignment-title" title="${escapeHtml(assignment.title)}">${escapeHtml(assignment.title)}</p>
+            <p class="rail-progress">${statusCounts.graded}/${statusCounts.total} graded · ${statusCounts.submitted} submitted</p>
           </div>
-          <button class="button" data-action="inspect-submission" data-student-id="${member.id}" data-submission-id="${submission.id}" style="flex-shrink:0;">Grade →</button>
+          <button class="button-ghost rail-toggle" data-action="toggle-grading-rail" title="${collapsed ? "Expand student list" : "Collapse student list"}" aria-label="${collapsed ? "Expand student list" : "Collapse student list"}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "»" : "«"}</button>
         </div>
-      </div>
+        <div class="rail-students">
+          ${students}
+        </div>
+      </aside>
     `;
   }
 
@@ -731,22 +761,22 @@
     `;
   }
 
+  // Slim grading toolbar. Assignment context (title, back to picker) now lives in
+  // the rail header, so this row carries only student-level controls: who we are
+  // grading, status, and movement between students.
   function renderGradingNav(assignment, submission, ctx) {
     const { escapeHtml, escapeAttribute, getSubmissionStatusDisplay } = globalThis.window;
     const { studentName, currentStatus, roster, rosterIndex, previousStudentId, nextStudentId } = ctx;
     return `
       <div class="review-nav">
-        <button class="button-ghost" data-action="back-to-assignments" style="font-size:0.85rem;">← Assignments</button>
-        <span style="color:var(--muted);font-size:0.85rem;">/</span>
-        <button class="button-ghost" data-action="back-to-review" style="font-size:0.85rem;">${escapeHtml(assignment.title)}</button>
-        <span style="color:var(--muted);font-size:0.85rem;">/</span>
+        <button class="button-ghost" data-action="back-to-review" style="font-size:0.85rem;" title="Back to class overview">← Overview</button>
         <span style="font-weight:600;font-size:0.95rem;">${escapeHtml(studentName)}</span>
         <button class="button-ghost" data-action="edit-class-member-name" data-student-id="${submission.studentId}" data-student-name="${escapeAttribute(studentName)}" style="font-size:0.78rem;min-height:30px;padding:0 10px;">Rename</button>
         <span class="status-pill">${escapeHtml(getSubmissionStatusDisplay(currentStatus))}</span>
         ${roster.length ? `<span style="font-size:0.82rem;color:var(--muted);">${rosterIndex + 1}/${roster.length}</span>` : ""}
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-          <button class="button-ghost" data-action="previous-review-student" ${!previousStudentId ? "disabled" : ""} style="font-size:0.85rem;">← Previous student</button>
-          <button class="button-ghost" data-action="next-review-student" ${!nextStudentId ? "disabled" : ""} style="font-size:0.85rem;">Next student →</button>
+          <button class="button-ghost" data-action="previous-review-student" ${!previousStudentId ? "disabled" : ""} style="font-size:0.85rem;">← Previous</button>
+          <button class="button-ghost" data-action="next-review-student" ${!nextStudentId ? "disabled" : ""} style="font-size:0.85rem;">Next →</button>
           <button class="button-ghost" data-action="download-work" style="font-size:0.85rem;">⬇ Grade sheet</button>
         </div>
       </div>
@@ -1099,7 +1129,7 @@
     };
 
     return `
-      <section class="panel review-shell">
+      <div class="workspace-grading">
         ${renderGradingNav(assignment, submission, ctx)}
         ${renderTeacherSubmissionStatusPanel(ctx.currentStatus, ctx.canReopenSubmission, ctx.deadlinePassed)}
         <div class="review-split">
@@ -1107,13 +1137,34 @@
           ${renderGradingRubricPane(submission, ctx)}
         </div>
         ${renderGradingSecondary(assignment, submission, ctx)}
+      </div>
+    `;
+  }
+
+  // Top-level grading workspace: persistent student rail + a content area that
+  // shows either the class overview (no student selected) or the full grading
+  // view for the open student. Replaces the old three-page assignments → review
+  // → grading stack with a single two-pane screen.
+  function renderGradingWorkspace(assignment, submissions, selectedSubmission) {
+    const { ui } = globalThis.AppState;
+    const collapsed = Boolean(ui.railCollapsed);
+    const content = selectedSubmission
+      ? renderTeacherGrading(assignment, selectedSubmission)
+      : renderAssignmentOverview(assignment, submissions);
+    return `
+      <section class="teacher-workspace${collapsed ? " teacher-workspace--rail-collapsed" : ""}">
+        ${renderTeacherRail(assignment, submissions, ui.selectedReviewStudentId, collapsed)}
+        <div class="workspace-content">
+          ${content}
+        </div>
       </section>
     `;
   }
 
   const TeacherRender = {
     renderTeacherWorkspace,
-    renderTeacherReview,
+    renderGradingWorkspace,
+    renderAssignmentOverview,
     renderTeacherGrading,
   };
 

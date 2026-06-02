@@ -250,10 +250,9 @@ async function completeStudentDraftFlow(page) {
 async function gradeSubmittedAssignment(page, title) {
   await verifyStudentSubmissionAppeared(page, title);
 
-  // TODO: add data-testid="submitted-student-card". For now, open the first card
-  // with a Submitted status in this assignment's review list.
-  await page.locator(".submission-card").filter({ hasText: /submitted/i }).first()
-    .getByRole("button", { name: /grade/i }).click();
+  // The student rail is the click target: open the first student showing a
+  // Submitted status. The whole rail row navigates into the grading view.
+  await page.locator(".rail-student").filter({ hasText: /submitted/i }).first().click();
 
   await expect(page.getByText(/student text/i).first()).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: /suggest rubric scores/i }).click();
@@ -273,8 +272,10 @@ async function verifyStudentSubmissionAppeared(page, title) {
   const assignmentCard = page.locator(".assignment-card").filter({ hasText: title }).first();
   await expect(assignmentCard).toBeVisible({ timeout: 30_000 });
   await assignmentCard.getByRole("button", { name: /review students/i }).click();
+  // "Review students" now opens the grading workspace; the student appears in
+  // the persistent rail rather than a full-width submission card.
   await expect(
-    page.locator(".submission-card").filter({ hasText: /submitted/i }).first()
+    page.locator(".rail-student").filter({ hasText: /submitted/i }).first()
   ).toBeVisible({ timeout: 30_000 });
 }
 

@@ -105,6 +105,7 @@ const ui = {
   inviteText: "",
   inviteMailto: "",
   teacherView: "assignments",
+  railCollapsed: false,
   teacherDraft: null,
   teacherAssist: null,
   aiAssistLoading: false,
@@ -1650,7 +1651,7 @@ async function refreshTeacherReviewData() {
 function syncTeacherReviewPolling() {
   const shouldPoll =
     currentProfile?.role === "teacher"
-    && ui.teacherView === "review"
+    && ui.teacherView === "grading"
     && Boolean(ui.selectedAssignmentId);
 
   if (!shouldPoll) {
@@ -2997,10 +2998,18 @@ if (action === "sign-out") {
   }
 
   if (action === "back-to-review") {
-    ui.teacherView = "review";
+    // Deselect the student and return to the assignment overview, staying inside
+    // the grading workspace (the student rail remains visible).
+    stopPlayback();
     ui.selectedReviewSubmissionId = null;
     ui.selectedReviewStudentId = null;
     ui.playback.touched = false;
+    render();
+    return;
+  }
+
+  if (action === "toggle-grading-rail") {
+    ui.railCollapsed = !ui.railCollapsed;
     render();
     return;
   }
@@ -3102,32 +3111,19 @@ if (action === "select-assignment") {
   ui.selectedAssignmentId = target.dataset.assignmentId;
   ui.selectedReviewSubmissionId = null;
   ui.selectedReviewStudentId = null;
-  ui.teacherView = "review";
+  // Open the grading workspace on the assignment overview — the teacher orients
+  // (who has/hasn't submitted, who is flagged) before opening anyone.
+  ui.teacherView = "grading";
   ui.notice = "Loading submissions...";
   render();
 
   loadReviewDataForAssignment(target.dataset.assignmentId).then(subs => {
-
-    const roster = getReviewRoster(ui.selectedAssignmentId);
-    ui.selectedReviewStudentId = roster[0]?.id || null;
-    ui.selectedReviewSubmissionId = ui.selectedReviewStudentId
-      ? getReviewSubmissionForStudent(ui.selectedReviewStudentId, ui.selectedAssignmentId)?.id || null
-      : null;
-
     ui.notice = subs.length
       ? ""
       : (currentClassMembers.length
           ? "No submissions yet for this assignment. You can still open students and mark late or missing."
           : "No submissions yet for this assignment.");
     render();
-
-    requestAnimationFrame(() => {
-      const reviewList = document.getElementById("student-review-list");
-      if (reviewList) {
-        reviewList.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
-
   });
 
   return;

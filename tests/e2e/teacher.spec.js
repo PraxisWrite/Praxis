@@ -65,11 +65,12 @@ test.describe("Teacher workflow", () => {
     }
     await reviewButton.click();
 
-    const submittedCard = page.locator(".submission-card").filter({ hasText: /submitted/i }).first();
-    if (!(await submittedCard.count())) {
+    // "Review students" opens the grading workspace; students live in the rail.
+    const submittedStudent = page.locator(".rail-student").filter({ hasText: /submitted/i }).first();
+    if (!(await submittedStudent.count())) {
       test.skip(true, "No submitted submissions in test class.");
     }
-    await submittedCard.getByRole("button", { name: /grade/i }).click();
+    await submittedStudent.click();
 
     // Grading view: student text panel + rubric must render without errors.
     await expect(page.getByText(/student text/i).first()).toBeVisible({ timeout: 20_000 });

@@ -121,6 +121,7 @@ const ui = {
   pasteWarning: false,
   studentStep: 1,
   studentViewingTray: true,
+  studentScope: "all",
   playback: {
     isPlaying: false,
     speed: 1,
@@ -2468,6 +2469,7 @@ if (action === "switch-class") {
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = null;
     ui.studentViewingTray = true;
+    ui.studentScope = "class";
     ui.notice = "";
     ui.draftSaveMessage = "";
     hydrateSelections();
@@ -2476,6 +2478,19 @@ if (action === "switch-class") {
       hydrateSelections();
       render();
     });
+    return;
+  }
+
+  if (action === "view-all-classes") {
+    // Return from a single-class view to the unified cross-class home.
+    pauseActiveChatSession();
+    await flushCurrentStudentWork();
+    ui.selectedStudentAssignmentId = null;
+    ui.studentViewingTray = true;
+    ui.studentScope = "all";
+    ui.notice = "";
+    ui.draftSaveMessage = "";
+    render();
     return;
   }
 
@@ -3932,10 +3947,20 @@ if (target.id === "playback-speed") {
 if (target.id === "student-class-select") {
     pauseActiveChatSession();
     await flushCurrentStudentWork();
+    // "All classes" → unified home; a specific class → that class's filtered view.
+    if (target.value === "__all__") {
+      ui.studentScope = "all";
+      ui.selectedStudentAssignmentId = null;
+      ui.studentViewingTray = true;
+      ui.notice = "";
+      render();
+      return;
+    }
     currentClassId = target.value;
     saveActiveClassId(currentProfile, currentClassId);
     ui.selectedStudentAssignmentId = null;
     ui.studentViewingTray = true;
+    ui.studentScope = "class";
     ui.notice = "";
     hydrateSelections();
     render();

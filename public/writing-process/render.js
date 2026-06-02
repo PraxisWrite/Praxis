@@ -62,9 +62,10 @@
     const [low, high] = Array.isArray(range) ? range : [0, 1];
     const numeric = Number(value || 0);
     const pct = high > low ? Math.max(0, Math.min(100, ((numeric - low) / (high - low)) * 100)) : 50;
-    // Symbol + word so the status reads without relying on colour perception.
-    const tagTexts = { within: "✓ within range", below: "↓ below range", above: "↑ above range" };
-    const tag = tagTexts[position] || "— no range yet";
+    // Comparative wording (vs peers, not a pass/fail "range"), with a symbol so
+    // it reads without relying on colour perception.
+    const tagTexts = { within: "✓ like peers", below: "↓ below peers", above: "↑ above peers" };
+    const tag = tagTexts[position] || "— no peer data";
     const kind = metricStatusKind(position);
     const interpretation = METRIC_INTERPRETATIONS[key]?.[position] || "";
     return `
@@ -143,9 +144,9 @@
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;">
               <span class="process-status-pill" style="color:${style.color};border-color:${style.border};background:#fff;">${escapeHtml(analysis.statusLabel)}</span>
               <span onclick="var t=this.nextElementSibling;var wasHidden=t.style.display==='none';t.style.display=wasHidden?'block':'none';if(wasHidden){setTimeout(function(){document.addEventListener('click',function h(){t.style.display='none';document.removeEventListener('click',h);},{once:true});},0);}" style="cursor:pointer;font-size:0.75rem;color:var(--muted);border:1px solid var(--line);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;" title="What do these labels mean?">?</span>
-              <div style="display:none;position:absolute;top:100%;left:0;z-index:100;max-width:380px;margin-top:6px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.10);font-size:0.80rem;line-height:1.55;color:var(--ink);">
+              <div style="display:none;position:absolute;top:100%;left:0;z-index:100;width:min(360px,85vw);margin-top:6px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.10);font-size:0.80rem;line-height:1.55;color:var(--ink);">
                 <p style="margin:0 0 6px;font-weight:600;">How this label is determined</p>
-                <p style="margin:0 0 8px;">This single label is the combined read of every process signal — pastes, revision, fluency and pauses — sorted into one of four bands. Severity rises with the number and strength of unusual patterns. The "writing-style detail" cards lower down are separate descriptive context, not part of this label.</p>
+                <p style="margin:0 0 8px;">This single label combines every process signal into one of four bands: keystroke checks (pastes, fluency, revision) plus any metric that sits clearly outside the peer range for this level. The chips below the label show which signals contributed.</p>
                 <p style="margin:0 0 4px;"><strong>Typical process</strong> — no unusual patterns; the writing looks like normal drafting with revisions and pauses.</p>
                 <p style="margin:0 0 4px;"><strong>Review suggested</strong> — one moderate signal worth checking (e.g. a large paste, very little revision, or unusual pause distribution).</p>
                 <p style="margin:0 0 4px;"><strong>Close review needed</strong> — three or more independent signals are unusual together. Look at the timeline, paste evidence, and playback before deciding.</p>
@@ -172,7 +173,7 @@
         <div class="process-detail-head">
           <p class="mini-label" style="margin:0;">Writing-style detail</p>
           <p class="subtle" style="margin:2px 0 0;font-size:0.78rem;">
-            Descriptive background, <strong>not part of the check above</strong>. This shows how the student's pace, pauses and revising compare with a rough reference group at the same level — a difference here is texture, not a flag on its own.
+            Peer comparison for each measure. Deviations from the reference group feed the check above — hover the chips above to see which ones contributed.
           </p>
         </div>
         <div class="process-metric-grid">

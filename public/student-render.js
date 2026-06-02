@@ -199,6 +199,37 @@
     `;
   }
 
+  function buildStudentScopeHeader(scope, currentClass, escapeHtml) {
+    if (scope !== "class") return "";
+    const teacherLine = currentClass?.teacher_name
+      ? ` · ${escapeHtml(currentClass.teacher_name)}`
+      : "";
+    const banner = currentClass
+      ? `<div class="class-banner"><span class="class-banner-icon">🎓</span><span><strong>${escapeHtml(currentClass.name)}</strong>${teacherLine}</span></div>`
+      : "";
+    return `<button class="button-ghost" data-action="view-all-classes" style="margin-bottom:12px;">← All work</button>${banner}`;
+  }
+
+  // The class <select> doubles as the scope switcher: "All classes" → unified
+  // home, a class → that class's filtered view. aria-label kept for E2E.
+  function buildStudentClassControl(multiClass, currentClasses, scope, currentClassId, escapeHtml) {
+    if (!multiClass) return "";
+    const allSelected = scope === "all" ? "selected" : "";
+    const options = currentClasses.map(c => {
+      const sel = scope === "class" && currentClassId === c.id ? "selected" : "";
+      return `<option value="${c.id}" ${sel}>${escapeHtml(c.name)}</option>`;
+    }).join("");
+    return `
+      <div class="field" style="min-width:180px;">
+        <label for="student-class-select" style="font-size:0.82rem;">Class</label>
+        <select id="student-class-select" aria-label="Switch class">
+          <option value="__all__" ${allSelected}>All classes</option>
+          ${options}
+        </select>
+      </div>
+    `;
+  }
+
   function renderStudentWorkspace() {
     const { ui, currentClasses, currentClassId, currentProfile, currentPendingClasses } = globalThis.window.AppState;
     const { escapeHtml, getStudentAssignmentBuckets,
@@ -217,7 +248,7 @@
 
     // Scope: "all" = unified cross-class home (default); otherwise a single
     // class. A single-class student is always effectively scoped to their class.
-    const scope = (multiClass && ui.studentScope === "class" && currentClass) ? "class" : "all";
+    const scope = multiClass && ui.studentScope === "class" && currentClass ? "class" : "all";
     const buckets = getStudentAssignmentBuckets(scope === "all" ? "all" : currentClassId);
     const showClassTag = scope === "all" && multiClass;
 
@@ -233,23 +264,8 @@
       `;
     } else {
       const pendingMarkup = pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : "";
-      let scopeHeader = "";
-      let classListMarkup = "";
-      if (scope === "class") {
-        // Viewing one class: a back link to the unified home + the class banner.
-        scopeHeader = `
-          <button class="button-ghost" data-action="view-all-classes" style="margin-bottom:12px;">← All work</button>
-          ${currentClass ? `
-            <div class="class-banner">
-              <span class="class-banner-icon">🎓</span>
-              <span><strong>${escapeHtml(currentClass.name)}</strong>${currentClass.teacher_name ? ` · ${escapeHtml(currentClass.teacher_name)}` : ""}</span>
-            </div>
-          ` : ""}
-        `;
-      } else if (multiClass) {
-        // Unified home: compact class navigator under the tray.
-        classListMarkup = renderStudentClassList(currentClasses);
-      }
+      const scopeHeader = buildStudentScopeHeader(scope, currentClass, escapeHtml);
+      const classListMarkup = scope !== "class" && multiClass ? renderStudentClassList(currentClasses) : "";
       body = `
         ${pendingMarkup}
         ${scopeHeader}
@@ -258,17 +274,7 @@
       `;
     }
 
-    // The class <select> doubles as the scope switcher: "All classes" → unified
-    // home, a class → that class's filtered view. aria-label kept for E2E.
-    const classControl = multiClass ? `
-      <div class="field" style="min-width:180px;">
-        <label for="student-class-select" style="font-size:0.82rem;">Class</label>
-        <select id="student-class-select" aria-label="Switch class">
-          <option value="__all__" ${scope === "all" ? "selected" : ""}>All classes</option>
-          ${currentClasses.map(c => `<option value="${c.id}" ${scope === "class" && currentClassId === c.id ? "selected" : ""}>${escapeHtml(c.name)}</option>`).join("")}
-        </select>
-      </div>
-    ` : "";
+    const classControl = buildStudentClassControl(multiClass, currentClasses, scope, currentClassId, escapeHtml);
 
     return `
     <section class="student-shell">

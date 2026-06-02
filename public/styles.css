@@ -2190,18 +2190,20 @@ button.rubric-level-cell:hover {
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
 
-/* At-a-glance status for each metric card. Status is carried by the tag's
-   symbol + word and a background tint, so it reads without colour perception. */
-.process-metric-card--within { border-left: 4px solid #57b98a; background: #f2fbf4; }
-.process-metric-card--out { border-left: 4px solid #e6b450; background: #fffaea; }
+/* Descriptive style cards. "Out of range" means DIFFERENT from peers, not
+   wrong, so it uses a calm informational blue — never the amber warning palette
+   that the verdict bands use. The tag's symbol + word carries the meaning, so
+   nothing depends on colour perception. */
+.process-metric-card--within { border-left: 4px solid #8aa0c6; background: #f6f9ff; }
+.process-metric-card--out { border-left: 4px solid #6d8fe0; background: #eef4ff; }
 .process-metric-card--none { border-left: 3px solid var(--line); }
 
-.process-metric-tag--within { color: #1f6b42; background: #e2f5e8; }
-.process-metric-tag--out { color: #7a4d00; background: #fdeecb; }
+.process-metric-tag--within { color: #4a5a78; background: #eef2fa; }
+.process-metric-tag--out { color: #2f4f9e; background: #dfe9ff; }
 .process-metric-tag--none { color: var(--muted); background: #fff; }
 
-.process-range-dot--within { background: #2f9e6f; }
-.process-range-dot--out { background: #d39a2a; }
+.process-range-dot--within { background: #6b7da0; }
+.process-range-dot--out { background: #3f65d8; }
 
 .process-metric-read { color: var(--ink); }
 

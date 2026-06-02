@@ -310,6 +310,42 @@
     return STATUS.TYPICAL;
   }
 
+  // Per-metric signals for deviations from the peer-range comparison.
+  // Each item gets severity 0.5 so that:
+  //   • 2 deviations → combined severity 1.0 → Review suggested
+  //   • 3+ deviations → evidence.length ≥ 3 → Close review needed
+  const COHORT_DEVIATION_SIGNALS = {
+    typingRate: {
+      below: { code: "cohort_typing_slow", label: "Typing pace below peer range", detail: "Typed more slowly than similar-level students — can be careful human writing, but worth checking against the timeline and other signals." },
+      above: { code: "cohort_typing_fast", label: "Typing pace above peer range", detail: "Typed faster than similar-level students — check the timeline and paste evidence." },
+    },
+    longPauses: {
+      below: { code: "cohort_pauses_few", label: "Fewer thinking pauses than peers", detail: "Fewer longer pauses than similar-level students — may indicate text was planned or composed before typing." },
+      above: { code: "cohort_pauses_many", label: "More thinking pauses than peers", detail: "More thinking pauses than similar-level students — usually careful composing; worth checking the timeline pattern." },
+    },
+    localRevisions: {
+      below: { code: "cohort_revision_low", label: "Less in-line revision than peers", detail: "Fewer local edits than similar-level students — writers typically rework text they are actively composing." },
+      above: { code: "cohort_revision_high", label: "More in-line revision than peers", detail: "More local edits than similar-level students — suggests active, effortful composition." },
+    },
+    productProcessRatio: {
+      below: { code: "cohort_survival_low", label: "More text deleted than peers", detail: "More of the typed text was deleted than in similar-level students — suggests heavy rewriting." },
+      above: { code: "cohort_survival_high", label: "More typed text survived than peers", detail: "Less typed text was deleted than in similar-level students — most of what was typed made it to the final." },
+    },
+  };
+
+  function buildCohortEvidence(positions = {}, cohort = {}) {
+    if (!cohort.n) return [];
+    const evidence = [];
+    const keys = ["typingRate", "longPauses", "localRevisions", "productProcessRatio"];
+    for (const key of keys) {
+      const signal = COHORT_DEVIATION_SIGNALS[key]?.[positions[key]];
+      if (signal) {
+        evidence.push({ ...signal, severity: 0.5 });
+      }
+    }
+    return evidence;
+  }
+
   function analyzeSubmission(submission = {}, assignment = {}, options = {}) {
     const events = getEssayEvents(submission);
     const processEvents = normalizeProcessEvents(submission);
@@ -351,10 +387,19 @@
       ...revisionMetrics,
       ...pauseMetrics,
     };
-    const evidence = buildEvidence(metrics, externalPasteEvents);
-    const status = chooseStatus(finalWords, evidence);
+    // Cohort positions must be computed before building evidence so deviations
+    // from the peer range can feed the combined verdict.
     const level = cohorts.normalizeLevel ? cohorts.normalizeLevel(assignment.languageLevel || assignment.language_level || "B1") : "B1";
     const cohort = cohorts.getPreliminaryCohort ? cohorts.getPreliminaryCohort(level) : {};
+    const positions = {
+      typingRate: cohorts.compareToRange ? cohorts.compareToRange(metrics.typingRate, cohort.typingRate) : "unknown",
+      longPauses: cohorts.compareToRange ? cohorts.compareToRange(metrics.longPausesPer100w, cohort.longPauses) : "unknown",
+      localRevisions: cohorts.compareToRange ? cohorts.compareToRange(metrics.localRevisionsPer100w, cohort.localRevisions) : "unknown",
+      productProcessRatio: cohorts.compareToRange ? cohorts.compareToRange(metrics.productProcessRatio, cohort.productProcessRatio) : "unknown",
+      pasteShare: cohorts.compareToRange ? cohorts.compareToRange(metrics.pasteShare, cohort.pasteShare) : "unknown",
+    };
+    const evidence = [...buildEvidence(metrics, externalPasteEvents), ...buildCohortEvidence(positions, cohort)];
+    const status = chooseStatus(finalWords, evidence);
     const coachBaseline = getCoachMotorBaseline({ ...submission, processEvents });
     const excludedSources = safeArray(options.exclusionSources);
     const excludedFromAnalytics = Boolean(options.excludedFromAnalytics || excludedSources.length);
@@ -391,13 +436,7 @@
           productProcessRatio: cohort.productProcessRatio,
           pasteShare: cohort.pasteShare,
         },
-        positions: {
-          typingRate: cohorts.compareToRange ? cohorts.compareToRange(metrics.typingRate, cohort.typingRate) : "unknown",
-          longPauses: cohorts.compareToRange ? cohorts.compareToRange(metrics.longPausesPer100w, cohort.longPauses) : "unknown",
-          localRevisions: cohorts.compareToRange ? cohorts.compareToRange(metrics.localRevisionsPer100w, cohort.localRevisions) : "unknown",
-          productProcessRatio: cohorts.compareToRange ? cohorts.compareToRange(metrics.productProcessRatio, cohort.productProcessRatio) : "unknown",
-          pasteShare: cohorts.compareToRange ? cohorts.compareToRange(metrics.pasteShare, cohort.pasteShare) : "unknown",
-        },
+        positions,
       },
     };
   }

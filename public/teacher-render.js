@@ -775,8 +775,8 @@
         <span class="status-pill">${escapeHtml(getSubmissionStatusDisplay(currentStatus))}</span>
         ${roster.length ? `<span style="font-size:0.82rem;color:var(--muted);">${rosterIndex + 1}/${roster.length}</span>` : ""}
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-          <button class="button-ghost" data-action="previous-review-student" ${!previousStudentId ? "disabled" : ""} style="font-size:0.85rem;">← Previous</button>
-          <button class="button-ghost" data-action="next-review-student" ${!nextStudentId ? "disabled" : ""} style="font-size:0.85rem;">Next →</button>
+          <button class="button-ghost" data-action="previous-review-student" ${previousStudentId ? "" : "disabled"} style="font-size:0.85rem;">← Previous</button>
+          <button class="button-ghost" data-action="next-review-student" ${nextStudentId ? "" : "disabled"} style="font-size:0.85rem;">Next →</button>
           <button class="button-ghost" data-action="download-work" style="font-size:0.85rem;">⬇ Grade sheet</button>
         </div>
       </div>

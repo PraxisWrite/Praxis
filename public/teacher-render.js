@@ -170,11 +170,19 @@
       ? getSelectedReviewSubmission()
       : (state.submissions.find(s => s.id === ui.selectedReviewSubmissionId) || null);
 
-    // Two top-level layout states: the assignment picker (below) and the grading
-    // workspace (persistent student rail + content area). Entering an assignment
-    // swaps the whole screen to the workspace rather than stacking panels.
+    // Cross-assignment grading queue, built from already-loaded class submissions
+    // (loadClassSubmissions populates every assignment up front — no extra fetch).
+    const gradeQueue = buildToGradeQueue(assignments);
+    const teacherTabs = renderTeacherTabs(ui.teacherView, gradeQueue.length);
+
+    // Three top-level layout states: the assignment picker, the cross-assignment
+    // "to grade" queue, and the grading workspace (persistent student rail). The
+    // workspace owns the full screen; the two list views share the tab strip.
     if (ui.teacherView === "grading" && selectedAssignment) {
       return renderGradingWorkspace(selectedAssignment, submissions, selectedSubmission);
+    }
+    if (ui.teacherView === "to-grade") {
+      return teacherTabs + renderToGradeQueue(gradeQueue);
     }
 
     const savedRubrics = getSavedRubricLibrary();
@@ -226,7 +234,7 @@
     </div>
   `;
 
-    return `
+    return teacherTabs + `
     <section class="teacher-grid">
       <div class="panel panel-tight">
         <div class="panel-header">
@@ -467,6 +475,7 @@
                           <span class="pill">${assignment.wordCountMin}–${assignment.wordCountMax} words</span>
                           ${assignment.deadline ? `<span class="pill">Due: ${escapeHtml(new Date(assignment.deadline).toLocaleDateString(undefined, {day:"numeric",month:"short"}))}</span>` : ""}
                           <span class="pill">${submittedCount}/${totalStudents} submitted</span>
+                          ${submittedCount - gradedCount > 0 ? `<span class="pill" style="color:var(--accent-deep);border-color:var(--accent);">${submittedCount - gradedCount} to grade</span>` : ""}
                           ${gradedCount > 0 ? `<span class="pill" style="color:var(--sage);border-color:var(--sage);">✓ ${gradedCount} graded</span>` : ""}
                           ${pasteCount > 0 ? `<button class="warning-pill" data-action="open-paste-flag" data-assignment-id="${assignment.id}" style="cursor:pointer;">⚠ ${pasteCount} paste flag${pasteCount > 1 ? "s" : ""}</button>` : ""}
                         </div>
@@ -502,6 +511,104 @@
       ` : ""}
     </section>
   `;
+  }
+
+  // Top-level teacher navigation. Always reachable from either list view, so the
+  // assignment list and the grading queue are one click apart without drilling
+  // into a specific assignment first.
+  function renderTeacherTabs(activeView, toGradeCount) {
+    const tabs = [
+      { tab: "assignments", label: "Assignments" },
+      { tab: "to-grade", label: "To grade" },
+    ];
+    // The grading workspace ("grading") highlights the Assignments tab, since it
+    // is reached from the assignment list.
+    const active = activeView === "to-grade" ? "to-grade" : "assignments";
+    return `
+      <nav class="teacher-tabs" aria-label="Teacher sections">
+        ${tabs.map((entry) => {
+          const isActive = entry.tab === active;
+          const badge = entry.tab === "to-grade" && toGradeCount > 0
+            ? `<span class="teacher-tab-badge">${toGradeCount}</span>`
+            : "";
+          return `<button type="button" class="teacher-tab${isActive ? " is-active" : ""}" data-action="teacher-tab" data-tab="${entry.tab}" aria-current="${isActive ? "page" : "false"}">${entry.label}${badge}</button>`;
+        }).join("")}
+      </nav>
+    `;
+  }
+
+  // Collect every submitted-but-ungraded submission across all assignments in the
+  // current class. Pure read from already-loaded state.submissions — no fetch.
+  function buildToGradeQueue(assignments) {
+    const { state } = globalThis.AppState;
+    const { getUserById } = globalThis.window;
+    const { isSubmissionSubmitted, isSubmissionGraded } = globalThis.SubmissionUtils;
+    const assignmentById = new Map(assignments.map((assignment) => [assignment.id, assignment]));
+    return state.submissions
+      .filter((submission) => assignmentById.has(submission.assignmentId))
+      .filter((submission) => isSubmissionSubmitted(submission) && !isSubmissionGraded(submission))
+      .map((submission) => {
+        const assignment = assignmentById.get(submission.assignmentId);
+        const flagged = Array.isArray(submission.writingEvents)
+          && submission.writingEvents.some((entry) => globalThis.isPasteLikeWritingEvent(entry));
+        return {
+          submission,
+          assignment,
+          studentId: submission.studentId,
+          studentName: submission._studentName || getUserById(submission.studentId)?.name || "Student",
+          flagged,
+          sortKey: Date.parse(submission.submittedAt || submission.updatedAt || "") || 0,
+        };
+      })
+      // Newest submissions first — the work most likely waiting on the teacher.
+      .sort((a, b) => b.sortKey - a.sortKey);
+  }
+
+  // The cross-assignment "to grade" inbox. Each row jumps straight into grading
+  // that student inside the workspace.
+  function renderToGradeQueue(queue) {
+    const { escapeHtml, escapeAttribute, getSubmissionStatusDisplay } = globalThis.window;
+    const { getSubmissionStatus } = globalThis.SubmissionUtils;
+    const header = `
+      <div style="margin-bottom:16px;">
+        <p class="mini-label" style="margin-bottom:4px;">To grade</p>
+        <p class="subtle" style="margin:0;">Every submitted piece across this class that still needs a grade, newest first.</p>
+      </div>`;
+    if (!queue.length) {
+      return `
+        <section class="panel panel-tight">
+          ${header}
+          <div class="empty-state compact-empty" style="padding:32px 24px;">
+            <div style="font-size:2rem;margin-bottom:10px;">✅</div>
+            <h3 style="margin:0 0 6px;">All caught up</h3>
+            <p style="margin:0;">Nothing is waiting to be graded right now. New submissions will show up here automatically.</p>
+          </div>
+        </section>`;
+    }
+    return `
+      <section class="panel panel-tight">
+        ${header}
+        <div class="queue-list">
+          ${queue.map((item) => {
+            const statusLabel = getSubmissionStatusDisplay(getSubmissionStatus(item.submission));
+            return `
+              <button type="button" class="queue-row" data-action="grade-from-queue"
+                data-assignment-id="${escapeAttribute(item.assignment.id)}"
+                data-student-id="${escapeAttribute(item.studentId)}"
+                data-submission-id="${escapeAttribute(item.submission.id)}">
+                <span class="queue-row-main">
+                  <span class="queue-row-student">${escapeHtml(item.studentName)}</span>
+                  <span class="queue-row-assignment">${escapeHtml(item.assignment.title)}</span>
+                </span>
+                <span class="queue-row-meta">
+                  <span class="status-pill">${escapeHtml(statusLabel)}</span>
+                  ${item.flagged ? `<span class="warning-pill">⚠ Paste</span>` : ""}
+                  <span class="queue-row-go" aria-hidden="true">Grade →</span>
+                </span>
+              </button>`;
+          }).join("")}
+        </div>
+      </section>`;
   }
 
   // Workspace content shown when no student is selected: at-a-glance class

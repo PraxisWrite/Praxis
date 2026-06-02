@@ -2988,6 +2988,48 @@ if (action === "sign-out") {
     return;
   }
 
+  if (action === "teacher-tab") {
+    // Top-level section switch (Assignments ⇄ To grade). Always returns to a
+    // list view, so any open assignment/student selection is cleared.
+    stopPlayback();
+    ui.teacherView = target.dataset.tab === "to-grade" ? "to-grade" : "assignments";
+    ui.selectedAssignmentId = null;
+    ui.selectedReviewSubmissionId = null;
+    ui.selectedReviewStudentId = null;
+    ui.railCollapsed = false;
+    ui.playback.touched = false;
+    ui.notice = "";
+    render();
+    refreshTeacherAssignmentStatusData().catch((error) => {
+      console.error("Could not refresh teacher assignment statuses:", error);
+    });
+    return;
+  }
+
+  if (action === "grade-from-queue") {
+    // Jump from the cross-assignment queue straight into grading this student.
+    stopPlayback();
+    const assignmentId = target.dataset.assignmentId;
+    const studentId = target.dataset.studentId;
+    ui.selectedAssignmentId = assignmentId;
+    ui.selectedReviewStudentId = studentId;
+    ui.selectedReviewSubmissionId = target.dataset.submissionId
+      || getReviewSubmissionForStudent(studentId, assignmentId)?.id
+      || null;
+    ui.teacherView = "grading";
+    ui.playback.index = 0;
+    ui.playback.touched = false;
+    ui.notice = "";
+    render();
+    loadReviewDataForAssignment(assignmentId).then(async () => {
+      if (isEmailDebugEnabled()) {
+        await loadEmailDebugState(assignmentId, studentId);
+      }
+      render();
+    });
+    return;
+  }
+
   if (action === "refresh-assignment-statuses") {
     ui.notice = "Refreshing submission statuses...";
     render();

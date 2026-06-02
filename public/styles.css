@@ -558,10 +558,10 @@ button {
 }
 
 .rail-student--graded .rail-student-dot { background: var(--sage-soft); color: var(--sage); }
-.rail-student--flagged .rail-student-dot { background: #fde6cf; color: #a9701b; }
+.rail-student--flagged .rail-student-dot { background: #fde6cf; color: #8a5512; }
 .rail-student--submitted .rail-student-dot { background: var(--accent-soft); color: var(--accent-deep); }
 .rail-student--in-progress .rail-student-dot { background: #eef2fa; color: var(--accent-deep); }
-.rail-student--not-started .rail-student-dot { background: #f1f3f7; color: #aab4c5; }
+.rail-student--not-started .rail-student-dot { background: #f1f3f7; color: #5b6a82; }
 
 .rail-student-body {
   flex: 1;

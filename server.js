@@ -47,6 +47,18 @@ app.use((req, res, next) => {
   }
   return next();
 });
+// Invite links are the bare origin with a ?join=CLASSID query
+// (e.g. https://praxiswrite.com/?join=abc123). The static middleware below
+// serves the marketing landing page for "/", so without this the invited
+// student lands on the landing page instead of the sign-up / join screen.
+// Serve the app shell whenever a join invite is present so they reach the
+// auth screen directly (which forces a student-only sign-up for invites).
+app.get('/', (req, res, next) => {
+  if (req.query.join) {
+    return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+  return next();
+});
 app.use(express.static(path.join(__dirname, 'public'), { index: 'landing.html' }));
 app.use(express.json({ limit: '10mb' }))
 

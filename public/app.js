@@ -15,6 +15,9 @@ const {
   saveCustomErrorCodes,
   getErrorCodes,
   getErrorCodeLabel,
+  loadCustomAssignmentTypes,
+  saveCustomAssignmentTypes,
+  getAssignmentTypes,
 } = globalThis.AppConstants;
 const {
   buildDeadlineTimeOptions,
@@ -2397,6 +2400,35 @@ if (action === "generate-teacher-assist") {
     if (!code) return;
     saveCustomErrorCodes(loadCustomErrorCodes().filter((entry) => String(entry.code || "").toUpperCase() !== code));
     ui.notice = `${code} removed from your reusable error codes.`;
+    render();
+    return;
+  }
+
+  if (action === "add-custom-assignment-type") {
+    const raw = String(globalThis.prompt('New assignment type (for example "Reflection" or "Lab report")', "") || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 40);
+    if (!raw) return;
+    if (getAssignmentTypes().includes(raw)) {
+      ui.teacherDraft.assignmentType = raw;
+      ui.notice = `"${titleCase(raw)}" is already in the assignment type list.`;
+      render();
+      return;
+    }
+    saveCustomAssignmentTypes([...loadCustomAssignmentTypes(), raw]);
+    ui.teacherDraft.assignmentType = raw;
+    ui.notice = `"${titleCase(raw)}" added to the assignment type list.`;
+    render();
+    return;
+  }
+
+  if (action === "remove-custom-assignment-type") {
+    const type = String(target.dataset.type || "").trim().toLowerCase();
+    if (!type) return;
+    saveCustomAssignmentTypes(loadCustomAssignmentTypes().filter((entry) => String(entry || "").trim().toLowerCase() !== type));
+    if (ui.teacherDraft.assignmentType === type) ui.teacherDraft.assignmentType = "response";
+    ui.notice = `"${titleCase(type)}" removed from the assignment type list.`;
     render();
     return;
   }
@@ -6128,7 +6160,11 @@ ${chatLines || "<p><em>No conversation recorded.</em></p>"}
   document.body.appendChild(a);
   a.click();
   a.remove();
- URL.revokeObjectURL(url);
+  // Defer revoking the object URL. Revoking it synchronously can race the
+  // browser still writing the blob to disk, which makes the first attempt to
+  // open the downloaded file fail with ERR_ACCESS_DENIED — it only succeeds on
+  // a retry once the write has finished. A short delay lets the download settle.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function getOutlineFields(assignment, submission) {

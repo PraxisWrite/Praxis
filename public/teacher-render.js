@@ -37,16 +37,22 @@
   function renderTeacherAssignmentSettingsFields(ui, idPrefix) {
     const { escapeHtml, escapeAttribute, titleCase, getVisibleChatTimeLimit } = globalThis.window;
     const { buildDeadlineTimeOptions, getDeadlineDatePart, getDeadlineTimePart } = globalThis.DeadlineUtils;
+    const { getAssignmentTypes, loadCustomAssignmentTypes } = globalThis.window.AppConstants;
+    const customTypes = loadCustomAssignmentTypes();
     return `
       <div class="field-grid compact-grid">
         <div class="field">
           <label for="${idPrefix}-assignment-type">Assignment type</label>
           <select id="${idPrefix}-assignment-type" data-teacher-field="assignmentType">
-           ${["argument", "opinion", "narrative", "informational", "process", "definition", "compare/contrast", "response", "other"].map((t) => `<option value="${t}" ${ui.teacherDraft.assignmentType === t ? "selected" : ""}>${titleCase(t)}</option>`).join("")}
+           ${getAssignmentTypes().map((t) => `<option value="${escapeAttribute(t)}" ${ui.teacherDraft.assignmentType === t ? "selected" : ""}>${escapeHtml(titleCase(t))}</option>`).join("")}
           </select>
           ${ui.teacherDraft.assignmentType === "other" ? `
             <input id="teacher-other-type" data-teacher-field="assignmentTypeOther" value="${escapeAttribute(ui.teacherDraft.assignmentTypeOther || "")}" placeholder="Describe the assignment type" style="margin-top:8px;width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 12px;" />
           ` : ""}
+          <div class="custom-type-manage" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;">
+            <button type="button" class="error-code-btn error-code-add-btn" data-action="add-custom-assignment-type" title="Add a reusable assignment type" aria-label="Add a reusable assignment type" style="font-size:0.8rem;">+ Add type</button>
+            ${customTypes.map((t) => `<button type="button" class="custom-code-chip" data-action="remove-custom-assignment-type" data-type="${escapeAttribute(t)}" title="Remove ${escapeAttribute(titleCase(t))}"><span>${escapeHtml(titleCase(t))}</span><span aria-hidden="true" class="custom-code-remove">✕</span></button>`).join("")}
+          </div>
         </div>
         <div class="field">
           <label for="${idPrefix}-word-min">Min words</label>
@@ -325,7 +331,7 @@
                   <div class="field">
                     <label>Assignment type</label>
                     <select data-assist-field="assignmentType">
-                     ${["argument", "opinion", "narrative", "informational", "process", "definition", "compare/contrast", "response", "other"].map((t) => `<option value="${t}" ${ui.teacherAssist.assignmentType === t ? "selected" : ""}>${titleCase(t)}</option>`).join("")}
+                     ${globalThis.window.AppConstants.getAssignmentTypes().map((t) => `<option value="${escapeAttribute(t)}" ${ui.teacherAssist.assignmentType === t ? "selected" : ""}>${escapeHtml(titleCase(t))}</option>`).join("")}
                     </select>
                   </div>
                 </div>

@@ -15,8 +15,7 @@ const {
   saveCustomErrorCodes,
   getErrorCodes,
   getErrorCodeLabel,
-  loadCustomAssignmentTypes,
-  saveCustomAssignmentTypes,
+  setOrgAssignmentTypes,
   getAssignmentTypes,
 } = globalThis.AppConstants;
 const {
@@ -1047,6 +1046,13 @@ async function bootApp(profile) {
   // Auto-join class if arriving via invite link
   try { await Auth.joinClassIfInvited(); } catch(e) { console.warn("Join class skipped:", e.message); }
 
+  // Teachers and admins build assignments, so refresh the shared (org-wide)
+  // assignment-type list into the in-memory cache. Non-fatal: the built-in
+  // types and any localStorage-cached custom types still work if this fails.
+  if (profile.role === 'teacher' || profile.role === 'admin') {
+    await loadOrgAssignmentTypes();
+  }
+
   if (profile.role === 'admin' && !isAdminTeacherView()) {
     await loadAdminData();
     render();
@@ -1179,6 +1185,14 @@ async function loadAdminData() {
   ui.adminTeachers = await globalThis.ApiService.loadAdminTeachers();
   loadAdminCefrBenchmarks();
   refreshStaleAdminProcessAnalyses();
+}
+
+async function loadOrgAssignmentTypes() {
+  try {
+    setOrgAssignmentTypes(await globalThis.ApiService.loadAssignmentTypes());
+  } catch (error) {
+    console.warn("Assignment types load skipped:", error.message);
+  }
 }
 
 async function refreshAdminClassDetail({ keepNotice = false, silent = false } = {}) {
@@ -2404,31 +2418,37 @@ if (action === "generate-teacher-assist") {
     return;
   }
 
-  if (action === "add-custom-assignment-type") {
+  if (action === "admin-add-assignment-type") {
     const raw = String(globalThis.prompt('New assignment type (for example "Reflection" or "Lab report")', "") || "")
       .trim()
       .toLowerCase()
       .slice(0, 40);
     if (!raw) return;
     if (getAssignmentTypes().includes(raw)) {
-      ui.teacherDraft.assignmentType = raw;
       ui.notice = `"${titleCase(raw)}" is already in the assignment type list.`;
       render();
       return;
     }
-    saveCustomAssignmentTypes([...loadCustomAssignmentTypes(), raw]);
-    ui.teacherDraft.assignmentType = raw;
-    ui.notice = `"${titleCase(raw)}" added to the assignment type list.`;
+    try {
+      setOrgAssignmentTypes(await globalThis.ApiService.addAssignmentType(raw));
+      ui.notice = `"${titleCase(raw)}" added to the shared assignment type list.`;
+    } catch (error) {
+      ui.notice = `Could not add assignment type: ${error.message}`;
+    }
     render();
     return;
   }
 
-  if (action === "remove-custom-assignment-type") {
-    const type = String(target.dataset.type || "").trim().toLowerCase();
-    if (!type) return;
-    saveCustomAssignmentTypes(loadCustomAssignmentTypes().filter((entry) => String(entry || "").trim().toLowerCase() !== type));
-    if (ui.teacherDraft.assignmentType === type) ui.teacherDraft.assignmentType = "response";
-    ui.notice = `"${titleCase(type)}" removed from the assignment type list.`;
+  if (action === "admin-remove-assignment-type") {
+    const id = String(target.dataset.id || "");
+    const value = String(target.dataset.value || "");
+    if (!id) return;
+    try {
+      setOrgAssignmentTypes(await globalThis.ApiService.removeAssignmentType(id));
+      ui.notice = `"${titleCase(value)}" removed from the shared assignment type list.`;
+    } catch (error) {
+      ui.notice = `Could not remove assignment type: ${error.message}`;
+    }
     render();
     return;
   }

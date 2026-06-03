@@ -9,6 +9,7 @@ const multer = require('multer');
 const { parseRubricBuffer, parseRubricText } = require('./rubricParser');
 const { analyzeSubmission } = require('./public/writing-process/analyze');
 const { ANALYSIS_VERSION } = require('./public/writing-process/types');
+const { BASE_ASSIGNMENT_TYPES } = require('./public/app-constants');
 const {
   appendResetQuery,
   getTeacherReviewSavedAt,
@@ -51,11 +52,14 @@ app.use((req, res, next) => {
 // (e.g. https://praxiswrite.com/?join=abc123). The static middleware below
 // serves the marketing landing page for "/", so without this the invited
 // student lands on the landing page instead of the sign-up / join screen.
-// Serve the app shell whenever a join invite is present so they reach the
-// auth screen directly (which forces a student-only sign-up for invites).
+// Rewrite "/" to the app shell whenever a join invite is present so the
+// invited student reaches the auth screen directly (which forces a
+// student-only sign-up for invites). Rewriting the path — rather than reading
+// the file here — lets the static middleware below do the file read, so this
+// handler performs no direct file-system access of its own.
 app.get('/', (req, res, next) => {
   if (req.query.join) {
-    return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    req.url = '/index.html';
   }
   return next();
 });
@@ -3047,6 +3051,87 @@ app.patch('/api/admin/students/:studentId/flags', async (req, res) => {
     }
     if (!data) return res.status(404).json({ error: 'Student profile not found.' });
     res.json({ profile: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Assignment types (shared org-wide list, admin-managed) ───
+
+function isMissingAssignmentTypesTable(error) {
+  const msg = String(error?.message || '');
+  return /assignment_types/.test(msg) && /(does not exist|schema cache|could not find|relation)/i.test(msg);
+}
+
+async function listAssignmentTypes() {
+  const { data } = await supabase
+    .from('assignment_types')
+    .select('id, value')
+    .order('value', { ascending: true });
+  return data || [];
+}
+
+// Any authenticated user can read the shared list (teachers need it to build
+// assignments). Returns an empty list rather than erroring if the migration
+// has not been applied yet, so the built-in types still work.
+app.get('/api/assignment-types', async (req, res) => {
+  try {
+    const user = await getUser(req);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    const { data, error } = await supabase
+      .from('assignment_types')
+      .select('id, value')
+      .order('value', { ascending: true });
+    if (error) {
+      if (isMissingAssignmentTypesTable(error)) return res.json({ types: [] });
+      return res.status(400).json({ error: error.message });
+    }
+    res.json({ types: data || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/assignment-types', async (req, res) => {
+  try {
+    const user = await requireAdmin(req, res);
+    if (!user) return;
+    const value = String(req.body?.value || '').trim().toLowerCase().slice(0, 40);
+    if (value.length < 2) {
+      return res.status(400).json({ error: 'Enter an assignment type of at least 2 characters.' });
+    }
+    if (BASE_ASSIGNMENT_TYPES.includes(value)) {
+      return res.status(400).json({ error: `"${value}" is already a built-in assignment type.` });
+    }
+    const { error } = await supabase
+      .from('assignment_types')
+      .upsert({ value, created_by: user.id }, { onConflict: 'value', ignoreDuplicates: true });
+    if (error) {
+      if (isMissingAssignmentTypesTable(error)) {
+        return res.status(400).json({
+          error: 'Assignment types are not set up yet. Apply the 20260603_assignment_types migration, then try again.',
+          needsMigration: true,
+          migration: '20260603_assignment_types.sql',
+        });
+      }
+      return res.status(400).json({ error: error.message });
+    }
+    res.json({ types: await listAssignmentTypes() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/admin/assignment-types/:id', async (req, res) => {
+  try {
+    const user = await requireAdmin(req, res);
+    if (!user) return;
+    const { error } = await supabase
+      .from('assignment_types')
+      .delete()
+      .eq('id', req.params.id);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ types: await listAssignmentTypes() });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -395,6 +395,29 @@ async function deleteAssignment(assignmentId) {
     return error;
   }
 
+  async function loadAssignmentTypes() {
+    const result = await apiFetch("/api/assignment-types");
+    if (result?.error) throw createApiError(result, "Failed to load assignment types");
+    return safeArray(result?.types);
+  }
+
+  async function addAssignmentType(value) {
+    const result = await apiFetch("/api/admin/assignment-types", {
+      method: "POST",
+      body: JSON.stringify({ value }),
+    });
+    if (result?.error) throw createApiError(result, "Failed to add assignment type");
+    return safeArray(result?.types);
+  }
+
+  async function removeAssignmentType(id) {
+    const result = await apiFetch(`/api/admin/assignment-types/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    if (result?.error) throw createApiError(result, "Failed to remove assignment type");
+    return safeArray(result?.types);
+  }
+
   async function loadAdminCefrBenchmarks() {
     const result = await apiFetch("/api/admin/writing-process/benchmarks");
     if (result?.error) throw createApiError(result, "Failed to load benchmark data");
@@ -599,6 +622,9 @@ async function deleteAssignment(assignmentId) {
     patchAssignment,
     setAssignmentStatus,
     deleteAssignment,
+    loadAssignmentTypes,
+    addAssignmentType,
+    removeAssignmentType,
     loadAdminCefrBenchmarks,
     recomputeStaleAdminProcessAnalyses,
     loadAdminTeachers,

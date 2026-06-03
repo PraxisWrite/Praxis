@@ -10,6 +10,7 @@
   const ACTIVE_CLASS_KEY = "AUIZero-active-class-v1";
   const ACTIVE_STUDENT_ASSIGNMENT_KEY = "AUIZero-active-student-assignment-v1";
   const CUSTOM_ERROR_CODES_KEY = "AUIZero-custom-error-codes-v1";
+  const ORG_ASSIGNMENT_TYPES_CACHE_KEY = "AUIZero-org-assignment-types-v1";
   const LARGE_PASTE_LIMIT = 220;
   const PRODUCT_NAME = "praxis";
   const PRODUCT_TAGLINE = "Think clearly. Write clearly.";
@@ -26,6 +27,84 @@
     { code: "AGR", label: "Agreement error: subject and verb, or noun and pronoun, don't agree" },
     { code: "SP",  label: "Spelling error" },
   ];
+
+  // Base assignment types offered when building an assignment. "other" must
+  // stay last because selecting it reveals the free-text "describe" input.
+  const BASE_ASSIGNMENT_TYPES = [
+    "argument",
+    "opinion",
+    "narrative",
+    "informational",
+    "process",
+    "definition",
+    "compare/contrast",
+    "cause and effect",
+    "classification",
+    "intro only",
+    "body only",
+    "conclusion only",
+    "response",
+    "other",
+  ];
+
+  // Org-wide custom assignment types are managed by admins and stored on the
+  // server (table public.assignment_types), then merged with the base list so
+  // every teacher sees the same options. A localStorage cache keeps the
+  // dropdown populated on first render before the network fetch resolves and
+  // survives offline loads. Each entry is { id, value } with value lowercased.
+  function normalizeAssignmentTypeList(list) {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set();
+    const result = [];
+    for (const entry of list) {
+      const value = String(entry?.value ?? entry ?? "").trim().toLowerCase();
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      result.push({ id: entry?.id ?? null, value });
+    }
+    return result;
+  }
+
+  function loadCachedOrgAssignmentTypes() {
+    try {
+      const storage = (globalThis.window !== undefined && globalThis.localStorage) || null;
+      if (!storage) return [];
+      return normalizeAssignmentTypeList(JSON.parse(storage.getItem(ORG_ASSIGNMENT_TYPES_CACHE_KEY) || "[]"));
+    } catch {
+      return [];
+    }
+  }
+
+  let orgAssignmentTypes = loadCachedOrgAssignmentTypes();
+
+  function setOrgAssignmentTypes(list) {
+    orgAssignmentTypes = normalizeAssignmentTypeList(list);
+    try {
+      const storage = (globalThis.window !== undefined && globalThis.localStorage) || null;
+      if (storage) storage.setItem(ORG_ASSIGNMENT_TYPES_CACHE_KEY, JSON.stringify(orgAssignmentTypes));
+    } catch {
+      // Ignore localStorage failures; the in-memory list still drives the UI.
+    }
+    return orgAssignmentTypes;
+  }
+
+  function getOrgAssignmentTypes() {
+    return orgAssignmentTypes.map((entry) => ({ ...entry }));
+  }
+
+  function getAssignmentTypes() {
+    const seen = new Set();
+    const ordered = [];
+    for (const type of [...BASE_ASSIGNMENT_TYPES, ...orgAssignmentTypes.map((entry) => entry.value)]) {
+      // Pin "other" to the very end (added after the loop) so the free-text
+      // input always sits last regardless of any custom additions.
+      if (type === "other" || seen.has(type)) continue;
+      seen.add(type);
+      ordered.push(type);
+    }
+    ordered.push("other");
+    return ordered;
+  }
 
   function loadCustomErrorCodes() {
     try {
@@ -75,16 +154,21 @@
     ACTIVE_CLASS_KEY,
     ACTIVE_STUDENT_ASSIGNMENT_KEY,
     CUSTOM_ERROR_CODES_KEY,
+    ORG_ASSIGNMENT_TYPES_CACHE_KEY,
     LARGE_PASTE_LIMIT,
     PRODUCT_NAME,
     PRODUCT_TAGLINE,
     REVIEW_REFRESH_MS,
     ADMIN_REFRESH_MS,
     BASE_ERROR_CODES,
+    BASE_ASSIGNMENT_TYPES,
     loadCustomErrorCodes,
     saveCustomErrorCodes,
     getErrorCodes,
     getErrorCodeLabel,
+    setOrgAssignmentTypes,
+    getOrgAssignmentTypes,
+    getAssignmentTypes,
   };
 
   if (globalThis.window !== undefined) {

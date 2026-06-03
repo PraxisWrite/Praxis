@@ -164,6 +164,26 @@
       </details>
     `;
   }
+  function renderAdminAssignmentTypesPanel() {
+    const { getOrgAssignmentTypes } = globalThis.window.AppConstants;
+    const types = getOrgAssignmentTypes();
+    return `
+      <div style="border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;background:#fafaf8;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+          <h3 style="margin:0;font-size:1rem;">Assignment types</h3>
+          <button type="button" class="button-secondary" data-action="admin-add-assignment-type">+ Add type</button>
+        </div>
+        <p class="subtle" style="margin:0 0 10px;font-size:0.84rem;">Custom types added here appear in every teacher's “Assignment type” dropdown, alongside the built-in ones.</p>
+        ${types.length === 0
+          ? `<p class="subtle" style="margin:0;font-size:0.84rem;">No custom types yet. The built-in types are always available.</p>`
+          : `<div class="custom-code-manage">
+              ${types.map((t) => `<button type="button" class="custom-code-chip" data-action="admin-remove-assignment-type" data-id="${escapeAttribute(t.id)}" data-value="${escapeAttribute(t.value)}" title="Remove ${escapeAttribute(titleCase(t.value))}"><span>${escapeHtml(titleCase(t.value))}</span><span aria-hidden="true" class="custom-code-remove">✕</span></button>`).join("")}
+            </div>`
+        }
+      </div>
+    `;
+  }
+
   function renderAdminTeacherList() {
     const { ui } = globalThis.AppState;
     const teachers = ui.adminTeachers || [];
@@ -175,6 +195,7 @@
         </div>
        ${renderAdminCefrBenchmarkPanel()}
         ${renderAdminProcessRefreshStatus()}
+        ${renderAdminAssignmentTypesPanel()}
         ${teachers.length === 0
           ? `<div class="empty-state"><p>No teachers found.</p></div>`
           : `<div class="assignment-list">
@@ -534,6 +555,7 @@
   const AdminRender = {
     renderAdminProcessRefreshStatus,
     renderAdminCefrBenchmarkPanel,
+    renderAdminAssignmentTypesPanel,
     renderAdminTeacherList,
     renderAdminTeacherDetail,
     renderAdminStudentDataFlags,

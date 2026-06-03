@@ -15,6 +15,8 @@ const {
   saveCustomErrorCodes,
   getErrorCodes,
   getErrorCodeLabel,
+  setOrgAssignmentTypes,
+  getAssignmentTypes,
 } = globalThis.AppConstants;
 const {
   buildDeadlineTimeOptions,
@@ -1044,6 +1046,13 @@ async function bootApp(profile) {
   // Auto-join class if arriving via invite link
   try { await Auth.joinClassIfInvited(); } catch(e) { console.warn("Join class skipped:", e.message); }
 
+  // Teachers and admins build assignments, so refresh the shared (org-wide)
+  // assignment-type list into the in-memory cache. Non-fatal: the built-in
+  // types and any localStorage-cached custom types still work if this fails.
+  if (profile.role === 'teacher' || profile.role === 'admin') {
+    await loadOrgAssignmentTypes();
+  }
+
   if (profile.role === 'admin' && !isAdminTeacherView()) {
     await loadAdminData();
     render();
@@ -1176,6 +1185,14 @@ async function loadAdminData() {
   ui.adminTeachers = await globalThis.ApiService.loadAdminTeachers();
   loadAdminCefrBenchmarks();
   refreshStaleAdminProcessAnalyses();
+}
+
+async function loadOrgAssignmentTypes() {
+  try {
+    setOrgAssignmentTypes(await globalThis.ApiService.loadAssignmentTypes());
+  } catch (error) {
+    console.warn("Assignment types load skipped:", error.message);
+  }
 }
 
 async function refreshAdminClassDetail({ keepNotice = false, silent = false } = {}) {
@@ -2397,6 +2414,41 @@ if (action === "generate-teacher-assist") {
     if (!code) return;
     saveCustomErrorCodes(loadCustomErrorCodes().filter((entry) => String(entry.code || "").toUpperCase() !== code));
     ui.notice = `${code} removed from your reusable error codes.`;
+    render();
+    return;
+  }
+
+  if (action === "admin-add-assignment-type") {
+    const raw = String(globalThis.prompt('New assignment type (for example "Reflection" or "Lab report")', "") || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 40);
+    if (!raw) return;
+    if (getAssignmentTypes().includes(raw)) {
+      ui.notice = `"${titleCase(raw)}" is already in the assignment type list.`;
+      render();
+      return;
+    }
+    try {
+      setOrgAssignmentTypes(await globalThis.ApiService.addAssignmentType(raw));
+      ui.notice = `"${titleCase(raw)}" added to the shared assignment type list.`;
+    } catch (error) {
+      ui.notice = `Could not add assignment type: ${error.message}`;
+    }
+    render();
+    return;
+  }
+
+  if (action === "admin-remove-assignment-type") {
+    const id = String(target.dataset.id || "");
+    const value = String(target.dataset.value || "");
+    if (!id) return;
+    try {
+      setOrgAssignmentTypes(await globalThis.ApiService.removeAssignmentType(id));
+      ui.notice = `"${titleCase(value)}" removed from the shared assignment type list.`;
+    } catch (error) {
+      ui.notice = `Could not remove assignment type: ${error.message}`;
+    }
     render();
     return;
   }
@@ -6128,7 +6180,11 @@ ${chatLines || "<p><em>No conversation recorded.</em></p>"}
   document.body.appendChild(a);
   a.click();
   a.remove();
- URL.revokeObjectURL(url);
+  // Defer revoking the object URL. Revoking it synchronously can race the
+  // browser still writing the blob to disk, which makes the first attempt to
+  // open the downloaded file fail with ERR_ACCESS_DENIED — it only succeeds on
+  // a retry once the write has finished. A short delay lets the download settle.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function getOutlineFields(assignment, submission) {

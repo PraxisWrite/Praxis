@@ -37,12 +37,13 @@
   function renderTeacherAssignmentSettingsFields(ui, idPrefix) {
     const { escapeHtml, escapeAttribute, titleCase, getVisibleChatTimeLimit } = globalThis.window;
     const { buildDeadlineTimeOptions, getDeadlineDatePart, getDeadlineTimePart } = globalThis.DeadlineUtils;
+    const { getAssignmentTypes } = globalThis.window.AppConstants;
     return `
       <div class="field-grid compact-grid">
         <div class="field">
           <label for="${idPrefix}-assignment-type">Assignment type</label>
           <select id="${idPrefix}-assignment-type" data-teacher-field="assignmentType">
-           ${["argument", "opinion", "narrative", "informational", "process", "definition", "compare/contrast", "response", "other"].map((t) => `<option value="${t}" ${ui.teacherDraft.assignmentType === t ? "selected" : ""}>${titleCase(t)}</option>`).join("")}
+           ${getAssignmentTypes().map((t) => `<option value="${escapeAttribute(t)}" ${ui.teacherDraft.assignmentType === t ? "selected" : ""}>${escapeHtml(titleCase(t))}</option>`).join("")}
           </select>
           ${ui.teacherDraft.assignmentType === "other" ? `
             <input id="teacher-other-type" data-teacher-field="assignmentTypeOther" value="${escapeAttribute(ui.teacherDraft.assignmentTypeOther || "")}" placeholder="Describe the assignment type" style="margin-top:8px;width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 12px;" />
@@ -325,7 +326,7 @@
                   <div class="field">
                     <label>Assignment type</label>
                     <select data-assist-field="assignmentType">
-                     ${["argument", "opinion", "narrative", "informational", "process", "definition", "compare/contrast", "response", "other"].map((t) => `<option value="${t}" ${ui.teacherAssist.assignmentType === t ? "selected" : ""}>${titleCase(t)}</option>`).join("")}
+                     ${globalThis.window.AppConstants.getAssignmentTypes().map((t) => `<option value="${escapeAttribute(t)}" ${ui.teacherAssist.assignmentType === t ? "selected" : ""}>${escapeHtml(titleCase(t))}</option>`).join("")}
                     </select>
                   </div>
                 </div>

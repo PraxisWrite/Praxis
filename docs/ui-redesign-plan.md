@@ -19,6 +19,16 @@ All 8 audit findings are addressed here. Implementation is split into phases; wi
 
 ## Phase A — Grading view: structural redesign
 
+> **✅ IMPLEMENTED (verified in code 2026-06-04).** A1 split-pane is live
+> (`.review-split` / `.review-split-text` / `.review-split-rubric` in
+> `teacher-render.js`). A2 analytics is now a collapsible `<details>` panel
+> (`#teacher-review-panel`, defaults open only once grades exist). A3 toolbar
+> shows full labels (`.error-code-toolbar` with `.error-code-btn-labeled`:
+> badge + name, descriptor in `title`). A4 rubric renders as compact pills with
+> the descriptor revealed for the selected band. Remaining nuance: A2's
+> default-open-when-graded is a deliberate tweak vs. the original "always
+> collapsed" spec.
+
 These are the three High-severity findings from the audit plus one Medium. All are grading-view only.
 
 ### A1 — Split-pane layout (Finding 1, highest ROI)

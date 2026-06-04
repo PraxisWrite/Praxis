@@ -38,7 +38,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ## Tests / QA
 
-- [ ] **UI/integration test: complete a student submission against a 3-criteria / 15-point rubric** — guards against future changes re-introducing a gate on rubric completeness. *(A regression test for the mismatch case is already done — see Done section.)*
+- [x] **UI/integration test: complete a student submission against a 3-criteria / 15-point rubric** — covered: `tests/e2e/cross-role-smoke.spec.js` creates an AI assignment scoring ideas/organization/language (3 criteria) and runs a full student submission incl. self-assessment; the rubric-mismatch unit regression (`browser-utils.test.js`) covers the 15-vs-declared-20 total.
 - [ ] **Failed-submit protection test** — student final work stays saved locally / server-queued when submit fails, and the UI does not show false success.
 - [ ] **Draft persistence regression test** — student draft survives refresh/reload after Save Draft / autosave.
 - [ ] **Teacher-receives-submission regression test** — outside the currently-skipped full-flow E2E test.
@@ -61,7 +61,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [x] **"1 paste flag" in assignment tray should be clickable** — implemented: pill is now a `<button data-action="open-paste-flag">` that loads the assignment's submissions, finds the first paste-flagged one, and opens grading for that student.
 - [x] **Copy grade → rename to "Copy grade and feedback"** — Done: button relabelled in `teacher-render.js` with a `title` tooltip ("Copies the score, rubric breakdown, teacher feedback and annotation comments so you can paste them into your LMS."). Removed the now-stale runtime relabel in `teacher-ui-cleanup.js`.
 - [ ] **Coaching chat under the heat map should show the student's Reflection ("what I improved")** so teacher sees the full process.
-- [ ] **Rubric score should be bumpable in 0.5 increments** — each rubric criterion row has a selected band shown in the top-right corner (e.g. "Good · 4 pts"). Add up/down nudge controls there so the teacher can fine-tune the score by ±0.5 without having to click a different band cell.
+- [x] **Rubric score should be bumpable in 0.5 increments** — done: each grading criterion row has a ±0.5 stepper (`bump-rubric-band` action, ▲/▼ buttons in `teacher-render.js`) that nudges only that row's selected cell, plus a `step="0.5"` editable final-score input. Floor/ceiling clamp the band range.
 - [ ] **Hide manual assignment setup box when in AI-support mode**.
 - [ ] **Fix AI feedback** *(needs more detail — what specifically is broken?)*
 - [ ] **Ability to accept or reject AI suggestions**.
@@ -88,7 +88,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ### Writing fluency / analytics
 
-- [ ] **All five writing fluency items should show the trend line (Kline)**, not just the first three. Clarify which items are weighted lower.
+- [ ] **All five writing fluency items should show the trend line (Kline)**, not just the first three. Clarify which items are weighted lower. *(Status after the writing-behaviour redesign: the panel now leads with an overall band scale and weighted scoring, but per-item visuals are still split — Typing rhythm / Thinking pauses / Local revisions render as range-scale indicators while Micro-corrections and Substantive revisions render as badges. Decide whether the 2 badge items should also get the scale, or treat the badge form as intentional.)*
 
 ---
 

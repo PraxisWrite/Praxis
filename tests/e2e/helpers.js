@@ -216,7 +216,17 @@ async function completeStudentDraftFlow(page) {
   const finalNext = page.locator('button[data-action="student-next-step"][data-step="4"]');
   await expect(finalNext).toBeEnabled({ timeout: 15_000 });
   await finalNext.click();
-  await expect(page.getByRole("heading", { name: /rate yourself and submit/i })).toBeVisible();
+  // The step-3→4 transition may prompt "get more AI feedback?" if the assignment
+  // has remaining feedback checks. Dismiss it so the test reaches step 4 cleanly.
+  const secondFeedbackModal = page.getByRole("button", { name: /continue without feedback/i });
+  const secondModalAppeared = await secondFeedbackModal.waitFor({ state: "visible", timeout: 5_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (secondModalAppeared) {
+    await secondFeedbackModal.click();
+    console.log("[STUDENT FLOW CHECKPOINT] second feedback modal dismissed");
+  }
+  await expect(page.getByRole("heading", { name: /rate yourself and submit/i })).toBeVisible({ timeout: 15_000 });
   console.log("[STUDENT FLOW CHECKPOINT] self-assessment step opened");
 
   // TODO: add data-testid="self-assessment-rubric-option" to the rubric cells.

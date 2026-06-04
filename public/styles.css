@@ -666,7 +666,6 @@ button {
 }
 
 .rail-student--graded .rail-student-dot { background: var(--sage-soft); color: var(--sage); }
-.rail-student--flagged .rail-student-dot { background: #fde6cf; color: #8a5512; }
 .rail-student--submitted .rail-student-dot { background: var(--accent-soft); color: var(--accent-deep); }
 .rail-student--in-progress .rail-student-dot { background: #eef2fa; color: var(--accent-deep); }
 .rail-student--not-started .rail-student-dot { background: #f1f3f7; color: #5b6a82; }
@@ -2421,6 +2420,7 @@ button.rubric-level-cell:hover {
 
 .process-status-pill,
 .process-excluded-pill,
+.process-paste-flag,
 .process-chip,
 .process-metric-tag {
   display: inline-flex;
@@ -2429,6 +2429,17 @@ button.rubric-level-cell:hover {
   border: 1px solid var(--line);
   font-weight: 700;
   white-space: nowrap;
+}
+
+/* Paste flag relocated from the student rail — sits beside the process status
+   pill so the warning lands where the teacher investigates writing behaviour. */
+.process-paste-flag {
+  padding: 4px 12px;
+  font-size: 0.84rem;
+  background: #fff3e6;
+  color: #8a5512;
+  border-color: #e6b877;
+  cursor: default;
 }
 
 .process-status-pill {

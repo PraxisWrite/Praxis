@@ -909,10 +909,7 @@
               <strong>In-progress draft.</strong> This student has not submitted yet, but you can still review and grade their current work. Annotations and scores will be saved as normal.
             </div>
           ` : ""}
-          <div class="editor-with-lines review-editor-with-lines">
-            <div class="line-gutter" id="student-text-annotate-gutter" aria-hidden="true"></div>
-            <div id="student-text-annotate" data-line-gutter="student-text-annotate-gutter" onmouseup="captureAnnotationSelection()" onkeyup="captureAnnotationSelection()" ontouchend="captureAnnotationSelection()" style="background:#fafaf8;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:0.92rem;line-height:1.85;white-space:pre-wrap;word-break:break-word;min-height:240px;cursor:text;">${renderAnnotatedText(submission)}</div>
-          </div>
+          <div id="student-text-annotate" onmouseup="captureAnnotationSelection()" onkeyup="captureAnnotationSelection()" ontouchend="captureAnnotationSelection()" style="background:#fafaf8;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:0.92rem;line-height:1.85;white-space:pre-wrap;word-break:break-word;min-height:240px;cursor:text;">${renderAnnotatedText(submission)}</div>
           ${renderAnnotationList(submission)}
         </div>
       </div>

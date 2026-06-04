@@ -1612,10 +1612,6 @@ button.rubric-level-cell:hover {
   align-items: stretch;
 }
 
-.review-editor-with-lines {
-  grid-template-columns: 56px minmax(0, 1fr);
-}
-
 .line-gutter {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -1634,8 +1630,7 @@ button.rubric-level-cell:hover {
 }
 
 .editor-with-lines .draft-editor,
-.editor-with-lines .final-editor,
-.editor-with-lines #student-text-annotate {
+.editor-with-lines .final-editor {
   margin: 0;
 }
 
@@ -1778,8 +1773,7 @@ button.rubric-level-cell:hover {
     min-height: 220px;
   }
 
-  .editor-with-lines,
-  .review-editor-with-lines {
+  .editor-with-lines {
     grid-template-columns: 40px minmax(0, 1fr);
     gap: 8px;
   }

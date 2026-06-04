@@ -67,23 +67,44 @@
     if (!total) {
       return `<div class="empty-state"><h3>You're all caught up 🎉</h3><p>Nothing to do right now. New assignments will appear here as your teachers publish them.</p></div>`;
     }
+    // "To do" leads and stays open — it's the only bucket that needs action.
+    // "Awaiting feedback" (waiting on the teacher) and "Graded" (an archive to
+    // review) collapse to a header + count so the home isn't a flat wall of rows.
     return `
       <div class="assignment-tray">
-        ${renderTraySection("To do", buckets.toDo, "todo", selectedId, showClassTag)}
-        ${renderTraySection("Awaiting feedback", buckets.awaitingReview, "awaiting", selectedId, showClassTag)}
-        ${renderTraySection("Graded", buckets.graded, "graded", selectedId, showClassTag)}
+        ${renderTraySection("To do", buckets.toDo, "todo", selectedId, showClassTag, {
+          open: true,
+          caption: "Pick up where you left off",
+        })}
+        ${renderTraySection("Awaiting feedback", buckets.awaitingReview, "awaiting", selectedId, showClassTag, {
+          open: false,
+          caption: "Submitted — waiting on your teacher",
+        })}
+        ${renderTraySection("Graded", buckets.graded, "graded", selectedId, showClassTag, {
+          open: false,
+          caption: "Open to read your feedback",
+        })}
       </div>
     `;
   }
 
-  function renderTraySection(label, items, kind, selectedId, showClassTag) {
+  function renderTraySection(label, items, kind, selectedId, showClassTag, options = {}) {
     const { escapeHtml } = globalThis.window;
     if (!items.length) return "";
+    const caption = options.caption
+      ? `<span class="tray-section-caption">${escapeHtml(options.caption)}</span>`
+      : "";
     return `
-      <div class="tray-section">
-        <p class="mini-label tray-section-head">${escapeHtml(label)} <span class="tray-count">${items.length}</span></p>
-        ${items.map((item) => renderTrayRow(item, kind, selectedId, showClassTag)).join("")}
-      </div>
+      <details class="tray-section tray-section-${kind}"${options.open ? " open" : ""}>
+        <summary class="tray-section-head">
+          <span class="tray-section-label">${escapeHtml(label)}</span>
+          <span class="tray-count">${items.length}</span>
+          ${caption}
+        </summary>
+        <div class="tray-section-body">
+          ${items.map((item) => renderTrayRow(item, kind, selectedId, showClassTag)).join("")}
+        </div>
+      </details>
     `;
   }
 

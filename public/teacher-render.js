@@ -634,9 +634,12 @@
 
     return `
       <div id="teacher-review-section" class="workspace-overview">
-      <div style="margin-bottom:18px;">
-        <p class="mini-label" style="margin-bottom:4px;">Class overview</p>
-        <p class="subtle" style="margin:0;">Pick a student from the list to start grading, or check who still needs to submit.</p>
+      <div style="margin-bottom:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <p class="mini-label" style="margin-bottom:4px;">Class overview</p>
+          <p class="subtle" style="margin:0;">Pick a student from the list to start grading, or check who still needs to submit.</p>
+        </div>
+        ${gradedCount > 0 ? `<button class="button-ghost" data-action="download-all-grade-sheets" style="font-size:0.85rem;flex-shrink:0;">⬇ Download all grade sheets (${gradedCount})</button>` : ""}
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;">
@@ -885,7 +888,7 @@
         <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
           <button class="button-ghost" data-action="previous-review-student" ${previousStudentId ? "" : "disabled"} style="font-size:0.85rem;">← Previous</button>
           <button class="button-ghost" data-action="next-review-student" ${nextStudentId ? "" : "disabled"} style="font-size:0.85rem;">Next →</button>
-          <button class="button-ghost" data-action="download-work" style="font-size:0.85rem;">⬇ Grade sheet</button>
+          <button class="button-ghost" data-action="download-work" style="font-size:0.85rem;">↗ View grade sheet</button>
         </div>
       </div>
     `;

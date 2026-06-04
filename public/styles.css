@@ -57,7 +57,7 @@ button {
 }
 
 .app-shell {
-  width: min(1240px, calc(100% - 28px));
+  width: min(1440px, calc(100% - 28px));
   margin: 18px auto 36px;
 }
 

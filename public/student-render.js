@@ -33,35 +33,6 @@
     };
   }
 
-  // Compact class navigator. Each class shows an at-a-glance summary (to-do /
-  // graded counts) and opens into its own filtered view — no flat dump of every
-  // assignment on the home screen.
-  function renderStudentClassList(classes) {
-    const { escapeHtml, getStudentAssignmentBuckets } = globalThis.window;
-    return `
-      <div class="student-class-list">
-        <p class="mini-label" style="margin-bottom:10px;">Your classes</p>
-        ${classes.map((cls) => {
-          const buckets = getStudentAssignmentBuckets(cls.id);
-          const summaryParts = [];
-          if (buckets.toDo.length) summaryParts.push(`${buckets.toDo.length} to do`);
-          if (buckets.awaitingReview.length) summaryParts.push(`${buckets.awaitingReview.length} awaiting`);
-          if (buckets.graded.length) summaryParts.push(`${buckets.graded.length} graded`);
-          const summary = summaryParts.join(" · ") || "Nothing published yet";
-          return `
-            <div class="student-class-card">
-              <div class="student-class-card-meta">
-                <strong>${escapeHtml(cls.name)}</strong>
-                <span class="subtle" style="font-size:0.82rem;">${escapeHtml(summary)}</span>
-              </div>
-              <button class="button-ghost" style="font-size:0.82rem;min-height:32px;padding:0 12px;" data-action="switch-class" data-class-id="${escapeHtml(cls.id)}">Open</button>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `;
-  }
-
   function renderStudentAssignmentTray(buckets, selectedId, showClassTag) {
     const total = buckets.toDo.length + buckets.awaitingReview.length + buckets.graded.length;
     if (!total) {

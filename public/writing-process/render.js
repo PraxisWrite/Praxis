@@ -129,6 +129,12 @@
     const idlePauseNote = Number(metrics.ignoredIdlePauseCount || 0) > 0
       ? `<p class="subtle" style="margin:0 0 12px;font-size:0.78rem;">${escapeHtml(String(metrics.ignoredIdlePauseCount))} longer gap${Number(metrics.ignoredIdlePauseCount) === 1 ? "" : "s"} over 2 minutes treated as idle or away time, not thinking pauses.</p>`
       : "";
+    const pasteEventCount = Number(metrics.pasteEventCount || 0);
+    let pasteFlagMarkup = "";
+    if (pasteEventCount > 0) {
+      const pasteEventPlural = pasteEventCount === 1 ? "" : "s";
+      pasteFlagMarkup = `<span class="process-paste-flag" title="${escapeHtml(String(metrics.pasteEventCount))} paste-like event${pasteEventPlural} detected while writing — check the timeline pins and the replay.">⚠ Paste flag</span>`;
+    }
     const metricCards = [
       { key: "typingRate", label: defs.typingRate?.label || "Typing rate", value: metrics.typingRate, coachValue: coach.typingRate, range: ranges.typingRate, position: positions.typingRate, help: defs.typingRate?.help },
       { key: "longPauses", label: defs.longPauses?.label || "Long thinking pauses", value: metrics.longPausesPer100w, coachValue: null, range: ranges.longPauses, position: positions.longPauses, help: defs.longPauses?.help },
@@ -143,6 +149,7 @@
             <p class="mini-label" style="margin:0 0 4px;">Writing process check</p>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:relative;">
               <span class="process-status-pill" style="color:${style.color};border-color:${style.border};background:#fff;">${escapeHtml(analysis.statusLabel)}</span>
+              ${pasteFlagMarkup}
               <span onclick="var t=this.nextElementSibling;var wasHidden=t.style.display==='none';t.style.display=wasHidden?'block':'none';if(wasHidden){setTimeout(function(){document.addEventListener('click',function h(){t.style.display='none';document.removeEventListener('click',h);},{once:true});},0);}" style="cursor:pointer;font-size:0.75rem;color:var(--muted);border:1px solid var(--line);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;" title="What do these labels mean?">?</span>
               <div style="display:none;position:absolute;top:100%;left:0;z-index:100;width:min(360px,85vw);margin-top:6px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.10);font-size:0.80rem;line-height:1.55;color:var(--ink);">
                 <p style="margin:0 0 6px;font-weight:600;">How this label is determined</p>

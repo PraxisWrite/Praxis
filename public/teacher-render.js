@@ -700,18 +700,15 @@
   `;
   }
 
-  // Resolve a student's rail status into a single dot + word. Order matters:
-  // a flagged submission outranks "graded" so the teacher never misses a paste
-  // flag just because a score was already entered.
+  // Resolve a student's rail status into a single dot + word. The rail keeps to
+  // grading progress only (not started / submitted / graded); paste flags now
+  // live on the Writing process check panel where the teacher investigates them,
+  // so the list stays calm and scannable.
   function getRailStudentStatus(submission) {
-    const { getPasteEvidenceItems } = globalThis.window;
     const { isSubmissionGraded } = globalThis.window.SubmissionUtils;
     const hasText = Boolean(submission && (submission.finalText || submission.draftText));
     if (!submission || !hasText) {
       return { key: "not-started", dot: "·", label: "Not started" };
-    }
-    if (getPasteEvidenceItems(submission).length) {
-      return { key: "flagged", dot: "⚠", label: "Paste flag" };
     }
     if (isSubmissionGraded(submission)) {
       return { key: "graded", dot: "✓", label: "Graded" };

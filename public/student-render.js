@@ -33,35 +33,6 @@
     };
   }
 
-  // Compact class navigator. Each class shows an at-a-glance summary (to-do /
-  // graded counts) and opens into its own filtered view — no flat dump of every
-  // assignment on the home screen.
-  function renderStudentClassList(classes) {
-    const { escapeHtml, getStudentAssignmentBuckets } = globalThis.window;
-    return `
-      <div class="student-class-list">
-        <p class="mini-label" style="margin-bottom:10px;">Your classes</p>
-        ${classes.map((cls) => {
-          const buckets = getStudentAssignmentBuckets(cls.id);
-          const summaryParts = [];
-          if (buckets.toDo.length) summaryParts.push(`${buckets.toDo.length} to do`);
-          if (buckets.awaitingReview.length) summaryParts.push(`${buckets.awaitingReview.length} awaiting`);
-          if (buckets.graded.length) summaryParts.push(`${buckets.graded.length} graded`);
-          const summary = summaryParts.join(" · ") || "Nothing published yet";
-          return `
-            <div class="student-class-card">
-              <div class="student-class-card-meta">
-                <strong>${escapeHtml(cls.name)}</strong>
-                <span class="subtle" style="font-size:0.82rem;">${escapeHtml(summary)}</span>
-              </div>
-              <button class="button-ghost" style="font-size:0.82rem;min-height:32px;padding:0 12px;" data-action="switch-class" data-class-id="${escapeHtml(cls.id)}">Open</button>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `;
-  }
-
   function renderStudentAssignmentTray(buckets, selectedId, showClassTag) {
     const total = buckets.toDo.length + buckets.awaitingReview.length + buckets.graded.length;
     if (!total) {
@@ -286,12 +257,10 @@
     } else {
       const pendingMarkup = pendingClasses.length ? renderPendingApprovalScreen(pendingClasses, false) : "";
       const scopeHeader = buildStudentScopeHeader(scope, currentClass, escapeHtml);
-      const classListMarkup = scope !== "class" && multiClass ? renderStudentClassList(currentClasses) : "";
       body = `
         ${pendingMarkup}
         ${scopeHeader}
         ${renderStudentAssignmentTray(buckets, ui.selectedStudentAssignmentId, showClassTag)}
-        ${classListMarkup}
       `;
     }
 
@@ -688,7 +657,7 @@ function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, min
             <strong>Submitted and graded</strong>
             <p>Your work was handed in on ${escapeHtml(formatDateTime(submission.submittedAt))}. Review the teacher feedback below or download the graded report.</p>
           </div>
-          <button class="button-secondary" data-action="download-work" style="flex-shrink:0;margin-left:auto;">⬇ Download graded report</button>
+          <button class="button-secondary" data-action="download-work" style="flex-shrink:0;margin-left:auto;">↗ View graded report</button>
         </div>
         <div class="teacher-ready-card" style="border-left:4px solid var(--accent);">
           <p class="mini-label">Teacher feedback</p>
@@ -757,7 +726,7 @@ function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, min
             <strong>Submitted!</strong>
             <p>Your work was handed in on ${escapeHtml(formatDateTime(submission.submittedAt))}. Your teacher will review it soon.</p>
           </div>
-          <button class="button-secondary" data-action="download-work" style="flex-shrink:0;margin-left:auto;">⬇ Download my work</button>
+          <button class="button-secondary" data-action="download-work" style="flex-shrink:0;margin-left:auto;">↗ View my work</button>
         </div>
         <details class="teacher-ready-card">
           <summary style="cursor:pointer;font-weight:600;">View submitted writing and reflection</summary>
@@ -844,7 +813,7 @@ function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, min
             <strong>Submitted!</strong>
             <p>Your work was handed in on ${escapeHtml(formatDateTime(submission.submittedAt))}. Your teacher will review it soon.</p>
           </div>
-          <button class="button-secondary" data-action="download-work" style="flex-shrink:0;margin-left:auto;">⬇ Download my work</button>
+          <button class="button-secondary" data-action="download-work" style="flex-shrink:0;margin-left:auto;">↗ View my work</button>
         </div>
         ${submission.teacherReview?.savedAt ? `
           <div class="teacher-ready-card" style="margin-top:14px;border-left:4px solid var(--accent);">
@@ -853,7 +822,7 @@ function renderStudentIdeasNavigation({ chatDisabled, hasEnoughChat, locked, min
                 <p class="mini-label">Teacher feedback</p>
                 <p class="subtle" style="margin:4px 0 0;">Your teacher's score, comments, rubric breakdown, and marked copy are below.</p>
               </div>
-              <button class="button-ghost" data-action="download-work" style="font-size:0.82rem;">⬇ Download graded report</button>
+              <button class="button-ghost" data-action="download-work" style="font-size:0.82rem;">↗ View graded report</button>
             </div>
             ${submission.teacherReview.finalScore !== "" ? `
               <div style="font-size:1.3rem;font-weight:700;margin-bottom:8px;">

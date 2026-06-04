@@ -3345,6 +3345,12 @@ if (action === "select-assignment") {
     return;
   }
 
+  if (action === "download-all-grade-sheets") {
+    const assignment = getSelectedAssignment();
+    if (assignment) downloadAllGradeSheets(assignment);
+    return;
+  }
+
   if (action === "copy-lms-grade") {
     const submission = getSelectedReviewSubmission();
     const assignment = getSelectedAssignment();
@@ -6009,7 +6015,7 @@ function getPasteEvidenceItems(submission) {
 }
 window.getPasteEvidenceItems = getPasteEvidenceItems;
 
-function downloadStudentWork(assignment, submission) {
+function buildGradeSheetHtml(assignment, submission) {
   const studentName = getSubmissionStudentName(submission);
   const reviewRows = getTeacherReviewRowsForExport(assignment, submission);
   const rubricScore = calculateTeacherReviewSummary(assignment, submission).totalScore;
@@ -6084,7 +6090,14 @@ function downloadStudentWork(assignment, submission) {
 	  .annotation-row:hover{background:#fff9e6}
 	  [id^="sheet-annotation-"],[id^="sheet-comment-"]{scroll-margin-top:24px}
 	  sup{font-size:0.7em;color:#a55233;font-weight:700;}
-	  @media print{body{margin:20px}}
+    .print-btn{display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;padding:8px 18px;background:#a55233;color:#fff;border:none;border-radius:999px;cursor:pointer;font-size:.88rem;font-family:inherit}
+    .print-btn:hover{background:#8c4128}
+    @media print{
+      .print-btn{display:none}
+      body{margin:12mm;font-size:11pt}
+      h2{margin-top:14pt;page-break-after:avoid}
+      .msg,.annotation-row,tr{page-break-inside:avoid}
+    }
 	</style>
 	<script>
 	  function flashScrollTarget(el) {
@@ -6103,6 +6116,7 @@ function downloadStudentWork(assignment, submission) {
 	</script>
 	</head>
 <body>
+<button class="print-btn" onclick="globalThis.print()">🖨 Print / Save as PDF</button>
 <h1>${escapeHtml(assignment.title)}</h1>
 <div class="meta">
   Student: <strong>${escapeHtml(studentName)}</strong> &nbsp;|&nbsp;
@@ -6169,22 +6183,50 @@ ${chatLines || "<p><em>No conversation recorded.</em></p>"}
 </body>
 </html>`;
 
+  return html;
+}
+
+function downloadStudentWork(assignment, submission) {
+  const html = buildGradeSheetHtml(assignment, submission);
   const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  // Open in a new tab — no file on disk, so no quarantine/Safe-Browsing lock.
+  // The tab loads the blob immediately; revoke after a minute once it's rendered.
+  globalThis.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function downloadAllGradeSheets(assignment) {
+  const { state } = globalThis.AppState;
+  const gradedSubmissions = (state.submissions || []).filter(
+    (s) => s.assignmentId === assignment.id && globalThis.SubmissionUtils.isSubmissionGraded(s)
+  );
+  if (!gradedSubmissions.length) {
+    globalThis.alert("No graded submissions yet.");
+    return;
+  }
+  if (!globalThis.JSZip) {
+    globalThis.alert("JSZip not loaded — please refresh and try again.");
+    return;
+  }
+  const zip = new globalThis.JSZip();
+  const dateStr = new globalThis.Date().toISOString().slice(0, 10);
+  const safeTitle = (assignment.title || "assignment").replaceAll(/[^\w\s-]/g, "").replaceAll(/\s+/g, "-");
+  for (const submission of gradedSubmissions) {
+    const html = buildGradeSheetHtml(assignment, submission);
+    const studentName = getSubmissionStudentName(submission);
+    const safeName = studentName.replaceAll(/[^\w\s-]/g, "").replaceAll(/\s+/g, "-");
+    zip.file(`${safeName}-grade-sheet.html`, html);
+  }
+  const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  const currentClass = currentClasses.find(c => c.id === currentClassId);
-  const className = currentClass?.name || "class";
-  const dateStr = new Date().toISOString().slice(0, 10);
-  a.download = `${(assignment.title || "assignment").replace(/\s+/g, "-")}-${studentName.replace(/\s+/g, "-")}-${className.replace(/\s+/g, "-")}-${dateStr}-grade-sheet.html`;
+  a.download = `${safeTitle}-grade-sheets-${dateStr}.zip`;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Defer revoking the object URL. Revoking it synchronously can race the
-  // browser still writing the blob to disk, which makes the first attempt to
-  // open the downloaded file fail with ERR_ACCESS_DENIED — it only succeeds on
-  // a retry once the write has finished. A short delay lets the download settle.
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function getOutlineFields(assignment, submission) {

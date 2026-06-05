@@ -75,7 +75,7 @@ test("AI action buttons are disabled while requests are pending", () => {
   });
   assert.deepEqual(aiAssistUtils.getTeacherGenerateButtonState({ loading: false }), {
     disabled: false,
-    label: "Create student-ready version →",
+    label: "Generate assignment draft →",
   });
 
   assert.deepEqual(aiAssistUtils.getStudentFeedbackButtonState({

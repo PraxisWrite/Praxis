@@ -114,7 +114,7 @@
 
   function relabelTeacherButtons() {
     document.querySelectorAll('[data-action="generate-teacher-assist"]').forEach((button) => {
-      button.textContent = button.disabled ? "Creating…" : "Create student-ready version";
+      button.textContent = button.disabled ? "Generating…" : "Generate assignment draft";
     });
 
     document.querySelectorAll('[data-action="save-assignment"]').forEach((button) => {
@@ -129,7 +129,7 @@
     }
     const briefHelp = briefCard?.querySelector(".subtle");
     if (briefHelp && briefHelp.textContent.includes("Format With AI")) {
-      briefHelp.textContent = "Add your rough brief, then create a student-ready version for review.";
+      briefHelp.textContent = "Add your rough brief, then generate an assignment draft for review.";
     }
   }
 

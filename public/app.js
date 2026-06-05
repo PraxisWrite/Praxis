@@ -572,6 +572,39 @@ function shouldPromptForFinalDraftFeedback(assignment, submission) {
   return remaining > 0 && !ui.draftFeedbackLoading;
 }
 
+function parseBriefDeadlineDate(text) {
+  // Matches DD/MM/YY, DD/MM/YYYY, DD/MM (no year), with optional separators - or .
+  // Looks near "deadline" or "due" keywords, or as a bare date anywhere in the brief.
+  const patterns = [
+    /\b(?:deadline|due)[:\s]+(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/i,
+    /\b(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?\s*(?:deadline|due)\b/i,
+    /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/,
+  ];
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (!m) continue;
+    let d = Number(m[1]);
+    let mo = Number(m[2]);
+    const rawYear = m[3];
+    let yr;
+    if (rawYear) {
+      yr = rawYear.length <= 2 ? 2000 + Number(rawYear) : Number(rawYear);
+    } else {
+      yr = currentYear;
+    }
+    if (mo > 12 && d <= 12) { const tmp = d; d = mo; mo = tmp; }
+    if (d < 1 || d > 31 || mo < 1 || mo > 12) continue;
+    if (!rawYear) {
+      const candidate = new Date(yr, mo - 1, d);
+      if (candidate <= now) yr = currentYear + 1;
+    }
+    return `${yr}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+  return null;
+}
+
 function inferTeacherBriefSettings(text = "") {
   const brief = String(text || "");
   const inferred = {};
@@ -620,6 +653,11 @@ function inferTeacherBriefSettings(text = "") {
   const totalPointsMatch = brief.match(/\b(\d+)\s*(?:total\s*)?(?:pts|points)\b/i);
   if (totalPointsMatch) {
     inferred.totalPoints = Number(totalPointsMatch[1]);
+  }
+
+  const briefDeadline = parseBriefDeadlineDate(brief);
+  if (briefDeadline) {
+    inferred.deadlineDate = briefDeadline;
   }
 
   const detectedType = detectAssignmentType(brief);
@@ -2239,6 +2277,9 @@ if (action === "generate-teacher-assist") {
     }
     if (Number.isFinite(Number(inferredSettings.totalPoints)) && Number(inferredSettings.totalPoints) > 0 && !ui.teacherDraft.uploadedRubricSchema?.criteria?.length) {
       ui.teacherDraft.totalPoints = Number(inferredSettings.totalPoints);
+    }
+    if (inferredSettings.deadlineDate && !getDeadlineDatePart(ui.teacherDraft.deadline)) {
+      ui.teacherDraft.deadline = combineDeadlineParts(inferredSettings.deadlineDate, getDeadlineTimePart(ui.teacherDraft.deadline) || "09:00");
     }
     ui.notice = "";
     ui.aiAssistLoading = true;

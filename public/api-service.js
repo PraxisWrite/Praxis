@@ -217,7 +217,9 @@ async function deleteAssignment(assignmentId) {
   async function loadMySubmission(assignmentId) {
     const result = await apiFetch(`/api/assignments/${assignmentId}/my-submission`);
     if (result?.error) throw new Error(result.error);
-    return result?.submission ? mapServerSubmission(result.submission) : null;
+    const mapped = result?.submission ? mapServerSubmission(result.submission) : null;
+    if (mapped) seedFeedbackBaseline(mapped);
+    return mapped;
   }
 
   async function loadStudentSubmissions(assignmentIds = []) {
@@ -226,7 +228,9 @@ async function deleteAssignment(assignmentId) {
     const params = new URLSearchParams({ assignmentIds: ids.join(",") });
     const result = await apiFetch(`/api/student/submissions?${params.toString()}`);
     if (result?.error) throw new Error(result.error);
-    return safeArray(result?.submissions).map(mapServerSubmission);
+    const mapped = safeArray(result?.submissions).map(mapServerSubmission);
+    mapped.forEach(seedFeedbackBaseline);
+    return mapped;
   }
 
   async function upsertStudentSubmission(assignmentId, studentId, submission, overrides = {}) {
@@ -258,6 +262,38 @@ async function deleteAssignment(assignmentId) {
   // Allows syncStudentSubmission to omit unchanged append-only arrays from the payload,
   // cutting typical sync payloads from 150-300 KB down to ~5-10 KB.
   const _syncCursors = new Map();
+
+  // serverId -> number of feedback_history entries the server is known to hold,
+  // captured on load and after every successful sync. Lets us tell a genuinely
+  // new entry (the student just clicked "Get AI feedback", count grew past the
+  // baseline) from a stale local copy of entries the server intentionally
+  // cleared (count unchanged). Kept separate from _syncCursors so student
+  // writing (writing_events / keystroke_log) sync is unaffected.
+  const _feedbackBaseline = new Map();
+
+  function seedFeedbackBaseline(mapped) {
+    if (mapped?.id) _feedbackBaseline.set(mapped.id, safeArray(mapped.feedbackHistory).length);
+  }
+
+  function readFeedbackBaseline(serverId, fallback) {
+    return _feedbackBaseline.has(serverId) ? _feedbackBaseline.get(serverId) : fallback;
+  }
+
+  // Resolve which feedback_history to write when the client and server disagree.
+  // Entries beyond the server-confirmed baseline are ones the student generated
+  // since we last synced — preserve them on top of whatever the server now holds
+  // (which honors a server-side reset). Earlier local entries are either already
+  // on the server or were intentionally cleared, so they are not re-pushed.
+  // `base` must be captured BEFORE re-loading the server copy, since that reload
+  // re-seeds the baseline to the server's current (possibly reset) count.
+  function reconcileFeedbackForSync(base, localFeedback, serverFeedback) {
+    const local = safeArray(localFeedback);
+    const server = safeArray(serverFeedback);
+    if (local.length <= base) return server;
+    const serverIds = new Set(server.map((entry) => entry?.id).filter(Boolean));
+    const newTail = local.slice(base).filter((entry) => !entry?.id || !serverIds.has(entry.id));
+    return server.concat(newTail);
+  }
 
   async function resolveSyncServerId(submission) {
     if (hasServerId(submission.id)) return submission.id;
@@ -292,32 +328,35 @@ async function deleteAssignment(assignmentId) {
     });
     applyArrayDelta(payload, "writing_events", "writingEvents", submission, lengths.writingEvents, cursor.writingEventsLen || 0);
     applyArrayDelta(payload, "keystroke_log", "keystrokeLog", submission, lengths.keystrokeLog, cursor.keystrokeLogLen || 0);
-    // Only re-upload feedback_history if new entries were added since the last
-    // confirmed sync. This prevents stale local copies from resurrecting a
-    // server-side reset (e.g. teacher clearing feedback for a fresh attempt).
-    if (safeArray(submission.feedbackHistory).length <= (cursor.feedbackHistoryLen ?? 0)) {
+    // Only re-upload feedback_history if the student added entries since the last
+    // confirmed sync. When the count is unchanged we omit the field, so a stale
+    // local copy can't resurrect a server-side reset (teacher clearing feedback
+    // for a fresh attempt). When it has grown, the new entry is preserved.
+    if (safeArray(submission.feedbackHistory).length <= readFeedbackBaseline(serverId, 0)) {
       delete payload.feedback_history;
     }
     return payload;
   }
 
-  async function syncRetryOnConflict(submission, lengths) {
+  async function syncRetryOnConflict(submission, lengths, feedbackBase) {
     const fresh = await loadMySubmission(submission.assignmentId);
     if (!fresh?.id) return null;
     const retryPayload = buildSubmissionServerPayload(submission, {
       expected_updated_at: fresh.updatedAt || null,
     });
-    // Use the server's feedback_history so a server-side reset (e.g. clearing
-    // feedback before a fresh attempt) is not undone by a stale local copy.
-    // Any entries genuinely new this session were already uploaded immediately
-    // via flushCurrentStudentWork and will appear in fresh.feedbackHistory.
-    retryPayload.feedback_history = safeArray(fresh.feedbackHistory);
+    // Reconcile feedback against the server's current copy: keep entries the
+    // student generated since our baseline, but don't resurrect entries a
+    // server-side reset removed. (Note: this very sync may be the upload of a
+    // just-generated entry, so fresh.feedbackHistory won't contain it yet.)
+    retryPayload.feedback_history = reconcileFeedbackForSync(
+      feedbackBase, submission.feedbackHistory, fresh.feedbackHistory
+    );
     const result = await patchSubmission(fresh.id, retryPayload);
     _syncCursors.set(fresh.id, {
       writingEventsLen: lengths.writingEvents,
       keystrokeLogLen: lengths.keystrokeLog,
-      feedbackHistoryLen: safeArray(fresh.feedbackHistory).length,
     });
+    seedFeedbackBaseline(result);
     return result;
   }
 
@@ -328,8 +367,8 @@ async function deleteAssignment(assignmentId) {
     _syncCursors.set(existing.id, {
       writingEventsLen: lengths.writingEvents,
       keystrokeLogLen: lengths.keystrokeLog,
-      feedbackHistoryLen: safeArray(submission.feedbackHistory).length,
     });
+    seedFeedbackBaseline(result);
     return result;
   }
 
@@ -343,6 +382,10 @@ async function deleteAssignment(assignmentId) {
       writingEvents: safeArray(submission.writingEvents).length,
       keystrokeLog: safeArray(submission.keystrokeLog).length,
     };
+    // Capture the feedback baseline now, before any conflict retry re-loads the
+    // server copy (which would re-seed the baseline to the server's current,
+    // possibly reset, count and make stale entries look new).
+    const feedbackBase = readFeedbackBaseline(serverId, 0);
     // First sync of a session sends the full arrays to establish a baseline the
     // server agrees on; only subsequent syncs send appends against that cursor.
     const payload = _syncCursors.has(serverId)
@@ -354,12 +397,14 @@ async function deleteAssignment(assignmentId) {
       _syncCursors.set(serverId, {
         writingEventsLen: lengths.writingEvents,
         keystrokeLogLen: lengths.keystrokeLog,
-        feedbackHistoryLen: safeArray(submission.feedbackHistory).length,
       });
+      // Re-anchor the feedback baseline to the server's confirmed count so the
+      // next sync can again tell a newly generated entry from a stale one.
+      seedFeedbackBaseline(result);
       return result;
     } catch (error) {
       if (error.conflict) {
-        const retried = await syncRetryOnConflict(submission, lengths);
+        const retried = await syncRetryOnConflict(submission, lengths, feedbackBase);
         if (retried) return retried;
         throw error;
       }
@@ -381,7 +426,9 @@ async function deleteAssignment(assignmentId) {
     // cursor so the next post-reopen edit re-baselines instead of appending
     // against a stale length.
     if (hasServerId(submission?.id)) _syncCursors.delete(submission.id);
-    return mapServerSubmission(result.submission);
+    const mapped = mapServerSubmission(result.submission);
+    seedFeedbackBaseline(mapped);
+    return mapped;
   }
 
   async function saveTeacherReviewSubmission(assignment, submission) {

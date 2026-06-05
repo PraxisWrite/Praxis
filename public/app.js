@@ -3981,6 +3981,9 @@ async function handleChange(event) {
     } else if (target.dataset.teacherField === "disableChatbot" && !target.checked && Number(ui.teacherDraft.chatTimeLimit) < 0) {
       ui.teacherDraft.chatTimeLimit = 0;
     }
+    if (ui.teacherAssist && (target.dataset.teacherField === "wordCountMin" || target.dataset.teacherField === "wordCountMax")) {
+      ui.teacherAssist[target.dataset.teacherField] = Number(target.value);
+    }
     syncTeacherAssignmentSaveButtons();
     return;
   }
@@ -4160,6 +4163,9 @@ function handleInput(event) {
 
   if (target.dataset.teacherField) {
     ui.teacherDraft[target.dataset.teacherField] = target.value;
+    if (ui.teacherAssist && (target.dataset.teacherField === "wordCountMin" || target.dataset.teacherField === "wordCountMax")) {
+      ui.teacherAssist[target.dataset.teacherField] = Number(target.value);
+    }
     syncTeacherAssignmentSaveButtons();
     return;
   }

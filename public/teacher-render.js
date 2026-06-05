@@ -263,7 +263,7 @@
           <div class="teacher-ready-card" style="padding:16px;">
             <div style="margin-bottom:10px;">
               <p class="mini-label" style="margin-bottom:4px;">Step 2 — Your brief</p>
-              <p class="subtle">Describe the assignment in plain English, then click Create student-ready version.</p>
+              <p class="subtle">Describe the assignment in plain English. You can mention student level, assignment type, word count, deadline, and how many feedback checks to allow — or set them in the fields above. Then click Create student-ready version.</p>
             </div>
             <textarea id="teacher-brief" data-teacher-field="brief" class="teacher-brief" placeholder="Example: My 7th grade students need a short opinion paragraph about whether school uniforms help learning. Keep the language simple, ask for one real example, and aim for 250 to 350 words. Give them 2 feedback checks.">${escapeHtml(ui.teacherDraft.brief)}</textarea>
             ${renderTeacherGenerateButton(ui)}
@@ -312,16 +312,6 @@
                     </label>
                     ${renderPromptFormattingToolbar("teacher-assist-prompt")}
                     <textarea id="teacher-assist-prompt" data-assist-field="prompt">${escapeHtml(ui.teacherAssist.prompt)}</textarea>
-                  </div>
-                  <div class="field-grid" style="margin-bottom:10px;">
-                    <div class="field">
-                      <label>Min words</label>
-                      <input type="number" data-assist-field="wordCountMin" value="${ui.teacherAssist.wordCountMin}" />
-                    </div>
-                    <div class="field">
-                      <label>Max words</label>
-                      <input type="number" data-assist-field="wordCountMax" value="${ui.teacherAssist.wordCountMax}" />
-                    </div>
                   </div>
                   <div class="field">
                     <label>Assignment type</label>

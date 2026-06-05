@@ -79,7 +79,7 @@ async function createAiAssistedAssignment(page, title) {
 
   await page.locator("#teacher-brief").fill(brief);
   console.log("[TEACHER FLOW CHECKPOINT] AI brief filled");
-  await page.getByRole("button", { name: /create student-ready version/i }).click();
+  await page.getByRole("button", { name: /generate assignment draft/i }).click();
   console.log("[TEACHER FLOW CHECKPOINT] AI generation started");
 
   const generatedAssignment = page.locator("#teacher-generated-assignment");

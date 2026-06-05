@@ -97,6 +97,7 @@
               ${buildDeadlineTimeOptions(getDeadlineTimePart(ui.teacherDraft.deadline))}
             </select>
           </div>
+          ${(ui.teacherDraft.deadline && new Date(ui.teacherDraft.deadline) < new Date()) ? `<p style="margin:6px 0 0;font-size:0.82rem;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:5px 10px;">⚠ This deadline is in the past — check the date before saving.</p>` : ""}
         </div>
         <div class="field">
           <label for="${idPrefix}-language-level">Student language level</label>
@@ -265,7 +266,7 @@
               <p class="mini-label" style="margin-bottom:4px;">Step 2 — Your brief</p>
               <p class="subtle">Describe the assignment in plain English — you can mention student level, assignment type, word count, deadline, and how many feedback checks to allow. Then click Generate assignment draft.</p>
             </div>
-            <textarea id="teacher-brief" data-teacher-field="brief" class="teacher-brief" placeholder="Example: My 7th grade students need a short opinion paragraph about whether school uniforms help learning. Keep the language simple, ask for one real example, and aim for 250 to 350 words. Give them 2 feedback checks.">${escapeHtml(ui.teacherDraft.brief)}</textarea>
+            <textarea id="teacher-brief" data-teacher-field="brief" class="teacher-brief" placeholder="Example: B1 Process paragraph — how to make scrambled eggs. 200–300 words, 2 AI feedback requests, deadline 02/07/26.">${escapeHtml(ui.teacherDraft.brief)}</textarea>
             ${renderTeacherGenerateButton(ui)}
           </div>
           ${ui.aiAssistLoading ? `

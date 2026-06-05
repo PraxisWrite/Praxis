@@ -1,5 +1,5 @@
 // teacher-assist.js
-// Pure heuristics that power the "Create student-ready version" button on the
+// Pure heuristics that power the "Generate assignment draft" button on the
 // teacher draft screen. Takes a teacher brief and infers an assignment type,
 // title, prompt, rubric, word-range and focus points without calling out to
 // an AI provider. Also applies AI-returned settings back onto ui.teacherDraft.

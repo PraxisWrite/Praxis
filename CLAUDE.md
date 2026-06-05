@@ -201,10 +201,11 @@ The pre-#294 export (`/tmp/sonar-raw.json`, 638 issues) is stale. Any new sessio
 - [x] ~~Rubric score bumpable in 0.5 increments~~ — done: ±0.5 stepper per criterion (`bump-rubric-band`) + `step="0.5"` final-score input
 - [x] ~~Phase A grading redesign~~ — done: split-pane layout, collapsible analytics, full annotation labels in toolbar, compact rubric pills (see `docs/ui-redesign-plan.md`)
 
-### Still open (verified 2026-06-04)
+### Still open (verified 2026-06-05)
 - [ ] Remove skip chat button — `skip-chat-to-draft` + `chat-skip-notes` textarea are still live (decide whether to keep)
-- [ ] "Good sample" positive (green) annotation type — not built
-- [ ] All 5 writing-fluency items show the scale (currently 3 scale indicators + 2 badges)
+- [x] "Good sample" positive (green) annotation type — `GOOD` code, green highlight + list card, "✓ Good" toolbar button
+- [x] All writing-fluency items show scale bars — modern panel has 4 items all as scale indicators; legacy 5-item panel (3 scale + 2 badge) is never shown when keystroke data exists
+- [x] `WW` Wrong Word added to `BASE_ERROR_CODES` in `app-constants.js`
 - [ ] 4-criteria / 20-point rubric regression test
 - [ ] Phase 16 API-service extraction (`docs/refactor-phase16-api-service-plan.md`) — not started
 - [ ] Enable Anthropic prompt caching on AI calls (50–70% token savings) — revisit when AI cost > ~$50/mo

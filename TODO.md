@@ -79,7 +79,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [ ] **Remove student focus box from all workflows**.
 - [ ] **Remove skip chat button** — *note:* the old `docs/todo.md` marked this done, but `skip-chat-to-draft` + the `chat-skip-notes` textarea are still live in `student-render.js`/`app.js`, so it is **not** actually done.
 - [ ] **+code: Contraction field** — "don't" instead of "do not" should give 3 fields: 1. Error code, 2. Name, 3. Explanation (shown on hover).
-- [ ] **"Good sample" green highlight** — a positive annotation type to show students well-written sections (complement to the existing error annotations).
+- [x] **"Good sample" green highlight** — implemented: `GOOD` annotation code renders a green highlight + green card in the annotation list. A "✓ Good" button sits in the toolbar between the error codes and the Note button.
 
 ### Naming / labels
 
@@ -88,7 +88,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ### Writing fluency / analytics
 
-- [ ] **All five writing fluency items should show the trend line (Kline)**, not just the first three. Clarify which items are weighted lower. *(Status after the writing-behaviour redesign: the panel now leads with an overall band scale and weighted scoring, but per-item visuals are still split — Typing rhythm / Thinking pauses / Local revisions render as range-scale indicators while Micro-corrections and Substantive revisions render as badges. Decide whether the 2 badge items should also get the scale, or treat the badge form as intentional.)*
+- [x] **All writing fluency items show scale bars** — the modern panel (`writing-process/render.js`) shows 4 metric cards (Typing rate, Long thinking pauses, Local revisions, Text survival), all rendered as scale indicators. The legacy `writing-behaviour-render.js` with 5 items (3 scale + 2 badge) is never shown when keystroke data exists. No action needed.
 
 ---
 

@@ -1999,6 +1999,21 @@ button.rubric-level-cell:hover {
   font-size: 0.8rem;
 }
 
+/* Good button — positive/strength annotation */
+.error-code-btn-good {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.error-code-btn-good:hover {
+  background: #a7f3d0;
+  border-color: #059669;
+  color: #022c22;
+}
+
 /* Note button (pencil) and the "+" add-code button */
 .error-code-btn-note {
   background: #fff9e6;

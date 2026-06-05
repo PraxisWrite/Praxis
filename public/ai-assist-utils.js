@@ -86,7 +86,7 @@
   function getTeacherGenerateButtonState({ loading = false } = {}) {
     return {
       disabled: Boolean(loading),
-      label: loading ? "Generating…" : "Create student-ready version →",
+      label: loading ? "Generating…" : "Generate assignment draft →",
     };
   }
 

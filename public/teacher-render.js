@@ -263,7 +263,7 @@
           <div class="teacher-ready-card" style="padding:16px;">
             <div style="margin-bottom:10px;">
               <p class="mini-label" style="margin-bottom:4px;">Step 2 — Your brief</p>
-              <p class="subtle">Describe the assignment in plain English, then click Create student-ready version.</p>
+              <p class="subtle">Describe the assignment in plain English — you can mention student level, assignment type, word count, deadline, and how many feedback checks to allow. Then click Generate assignment draft.</p>
             </div>
             <textarea id="teacher-brief" data-teacher-field="brief" class="teacher-brief" placeholder="Example: My 7th grade students need a short opinion paragraph about whether school uniforms help learning. Keep the language simple, ask for one real example, and aim for 250 to 350 words. Give them 2 feedback checks.">${escapeHtml(ui.teacherDraft.brief)}</textarea>
             ${renderTeacherGenerateButton(ui)}
@@ -312,16 +312,6 @@
                     </label>
                     ${renderPromptFormattingToolbar("teacher-assist-prompt")}
                     <textarea id="teacher-assist-prompt" data-assist-field="prompt">${escapeHtml(ui.teacherAssist.prompt)}</textarea>
-                  </div>
-                  <div class="field-grid" style="margin-bottom:10px;">
-                    <div class="field">
-                      <label>Min words</label>
-                      <input type="number" data-assist-field="wordCountMin" value="${ui.teacherAssist.wordCountMin}" />
-                    </div>
-                    <div class="field">
-                      <label>Max words</label>
-                      <input type="number" data-assist-field="wordCountMax" value="${ui.teacherAssist.wordCountMax}" />
-                    </div>
                   </div>
                   <div class="field">
                     <label>Assignment type</label>
@@ -829,6 +819,7 @@
       <div class="error-code-toolbar">
         <span class="mini-label" style="align-self:center;">Annotate · select text, then tap a code</span>
         ${getErrorCodes().map(({ code, label }) => `<button class="error-code-btn error-code-btn-labeled" data-action="add-annotation" data-code="${escapeAttribute(code)}" title="${escapeAttribute(label)}" onmousedown="event.preventDefault()"><span class="error-code-badge">${escapeHtml(code)}</span><span class="error-code-name">${escapeHtml(annotationCodeParts(label).name)}</span></button>`).join("")}
+        <button class="error-code-btn error-code-btn-good" data-action="add-annotation" data-code="GOOD" title="Good — mark a strength or well-handled section" onmousedown="event.preventDefault()">✓ Good</button>
         <button class="error-code-btn error-code-btn-note" data-action="add-annotation" data-code="NOTE" title="Add a custom note" onmousedown="event.preventDefault()"><span aria-hidden="true">✎</span> Note</button>
         <button class="error-code-btn error-code-add-btn" data-action="add-custom-error-code" title="Add a reusable error code" aria-label="Add a reusable error code" onmousedown="event.preventDefault()">+</button>
       </div>
@@ -856,15 +847,23 @@
     }
     return `
       <div style="margin-top:12px;display:grid;gap:6px;">
-        ${annotations.map((ann, i) => `
-          <div id="comment-${escapeAttribute(ann.id)}" style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:10px;background:#f6f0ff;border:1px solid #c9b3eb;font-size:0.88rem;scroll-margin-top:120px;">
-            <strong style="color:#5b2a86;flex-shrink:0;">${escapeHtml(getAnnotationDisplayLabel(ann, i))}</strong>
-            <button type="button" onclick="scrollToAnnotation('${escapeAttribute(ann.id)}')" style="flex:1;text-align:left;background:none;border:none;padding:0;color:#3f2a56;cursor:pointer;font:inherit;">
+        ${annotations.map((ann, i) => {
+          const isGood = ann.code === "GOOD";
+          const cardStyle = isGood
+            ? "display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:10px;background:#d1fae5;border:1px solid #6ee7b7;font-size:0.88rem;scroll-margin-top:120px;"
+            : "display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:10px;background:#f6f0ff;border:1px solid #c9b3eb;font-size:0.88rem;scroll-margin-top:120px;";
+          const labelColor = isGood ? "#065f46" : "#5b2a86";
+          const textColor = isGood ? "#022c22" : "#3f2a56";
+          return `
+          <div id="comment-${escapeAttribute(ann.id)}" style="${cardStyle}">
+            <strong style="color:${labelColor};flex-shrink:0;">${escapeHtml(getAnnotationDisplayLabel(ann, i))}</strong>
+            <button type="button" onclick="scrollToAnnotation('${escapeAttribute(ann.id)}')" style="flex:1;text-align:left;background:none;border:none;padding:0;color:${textColor};cursor:pointer;font:inherit;">
               "${escapeHtml(ann.selectedText)}"${getErrorCodeLabel(ann.code) ? ` — ${escapeHtml(getErrorCodeLabel(ann.code))}` : ""}${ann.note ? ` — ${escapeHtml(ann.note)}` : ""}
             </button>
             <button class="error-code-btn" data-action="remove-annotation" data-annotation-index="${i}" style="flex-shrink:0;color:var(--danger);">✕</button>
           </div>
-        `).join("")}
+          `;
+        }).join("")}
       </div>
     `;
   }

@@ -268,10 +268,19 @@
     const clickHandler = includeClickHandlers
       ? ` onclick="${clickTarget}('${escapeAttribute(highlight.id)}')"`
       : "";
-    const styles = highlight.overlapsPaste
-      ? "background:#f3e8ff;border-bottom:2px solid #9b4dca;color:inherit;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;"
-      : "background:#fef3c7;border-bottom:2px solid #f59e0b;color:#2f2416;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;";
-    const bubbleBg = highlight.overlapsPaste ? "#9b4dca" : "#f59e0b";
+    const isGood = highlight.code === "GOOD";
+    let styles;
+    let bubbleBg;
+    if (isGood) {
+      styles = "background:#d1fae5;border-bottom:2px solid #059669;color:#052e16;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;";
+      bubbleBg = "#059669";
+    } else if (highlight.overlapsPaste) {
+      styles = "background:#f3e8ff;border-bottom:2px solid #9b4dca;color:inherit;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;";
+      bubbleBg = "#9b4dca";
+    } else {
+      styles = "background:#fef3c7;border-bottom:2px solid #f59e0b;color:#2f2416;border-radius:3px;padding:1px 2px;scroll-margin-top:120px;cursor:pointer;";
+      bubbleBg = "#f59e0b";
+    }
     // Show only the code (e.g. "SP"), not the numbered label ("SP 1"). The number
     // already appears in the annotation list below the text, which links back here.
     const bubbleText = highlight.code || String(highlight.label || "").replace(/\s\d+$/, "") || "NOTE";

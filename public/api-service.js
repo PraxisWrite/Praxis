@@ -292,6 +292,12 @@ async function deleteAssignment(assignmentId) {
     });
     applyArrayDelta(payload, "writing_events", "writingEvents", submission, lengths.writingEvents, cursor.writingEventsLen || 0);
     applyArrayDelta(payload, "keystroke_log", "keystrokeLog", submission, lengths.keystrokeLog, cursor.keystrokeLogLen || 0);
+    // Only re-upload feedback_history if new entries were added since the last
+    // confirmed sync. This prevents stale local copies from resurrecting a
+    // server-side reset (e.g. teacher clearing feedback for a fresh attempt).
+    if (safeArray(submission.feedbackHistory).length <= (cursor.feedbackHistoryLen ?? 0)) {
+      delete payload.feedback_history;
+    }
     return payload;
   }
 
@@ -301,10 +307,16 @@ async function deleteAssignment(assignmentId) {
     const retryPayload = buildSubmissionServerPayload(submission, {
       expected_updated_at: fresh.updatedAt || null,
     });
+    // Use the server's feedback_history so a server-side reset (e.g. clearing
+    // feedback before a fresh attempt) is not undone by a stale local copy.
+    // Any entries genuinely new this session were already uploaded immediately
+    // via flushCurrentStudentWork and will appear in fresh.feedbackHistory.
+    retryPayload.feedback_history = safeArray(fresh.feedbackHistory);
     const result = await patchSubmission(fresh.id, retryPayload);
     _syncCursors.set(fresh.id, {
       writingEventsLen: lengths.writingEvents,
       keystrokeLogLen: lengths.keystrokeLog,
+      feedbackHistoryLen: safeArray(fresh.feedbackHistory).length,
     });
     return result;
   }
@@ -316,6 +328,7 @@ async function deleteAssignment(assignmentId) {
     _syncCursors.set(existing.id, {
       writingEventsLen: lengths.writingEvents,
       keystrokeLogLen: lengths.keystrokeLog,
+      feedbackHistoryLen: safeArray(submission.feedbackHistory).length,
     });
     return result;
   }
@@ -341,6 +354,7 @@ async function deleteAssignment(assignmentId) {
       _syncCursors.set(serverId, {
         writingEventsLen: lengths.writingEvents,
         keystrokeLogLen: lengths.keystrokeLog,
+        feedbackHistoryLen: safeArray(submission.feedbackHistory).length,
       });
       return result;
     } catch (error) {

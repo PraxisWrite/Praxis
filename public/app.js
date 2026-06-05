@@ -1498,7 +1498,7 @@ function mergeStudentSubmission(localSubmission, serverSubmission) {
         { isEmpty: (v) => !v || typeof v !== "object" }),
     },
     ideaResponses: preferArray(server.ideaResponses, local.ideaResponses),
-    feedbackHistory: preferArray(server.feedbackHistory, local.feedbackHistory),
+    feedbackHistory: safeArray(server.feedbackHistory),
     writingEvents: preferArray(server.writingEvents, local.writingEvents),
     focusAnnotations: preferArray(server.focusAnnotations, local.focusAnnotations),
     chatHistory: preferArray(server.chatHistory, local.chatHistory),

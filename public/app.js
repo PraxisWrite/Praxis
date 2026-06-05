@@ -831,6 +831,7 @@ function getTeacherFinalScoreForDisplay(assignment, submission) {
 function getAnnotationCodeMeaning(annotation) {
   const code = String(annotation?.code || "").trim();
   if (code === "NOTE") return "Teacher note";
+  if (code === "GOOD") return "Positive — strength or well-handled section";
   return String(annotation?.label || getErrorCodeLabel(code) || "").trim();
 }
 

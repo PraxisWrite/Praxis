@@ -26,6 +26,7 @@
     { code: "WF",  label: "Wrong word form: e.g. adjective used where an adverb is needed" },
     { code: "AGR", label: "Agreement error: subject and verb, or noun and pronoun, don't agree" },
     { code: "SP",  label: "Spelling error" },
+    { code: "WW",  label: "Wrong word: incorrect word choice for this context" },
   ];
 
   // Base assignment types offered when building an assignment. "other" must

@@ -115,6 +115,97 @@ test("syncStudentSubmission sends the full event arrays on the first sync, then 
   assert.equal(bodies[1].writing_events_base, 2);
 });
 
+test("a newly generated feedback entry survives a conflict retry (regression)", async () => {
+  // The student loads with no feedback, generates one entry, and the first sync
+  // hits a 409 (its expected_updated_at is the freshly bumped local time). The
+  // retry must keep the new entry, not overwrite it with the server's empty copy.
+  const bodies = [];
+  let serverTime = "t-load";
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    if (path === "/api/student/submissions?assignmentIds=assignment-1") {
+      return { submissions: [{ id: "server-1", assignment_id: "assignment-1", student_id: "student-1", feedback_history: [], updated_at: serverTime }] };
+    }
+    if (path === "/api/assignments/assignment-1/my-submission") {
+      return { submission: { id: "server-1", assignment_id: "assignment-1", student_id: "student-1", feedback_history: [], updated_at: serverTime } };
+    }
+    if (path === "/api/submissions/server-1") {
+      const body = JSON.parse(options.body);
+      bodies.push(body);
+      // The optimistic-concurrency guard: stale expected_updated_at → conflict.
+      if (body.expected_updated_at !== serverTime) {
+        return { conflict: true, updated_at: serverTime };
+      }
+      const fb = body.feedback_history ?? [];
+      serverTime = "t-after";
+      return { submission: { id: "server-1", assignment_id: "assignment-1", student_id: "student-1", feedback_history: fb, updated_at: serverTime } };
+    }
+    throw new Error(`Unexpected path: ${path}`);
+  });
+
+  // Seed the baseline from the server load (feedback = []).
+  await apiService.loadStudentSubmissions(["assignment-1"]);
+
+  const submission = createSubmission({
+    id: "server-1",
+    feedbackHistory: [{ id: "fb-new", items: ["tip"] }],
+    updatedAt: "t-local-bumped",
+  });
+  const result = await apiService.syncStudentSubmission(submission);
+
+  // The conflicting first attempt, then the retry that preserves the new entry.
+  assert.equal(bodies.length, 2);
+  assert.deepEqual(result.feedbackHistory, [{ id: "fb-new", items: ["tip"] }]);
+  assert.deepEqual(bodies[1].feedback_history, [{ id: "fb-new", items: ["tip"] }]);
+});
+
+test("stale local feedback does not resurrect a server-side reset", async () => {
+  // The tab loaded when the server held two entries (baseline = 2). A teacher
+  // then cleared feedback server-side. A later sync (driven by, e.g., typing)
+  // hits a conflict; the retry must adopt the server's empty array, not re-push
+  // the two stale local entries.
+  const bodies = [];
+  let serverTime = "t-load";
+  let serverFeedback = [{ id: "old-1" }, { id: "old-2" }];
+  const apiService = loadApiServiceWithFetch(async (path, options = {}) => {
+    if (path === "/api/student/submissions?assignmentIds=assignment-1") {
+      return { submissions: [{ id: "server-1", assignment_id: "assignment-1", student_id: "student-1", feedback_history: serverFeedback, updated_at: serverTime }] };
+    }
+    if (path === "/api/assignments/assignment-1/my-submission") {
+      return { submission: { id: "server-1", assignment_id: "assignment-1", student_id: "student-1", feedback_history: serverFeedback, updated_at: serverTime } };
+    }
+    if (path === "/api/submissions/server-1") {
+      const body = JSON.parse(options.body);
+      bodies.push(body);
+      if (body.expected_updated_at !== serverTime) {
+        return { conflict: true, updated_at: serverTime };
+      }
+      const fb = body.feedback_history ?? serverFeedback;
+      serverTime = "t-after";
+      serverFeedback = fb;
+      return { submission: { id: "server-1", assignment_id: "assignment-1", student_id: "student-1", feedback_history: fb, updated_at: serverTime } };
+    }
+    throw new Error(`Unexpected path: ${path}`);
+  });
+
+  // Load while the server still holds the two entries → baseline = 2.
+  await apiService.loadStudentSubmissions(["assignment-1"]);
+
+  // Teacher clears feedback server-side; the row's timestamp moves on.
+  serverFeedback = [];
+  serverTime = "t-reset";
+
+  // The stale tab still has the two old entries in memory and syncs.
+  const submission = createSubmission({
+    id: "server-1",
+    feedbackHistory: [{ id: "old-1" }, { id: "old-2" }],
+    updatedAt: "t-local-old",
+  });
+  const result = await apiService.syncStudentSubmission(submission);
+
+  assert.deepEqual(result.feedbackHistory, []);
+  assert.deepEqual(bodies.at(-1).feedback_history, []);
+});
+
 test("loadAdminClassDetail normalizes missing admin arrays", async () => {
   const calls = [];
   const apiService = loadApiServiceWithFetch(async (path, options = {}) => {

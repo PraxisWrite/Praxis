@@ -5312,23 +5312,20 @@ function buildDraftLinesWithPasteMarkers(submission) {
       start: Number(event.start || 0),
       end: Number(event.end ?? event.start ?? 0) + String(event.insertedText || "").length,
     }));
-  const logicalLines = text.split("\n");
-  // Single-paragraph essays have no newlines so every chunk would be "Line 1",
-  // which is useless for feedback. Fall back to sentence-based numbering so the
-  // AI can say "Line 3" meaning the 3rd sentence — students can count to it.
-  const chunks = logicalLines.length > 1 ? logicalLines : splitSentences(text);
-  let charOffset = 0;
-  return chunks.map((chunkText, i) => {
-    const start = text.indexOf(chunkText, charOffset);
-    const safeStart = start >= 0 ? start : charOffset;
-    const end = safeStart + chunkText.length;
-    charOffset = end;
-    return {
-      number: i + 1,
-      text: chunkText,
-      pasted: flaggedRanges.some((range) => safeStart < range.end && end > range.start),
-    };
-  });
+  // Number lines exactly as the student sees them in the gutter: every visible
+  // (wrapped) row gets a sequential number, so "Line 4" in feedback is the 4th
+  // line down on the student's screen. The feedback button lives on both step 2
+  // (#draft-editor) and step 3 (#final-editor), so fall back to whichever is
+  // mounted — otherwise metrics are null and buildWrappedLineEntries collapses
+  // the whole draft onto a single "Line 1". The gutter renders the same
+  // entry.number values (see renderLineNumberGutter), so the two always agree.
+  const editor = document.getElementById("draft-editor") || document.getElementById("final-editor");
+  const metrics = getElementLineWrapMetrics(editor);
+  return buildWrappedLineEntries(text, metrics).map((entry) => ({
+    number: entry.number,
+    text: entry.text,
+    pasted: flaggedRanges.some((range) => entry.start < range.end && entry.end > range.start),
+  }));
 }
 
 function buildAiIdeaRequest(assignment, submission) {
@@ -5634,7 +5631,7 @@ function getFeedbackLineNumber(text = "", startIndex = 0) {
   if (metrics) {
     const entries = buildWrappedLineEntries(text, metrics);
     const matchingEntry = entries.find((entry) => startIndex >= entry.start && startIndex <= entry.end);
-    if (matchingEntry?.logicalNumber) return matchingEntry.logicalNumber;
+    if (matchingEntry?.number) return matchingEntry.number;
   }
   return String(text || "").slice(0, Math.max(0, startIndex)).split("\n").length;
 }
@@ -7154,9 +7151,12 @@ function buildWrappedLineEntries(text = "", metrics) {
 }
 
 function renderLineNumberGutter(entries = []) {
+  // Number every visible (wrapped) row sequentially so the student sees
+  // 1, 2, 3, 4… down the side. AI feedback references the same entry.number
+  // (buildDraftLinesWithPasteMarkers), so "Line 4" always points to the 4th
+  // line the student sees — on whatever device they are writing on.
   return safeArray(entries).map((entry) => {
-    const label = entry.isFirstVisualRow && (entry.logicalNumber % 5 === 0 || entry.logicalNumber === 1) ? String(entry.logicalNumber) : "";
-    return `<div class="line-gutter-row">${escapeHtml(label)}</div>`;
+    return `<div class="line-gutter-row">${escapeHtml(String(entry.number || ""))}</div>`;
   }).join("");
 }
 

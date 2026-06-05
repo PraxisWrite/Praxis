@@ -5312,13 +5312,19 @@ function buildDraftLinesWithPasteMarkers(submission) {
       start: Number(event.start || 0),
       end: Number(event.end ?? event.start ?? 0) + String(event.insertedText || "").length,
     }));
-  const editor = document.getElementById("draft-editor");
-  const metrics = getElementLineWrapMetrics(editor);
-  return buildWrappedLineEntries(text, metrics).map((entry) => ({
-    number: entry.number,
-    text: entry.text,
-    pasted: flaggedRanges.some((range) => entry.start < range.end && entry.end > range.start),
-  }));
+  // Split by logical lines (\n) so AI line numbers match the student's gutter
+  // exactly — device-independent, no editor metrics needed.
+  let charOffset = 0;
+  return text.split("\n").map((lineText, i) => {
+    const start = charOffset;
+    const end = start + lineText.length;
+    charOffset = end + 1;
+    return {
+      number: i + 1,
+      text: lineText,
+      pasted: flaggedRanges.some((range) => start < range.end && end > range.start),
+    };
+  });
 }
 
 function buildAiIdeaRequest(assignment, submission) {
@@ -5624,7 +5630,7 @@ function getFeedbackLineNumber(text = "", startIndex = 0) {
   if (metrics) {
     const entries = buildWrappedLineEntries(text, metrics);
     const matchingEntry = entries.find((entry) => startIndex >= entry.start && startIndex <= entry.end);
-    if (matchingEntry?.number) return matchingEntry.number;
+    if (matchingEntry?.logicalNumber) return matchingEntry.logicalNumber;
   }
   return String(text || "").slice(0, Math.max(0, startIndex)).split("\n").length;
 }

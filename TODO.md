@@ -44,7 +44,7 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 - [ ] **Teacher-receives-submission regression test** — outside the currently-skipped full-flow E2E test.
 - [ ] **4-criteria / 20-point rubric regression test** — keep the normal rubric path covered.
 - [ ] **Verify publish email fires only after server-confirmed publish** — and that a publish failure shows a clear failure message.
-- [ ] **Verify AI provider rate limits and concurrent request capacity** for pilot-scale usage (12+ students simultaneously).
+- [x] **Verify AI provider rate limits and concurrent request capacity** for pilot-scale usage (12+ students simultaneously).
 
 ---
 

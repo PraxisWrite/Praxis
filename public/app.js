@@ -5312,17 +5312,21 @@ function buildDraftLinesWithPasteMarkers(submission) {
       start: Number(event.start || 0),
       end: Number(event.end ?? event.start ?? 0) + String(event.insertedText || "").length,
     }));
-  // Split by logical lines (\n) so AI line numbers match the student's gutter
-  // exactly — device-independent, no editor metrics needed.
+  const logicalLines = text.split("\n");
+  // Single-paragraph essays have no newlines so every chunk would be "Line 1",
+  // which is useless for feedback. Fall back to sentence-based numbering so the
+  // AI can say "Line 3" meaning the 3rd sentence — students can count to it.
+  const chunks = logicalLines.length > 1 ? logicalLines : splitSentences(text);
   let charOffset = 0;
-  return text.split("\n").map((lineText, i) => {
-    const start = charOffset;
-    const end = start + lineText.length;
-    charOffset = end + 1;
+  return chunks.map((chunkText, i) => {
+    const start = text.indexOf(chunkText, charOffset);
+    const safeStart = start >= 0 ? start : charOffset;
+    const end = safeStart + chunkText.length;
+    charOffset = end;
     return {
       number: i + 1,
-      text: lineText,
-      pasted: flaggedRanges.some((range) => start < range.end && end > range.start),
+      text: chunkText,
+      pasted: flaggedRanges.some((range) => safeStart < range.end && end > range.start),
     };
   });
 }
@@ -5373,7 +5377,7 @@ function buildAiFeedbackRequest(assignment, submission) {
 Return ONLY a JSON array of 2 to 4 feedback strings.
 
 Rules:
-- Use the student's real visible line numbers.
+- Use the line numbers provided — for multi-paragraph drafts these match the student's visible gutter; for single-paragraph drafts each number is a sentence.
 - Ignore [PASTED] lines for judging quality, but still count them in line numbering.
 - Point to specific measurable problems in the student's own writing.
 - Quote a short snippet when helpful.

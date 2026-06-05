@@ -5312,7 +5312,12 @@ function buildDraftLinesWithPasteMarkers(submission) {
       start: Number(event.start || 0),
       end: Number(event.end ?? event.start ?? 0) + String(event.insertedText || "").length,
     }));
-  const editor = document.getElementById("draft-editor");
+  // The feedback button lives on both step 2 (#draft-editor) and step 3
+  // (#final-editor). Fall back to whichever is mounted so the wrapped line
+  // numbers resolve — otherwise metrics are null and buildWrappedLineEntries
+  // collapses the whole draft onto a single "Line 1", making every AI feedback
+  // item reference line 1. (Same fix as getFeedbackLineNumber below.)
+  const editor = document.getElementById("draft-editor") || document.getElementById("final-editor");
   const metrics = getElementLineWrapMetrics(editor);
   return buildWrappedLineEntries(text, metrics).map((entry) => ({
     number: entry.number,

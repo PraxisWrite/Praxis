@@ -12,21 +12,20 @@
     <link rel="preconnect" href="https://js-de.sentry-cdn.com" crossorigin />
     <link rel="preconnect" href="https://browser.sentry-cdn.com" crossorigin />
     <!-- The brand glyph is the login LCP and is drawn by JS, so fetch it up front. -->
-    <link rel="preload" as="image" href="favicon-64.png" />
+    <link rel="preload" as="image" href="favicon-256.png" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" sizes="any" />
     <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
 
-    <!-- Error monitoring. sentry-init.js runs first and defines the loader's
-         `sentryOnLoad` hook, so the feedback widget attaches regardless of when
-         the async loader finishes; `async` keeps Sentry off the critical path so
-         it never delays first paint. -->
-    <script src="sentry-init.js"></script>
+    <!-- Error monitoring (Sentry). The loader runs first and defines the Sentry
+         stub synchronously; sentry-init.js then attaches the feedback widget and
+         error handlers via Sentry.onLoad(). Kept non-async: the loader was never
+         render-blocking here, so async bought nothing and dropped the widget. -->
     <script
-      async
       src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
       crossorigin="anonymous"
     ></script>
+    <script src="sentry-init.js"></script>
   </head>
   <body>
     <main id="app">
@@ -35,7 +34,7 @@
            resolves, so first paint no longer waits on JS + auth. -->
       <div class="boot-skeleton" aria-hidden="true">
         <span class="boot-skeleton-mark">
-          <img src="favicon-64.png" alt="" width="64" height="64" />
+          <img src="favicon-256.png" alt="" width="64" height="64" />
         </span>
         <span class="boot-skeleton-label">Loading praxis…</span>
       </div>

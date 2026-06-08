@@ -964,8 +964,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // Show loading screen while checking session
-  appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;"><p>Loading...</p></div>`;
+  // The static boot skeleton in index.html is already on screen; leave it up
+  // while the session check runs so first paint isn't replaced by a plainer
+  // loading state. The first real render below swaps it out.
 
   try {
     const params = new URLSearchParams(globalThis.location.search);
@@ -6248,6 +6249,27 @@ function downloadStudentWork(assignment, submission) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
+// jszip is only needed for the teacher "export all grade sheets" action, so it
+// is loaded on demand here instead of eagerly on every page (it shipped ~97 KB
+// to every visitor, including the login page). The script defines a global
+// `JSZip`; we inject it once and cache the load promise.
+let jszipLoadPromise = null;
+function ensureJSZip() {
+  if (globalThis.JSZip) return Promise.resolve(globalThis.JSZip);
+  if (jszipLoadPromise) return jszipLoadPromise;
+  jszipLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "vendor/jszip.min.js";
+    script.addEventListener("load", () => resolve(globalThis.JSZip));
+    script.addEventListener("error", () => {
+      jszipLoadPromise = null;
+      reject(new Error("Failed to load the zip library."));
+    });
+    document.head.append(script);
+  });
+  return jszipLoadPromise;
+}
+
 async function downloadAllGradeSheets(assignment) {
   const { state } = globalThis.AppState;
   const gradedSubmissions = (state.submissions || []).filter(
@@ -6257,11 +6279,14 @@ async function downloadAllGradeSheets(assignment) {
     globalThis.alert("No graded submissions yet.");
     return;
   }
-  if (!globalThis.JSZip) {
-    globalThis.alert("JSZip not loaded — please refresh and try again.");
+  let JSZipCtor;
+  try {
+    JSZipCtor = await ensureJSZip();
+  } catch {
+    globalThis.alert("Couldn’t load the zip library. Please check your connection and try again.");
     return;
   }
-  const zip = new globalThis.JSZip();
+  const zip = new JSZipCtor();
   const dateStr = new globalThis.Date().toISOString().slice(0, 10);
   const safeTitle = (assignment.title || "assignment").replaceAll(/[^\w\s-]/g, "").replaceAll(/\s+/g, "-");
   for (const submission of gradedSubmissions) {
@@ -7207,7 +7232,7 @@ function renderProductWordmark(tagName = "span", className = "") {
 }
 
 function renderBrandGlyph() {
-  return `<img src="favicon-256.png" alt="" aria-hidden="true" width="64" height="64" style="display:block;border-radius:14px;">`;
+  return `<img src="favicon-64.png" alt="" aria-hidden="true" width="64" height="64" style="display:block;border-radius:14px;">`;
 }
 
 

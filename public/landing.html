@@ -5,6 +5,8 @@
       src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
       crossorigin="anonymous"
     ></script>
+    <link rel="preconnect" href="https://js-de.sentry-cdn.com" crossorigin />
+    <link rel="preconnect" href="https://browser.sentry-cdn.com" crossorigin />
 
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -19,7 +21,7 @@
         --surface:      #ffffff;
         --surface-soft: #f8fbff;
         --ink:          #1a2740;
-        --muted:        #687a98;
+        --muted:        #5e708e; /* darkened from #687a98 for WCAG AA contrast */
         --accent:       #5f8fff;
         --accent-deep:  #456ddb;
         --accent-soft:  #e8f0ff;
@@ -1064,6 +1066,7 @@
       </nav>
     </header>
 
+    <main>
     <div class="hero">
       <span class="hero-tag">For English writing teachers</span>
       <h1>See how your students <em>actually write.</em></h1>
@@ -1282,6 +1285,7 @@
         <a href="/index.html?signup=1" class="btn btn-primary btn-lg">Create your first assignment</a>
       </div>
     </section>
+    </main>
 
     <footer>
       <a href="/" class="nav-logo" style="font-size:1.15rem;font-weight:700;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px;">

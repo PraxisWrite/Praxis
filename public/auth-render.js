@@ -16,9 +16,9 @@
     signinForm.style.display = tab === "signin" ? "block" : "none";
     signupForm.style.display = tab === "signup" ? "block" : "none";
     signinTab.style.background = tab === "signin" ? "#fff" : "#eef4ff";
-    signinTab.style.color = tab === "signin" ? "var(--accent)" : "#667063";
+    signinTab.style.color = tab === "signin" ? "var(--accent-deep)" : "#667063";
     signupTab.style.background = tab === "signup" ? "#fff" : "#eef4ff";
-    signupTab.style.color = tab === "signup" ? "var(--accent)" : "#667063";
+    signupTab.style.color = tab === "signup" ? "var(--accent-deep)" : "#667063";
   }
 
   function setAuthSignupRole(role) {
@@ -156,7 +156,7 @@
           </div>
           ${inviteBanner}
           <div style="display:flex;gap:0;margin-bottom:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#eef4ff;">
-            <button id="auth-tab-signin" data-auth-tab="signin" style="flex:1;padding:10px;border:none;background:#fff;font-weight:700;cursor:pointer;color:var(--accent);">Sign in</button>
+            <button id="auth-tab-signin" data-auth-tab="signin" style="flex:1;padding:10px;border:none;background:#fff;font-weight:700;cursor:pointer;color:var(--accent-deep);">Sign in</button>
             <button id="auth-tab-signup" data-auth-tab="signup" style="flex:1;padding:10px;border:none;background:#eef4ff;font-weight:700;cursor:pointer;color:#667063;">Create account</button>
           </div>
           <div id="auth-signin-form">

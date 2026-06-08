@@ -945,6 +945,29 @@ globalThis.stopPlayback = stopPlayback;
 
 let appEl = null;
 
+// Boot failure screen. Built with DOM APIs (no innerHTML / no inline onclick) so
+// it stays compatible with a future enforced Content-Security-Policy.
+function renderBootError(container) {
+  container.textContent = "";
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:grid;place-items:center;min-height:60vh;font-family:inherit;text-align:center;padding:2rem;";
+  const inner = document.createElement("div");
+  const title = document.createElement("p");
+  title.textContent = "Praxis couldn’t load";
+  title.style.cssText = "color:#c24d4d;font-weight:600;margin-bottom:0.5rem;";
+  const message = document.createElement("p");
+  message.textContent = "There was a problem connecting to the server. Please check your internet connection and try again.";
+  message.style.cssText = "color:#5e708e;font-size:0.9rem;margin-bottom:1.5rem;";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Refresh page";
+  button.style.cssText = "background:#5f8fff;color:#fff;border:none;padding:0.6rem 1.4rem;border-radius:6px;cursor:pointer;font-size:0.9rem;";
+  button.addEventListener("click", () => globalThis.location.reload());
+  inner.append(title, message, button);
+  wrap.append(inner);
+  container.append(wrap);
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   appEl = document.getElementById("app");
   bindLifecycleEvents();
@@ -1009,15 +1032,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await bootApp(profile);
   } catch (err) {
     sentryCapture(err, { phase: "boot" });
-    if (appEl) {
-      appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;font-family:inherit;text-align:center;padding:2rem;">
-        <div>
-          <p style="color:#c24d4d;font-weight:600;margin-bottom:0.5rem;">Praxis couldn’t load</p>
-          <p style="color:#687a98;font-size:0.9rem;margin-bottom:1.5rem;">There was a problem connecting to the server. Please check your internet connection and try again.</p>
-          <button onclick="location.reload()" style="background:#5f8fff;color:#fff;border:none;padding:0.6rem 1.4rem;border-radius:6px;cursor:pointer;font-size:0.9rem;">Refresh page</button>
-        </div>
-      </div>`;
-    }
+    if (appEl) renderBootError(appEl);
   }
 });
 

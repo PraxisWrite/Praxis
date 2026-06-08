@@ -1,11 +1,6 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script
-      src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
-      crossorigin="anonymous"
-    ></script>
-    <script src="sentry-init.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>praxis</title>
@@ -21,6 +16,17 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg" sizes="any" />
     <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
+
+    <!-- Error monitoring. sentry-init.js runs first and defines the loader's
+         `sentryOnLoad` hook, so the feedback widget attaches regardless of when
+         the async loader finishes; `async` keeps Sentry off the critical path so
+         it never delays first paint. -->
+    <script src="sentry-init.js"></script>
+    <script
+      async
+      src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body>
     <main id="app">

@@ -115,6 +115,18 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ---
 
+## Performance & Lighthouse follow-ups
+
+Deferred from the Lighthouse audit shipped in **PR #329** (instant first-paint skeleton, lazy-loaded `jszip`, text-contrast fixes, `<main>` landmark, login meta description, security headers). These were held out of that pilot-safe batch because they each need either a **build step** (the project deliberately has none) or the **Sentry dashboard token**.
+
+- [ ] **Code-split role modules** — `teacher-render.js` / `student-render.js` / `admin-render.js` (plus the ~285 KB `app.js`) currently load for every visitor regardless of role. Needs a bundler (dynamic `import()`), or a no-build-step alternative: inject the role's `<script>` on demand after auth resolves in `bootApp()`. Touches the boot path for all three roles, so it carries regression risk — do it with per-role testing, ideally after the pilot.
+- [ ] **Minify + content-hash static assets** — `app.js` / `styles.css` etc. ship unminified with no cache-busting filenames. Needs a build step. Lower value than it looks (the server already gzips via `compression`). If a build step is added, do minify + content-hashing + long `Cache-Control` together.
+- [ ] **Sentry: lighten + stop render-blocking** — the loader in `index.html` / `landing.html` pulls the full tracing+replay+feedback bundle (~90 KB) and isn't `async`. Switch to an errors-only bundle (or lazy-load Replay/Feedback only inside the authenticated app) and make the loader non-render-blocking. Requires the Sentry dashboard / `sntryu_…` token, and the loader init-ordering (`onLoad` / `sentryOnLoad` hooks) must be validated against the live config so the feedback widget keeps working.
+- [ ] **Enforce CSP + Trusted Types** — `server.js` currently sends `Content-Security-Policy-Report-Only`. Before flipping to an enforcing `Content-Security-Policy`: confirm the reported origins (`'self'`, Sentry CDN/ingest) from real violation reports, and remove the one inline `onclick="location.reload()"` in the boot-error path (`app.js`). Trusted Types (`require-trusted-types-for 'script'`) is higher-risk — add it Report-Only first, as a separate task.
+- [ ] **Re-run Lighthouse to verify** — the contrast fixes (`--muted`, login active tab) are *calculated* to clear WCAG AA 4.5:1, not Lighthouse-verified in-environment. Re-run on the login + landing pages after deploy to confirm the A11y/SEO scores rise. Also audit the inner views (grading, student editor, admin) with DevTools Lighthouse **Snapshot** mode — they share the same URL and weren't covered by the cold-boot run.
+
+---
+
 ## Done (historical — consolidated from docs/todo.md)
 
 - [x] Delete test assignments + submission data so they don't skew real keystroke analytics

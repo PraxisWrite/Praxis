@@ -1,21 +1,45 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <script
-      src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
-      crossorigin="anonymous"
-    ></script>
-    <script src="sentry-init.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>praxis</title>
+    <meta
+      name="description"
+      content="Praxis is a structured writing platform for English teachers — guide students through the writing process and see exactly how they wrote, from first idea to final draft."
+    />
+    <!-- Warm up the Sentry connections early without blocking render. -->
+    <link rel="preconnect" href="https://js-de.sentry-cdn.com" crossorigin />
+    <link rel="preconnect" href="https://browser.sentry-cdn.com" crossorigin />
+    <!-- The brand glyph is the login LCP and is drawn by JS, so fetch it up front. -->
+    <link rel="preload" as="image" href="favicon-64.png" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" sizes="any" />
     <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
+
+    <!-- Error monitoring. sentry-init.js runs first and defines the loader's
+         `sentryOnLoad` hook, so the feedback widget attaches regardless of when
+         the async loader finishes; `async` keeps Sentry off the critical path so
+         it never delays first paint. -->
+    <script src="sentry-init.js"></script>
+    <script
+      async
+      src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
+      crossorigin="anonymous"
+    ></script>
   </head>
   <body>
-    <div id="app"></div>
-    <script src="vendor/jszip.min.js" defer></script>
+    <main id="app">
+      <!-- First-paint skeleton: painted during HTML parse, before the deferred
+           app scripts download. JS swaps in real content once the session check
+           resolves, so first paint no longer waits on JS + auth. -->
+      <div class="boot-skeleton" aria-hidden="true">
+        <span class="boot-skeleton-mark">
+          <img src="favicon-64.png" alt="" width="64" height="64" />
+        </span>
+        <span class="boot-skeleton-label">Loading praxis…</span>
+      </div>
+    </main>
     <script src="core-utils.js" defer></script>
     <script src="auth.js" defer></script>
     <script src="deadline-utils.js" defer></script>

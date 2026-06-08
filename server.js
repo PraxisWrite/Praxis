@@ -34,6 +34,35 @@ const app = express();
 app.disable("x-powered-by");
 app.use(compression());
 
+// Security headers applied to every response (static assets + API). HSTS,
+// X-Frame-Options, X-Content-Type-Options, Cross-Origin-Opener-Policy and
+// Referrer-Policy are safe to enforce. The Content-Security-Policy is sent
+// Report-Only so it cannot break the app: tune the reported origins (and remove
+// the inline event-handler usage) before switching to an enforcing
+// `Content-Security-Policy` header.
+app.use((req, res, next) => {
+  res.set({
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Content-Security-Policy-Report-Only': [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
+      "img-src 'self' data:",
+      "font-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' https://js-de.sentry-cdn.com https://browser.sentry-cdn.com",
+      "connect-src 'self' https://*.sentry.io https://*.ingest.de.sentry.io https://*.ingest.sentry.io",
+      "worker-src 'self' blob:",
+    ].join('; '),
+  });
+  next();
+});
+
 app.use((req, res, next) => {
   const redirectPath = getSafeRedirectPath(req.originalUrl || req.url);
   const redirectTarget = getCanonicalRedirectTarget({

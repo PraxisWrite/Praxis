@@ -4,7 +4,8 @@
   --surface-soft: #f8fbff;
   --line: #dbe5f5;
   --ink: #1a2740;
-  --muted: #687a98;
+  /* Darkened from #687a98 (~4.35:1 on white) to clear WCAG AA 4.5:1 for body text. */
+  --muted: #5e708e;
   --accent: #5f8fff;
   --accent-deep: #456ddb;
   --accent-soft: #e8f0ff;
@@ -2642,4 +2643,45 @@ button.rubric-level-cell:hover {
   gap: 8px;
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+/* ── Boot skeleton ──────────────────────────────────────────────────────────
+   Static first-paint placeholder rendered straight into index.html so the page
+   shows a logo + label during the HTML-parse / script-download window, before
+   the app's JS runs. The first real render replaces #app's contents. */
+.boot-skeleton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 70vh;
+  animation: boot-skeleton-fade 0.4s ease both;
+}
+.boot-skeleton-mark img {
+  display: block;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  animation: boot-skeleton-pulse 1.4s ease-in-out infinite;
+}
+.boot-skeleton-label {
+  color: var(--muted);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+@keyframes boot-skeleton-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes boot-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-skeleton,
+  .boot-skeleton-mark img {
+    animation: none;
+  }
 }

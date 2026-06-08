@@ -945,6 +945,29 @@ globalThis.stopPlayback = stopPlayback;
 
 let appEl = null;
 
+// Boot failure screen. Built with DOM APIs (no innerHTML / no inline onclick) so
+// it stays compatible with a future enforced Content-Security-Policy.
+function renderBootError(container) {
+  container.textContent = "";
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:grid;place-items:center;min-height:60vh;font-family:inherit;text-align:center;padding:2rem;";
+  const inner = document.createElement("div");
+  const title = document.createElement("p");
+  title.textContent = "Praxis couldn’t load";
+  title.style.cssText = "color:#c24d4d;font-weight:600;margin-bottom:0.5rem;";
+  const message = document.createElement("p");
+  message.textContent = "There was a problem connecting to the server. Please check your internet connection and try again.";
+  message.style.cssText = "color:#5e708e;font-size:0.9rem;margin-bottom:1.5rem;";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Refresh page";
+  button.style.cssText = "background:#5f8fff;color:#fff;border:none;padding:0.6rem 1.4rem;border-radius:6px;cursor:pointer;font-size:0.9rem;";
+  button.addEventListener("click", () => globalThis.location.reload());
+  inner.append(title, message, button);
+  wrap.append(inner);
+  container.append(wrap);
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   appEl = document.getElementById("app");
   bindLifecycleEvents();
@@ -964,8 +987,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // Show loading screen while checking session
-  appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;"><p>Loading...</p></div>`;
+  // The static boot skeleton in index.html is already on screen; leave it up
+  // while the session check runs so first paint isn't replaced by a plainer
+  // loading state. The first real render below swaps it out.
 
   try {
     const params = new URLSearchParams(globalThis.location.search);
@@ -1008,15 +1032,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await bootApp(profile);
   } catch (err) {
     sentryCapture(err, { phase: "boot" });
-    if (appEl) {
-      appEl.innerHTML = `<div style="display:grid;place-items:center;min-height:60vh;font-family:inherit;text-align:center;padding:2rem;">
-        <div>
-          <p style="color:#c24d4d;font-weight:600;margin-bottom:0.5rem;">Praxis couldn’t load</p>
-          <p style="color:#687a98;font-size:0.9rem;margin-bottom:1.5rem;">There was a problem connecting to the server. Please check your internet connection and try again.</p>
-          <button onclick="location.reload()" style="background:#5f8fff;color:#fff;border:none;padding:0.6rem 1.4rem;border-radius:6px;cursor:pointer;font-size:0.9rem;">Refresh page</button>
-        </div>
-      </div>`;
-    }
+    if (appEl) renderBootError(appEl);
   }
 });
 
@@ -6248,6 +6264,27 @@ function downloadStudentWork(assignment, submission) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
+// jszip is only needed for the teacher "export all grade sheets" action, so it
+// is loaded on demand here instead of eagerly on every page (it shipped ~97 KB
+// to every visitor, including the login page). The script defines a global
+// `JSZip`; we inject it once and cache the load promise.
+let jszipLoadPromise = null;
+function ensureJSZip() {
+  if (globalThis.JSZip) return Promise.resolve(globalThis.JSZip);
+  if (jszipLoadPromise) return jszipLoadPromise;
+  jszipLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "vendor/jszip.min.js";
+    script.addEventListener("load", () => resolve(globalThis.JSZip));
+    script.addEventListener("error", () => {
+      jszipLoadPromise = null;
+      reject(new Error("Failed to load the zip library."));
+    });
+    document.head.append(script);
+  });
+  return jszipLoadPromise;
+}
+
 async function downloadAllGradeSheets(assignment) {
   const { state } = globalThis.AppState;
   const gradedSubmissions = (state.submissions || []).filter(
@@ -6257,11 +6294,14 @@ async function downloadAllGradeSheets(assignment) {
     globalThis.alert("No graded submissions yet.");
     return;
   }
-  if (!globalThis.JSZip) {
-    globalThis.alert("JSZip not loaded — please refresh and try again.");
+  let JSZipCtor;
+  try {
+    JSZipCtor = await ensureJSZip();
+  } catch {
+    globalThis.alert("Couldn’t load the zip library. Please check your connection and try again.");
     return;
   }
-  const zip = new globalThis.JSZip();
+  const zip = new JSZipCtor();
   const dateStr = new globalThis.Date().toISOString().slice(0, 10);
   const safeTitle = (assignment.title || "assignment").replaceAll(/[^\w\s-]/g, "").replaceAll(/\s+/g, "-");
   for (const submission of gradedSubmissions) {
@@ -7207,7 +7247,7 @@ function renderProductWordmark(tagName = "span", className = "") {
 }
 
 function renderBrandGlyph() {
-  return `<img src="favicon-256.png" alt="" aria-hidden="true" width="64" height="64" style="display:block;border-radius:14px;">`;
+  return `<img src="favicon-64.png" alt="" aria-hidden="true" width="64" height="64" style="display:block;border-radius:14px;">`;
 }
 
 

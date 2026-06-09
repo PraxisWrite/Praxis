@@ -62,7 +62,8 @@
       button.addEventListener("click", () => setAuthSignupRole(button.dataset.authRole));
     });
 
-    appEl.querySelector("[data-auth-action='signin']")?.addEventListener("click", async () => {
+    document.getElementById("auth-signin-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
       const email = document.getElementById("auth-email").value.trim();
       const password = document.getElementById("auth-password").value;
       const errEl = document.getElementById("auth-error");
@@ -100,7 +101,8 @@
       }
     });
 
-    appEl.querySelector("[data-auth-action='signup']")?.addEventListener("click", async () => {
+    document.getElementById("auth-signup-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
       const name = document.getElementById("auth-signup-name").value.trim();
       const email = document.getElementById("auth-signup-email").value.trim();
       const password = document.getElementById("auth-signup-password").value;
@@ -159,7 +161,7 @@
             <button id="auth-tab-signin" data-auth-tab="signin" style="flex:1;padding:10px;border:none;background:#fff;font-weight:700;cursor:pointer;color:var(--accent-deep);">Sign in</button>
             <button id="auth-tab-signup" data-auth-tab="signup" style="flex:1;padding:10px;border:none;background:#eef4ff;font-weight:700;cursor:pointer;color:#667063;">Create account</button>
           </div>
-          <div id="auth-signin-form">
+          <form id="auth-signin-form" novalidate>
             <div style="display:grid;gap:12px;">
               <input id="auth-email" type="email" placeholder="Email" style="border:1px solid #ddd2c2;border-radius:10px;padding:12px 14px;width:100%;font:inherit;box-sizing:border-box;" />
               <input id="auth-password" type="password" placeholder="Password" style="border:1px solid #ddd2c2;border-radius:10px;padding:12px 14px;width:100%;font:inherit;box-sizing:border-box;" />
@@ -167,11 +169,11 @@
                 <input type="checkbox" id="stay-logged-in" checked style="cursor:pointer;" /> Stay logged in
               </label>
               <button type="button" data-auth-action="forgot-password" style="background:none;border:none;padding:0;text-align:left;color:var(--accent);font-weight:600;cursor:pointer;">Forgot password?</button>
-              <button type="button" data-auth-action="signin" style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:white;border:none;border-radius:999px;padding:12px 24px;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 10px 24px rgba(63,109,246,0.24);">Sign in</button>
+              <button type="submit" data-auth-action="signin" style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:white;border:none;border-radius:999px;padding:12px 24px;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 10px 24px rgba(63,109,246,0.24);">Sign in</button>
               <p id="auth-error" style="color:#b34949;font-size:0.85rem;margin:0;display:none;"></p>
             </div>
-          </div>
-          <div id="auth-signup-form" style="display:none;">
+          </form>
+          <form id="auth-signup-form" novalidate style="display:none;">
             <div style="display:grid;gap:12px;">
               <input id="auth-signup-name" type="text" placeholder="Full name" style="border:1px solid #ddd2c2;border-radius:10px;padding:12px 14px;width:100%;font:inherit;box-sizing:border-box;" />
               <input id="auth-signup-email" type="email" placeholder="Email" style="border:1px solid #ddd2c2;border-radius:10px;padding:12px 14px;width:100%;font:inherit;box-sizing:border-box;" />
@@ -181,10 +183,10 @@
                 <button type="button" data-auth-role="student" id="role-btn-student" style="flex:1;padding:10px;border:2px solid var(--accent);border-radius:10px;background:#e7eeff;font:inherit;font-weight:700;cursor:pointer;color:var(--accent-deep);">Student</button>
                 ${joinClassId ? '' : `<button type="button" data-auth-role="teacher" id="role-btn-teacher" style="flex:1;padding:10px;border:1px solid #ddd2c2;border-radius:10px;background:#fff;font:inherit;font-weight:700;cursor:pointer;color:#667063;">Teacher</button>`}
                 </div>
-              <button type="button" data-auth-action="signup" style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:white;border:none;border-radius:999px;padding:12px 24px;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 10px 24px rgba(63,109,246,0.24);">Create account</button>
+              <button type="submit" data-auth-action="signup" style="background:linear-gradient(135deg,var(--accent),var(--accent-deep));color:white;border:none;border-radius:999px;padding:12px 24px;font:inherit;font-weight:700;cursor:pointer;box-shadow:0 10px 24px rgba(63,109,246,0.24);">Create account</button>
               <p id="auth-signup-error" style="color:#b34949;font-size:0.85rem;margin:0;display:none;"></p>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     `;

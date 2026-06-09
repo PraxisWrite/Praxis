@@ -16,7 +16,7 @@ test.describe("Teacher workflow", () => {
     await login(page, "teacher");
 
     await expect(page.getByText(/class work/i).first()).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("banner").getByText(/current class:/i)).toBeVisible();
+    await expect(page.locator(".topbar").getByText(/current class:/i)).toBeVisible();
     expect(getErrors(), "no JS errors on teacher dashboard").toEqual([]);
   });
 

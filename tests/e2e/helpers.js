@@ -56,7 +56,9 @@ async function selectTeacherTestClass(page) {
     await page.waitForLoadState("networkidle").catch(() => {});
   }
 
-  await expect(page.getByRole("banner").getByText(/current class:/i)).toBeVisible({ timeout: 20_000 });
+  // Scope to the .topbar class, not getByRole("banner"): the topbar <header> is
+  // nested inside <main id="app">, so it no longer exposes an implicit banner role.
+  await expect(page.locator(".topbar").getByText(/current class:/i)).toBeVisible({ timeout: 20_000 });
 }
 
 async function selectStudentTestClass(page) {

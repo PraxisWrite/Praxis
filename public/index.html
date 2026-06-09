@@ -17,15 +17,14 @@
     <link rel="apple-touch-icon" href="favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
 
-    <!-- Error monitoring (Sentry). The loader runs first and defines the Sentry
-         stub synchronously; sentry-init.js then attaches the feedback widget and
-         error handlers via Sentry.onLoad(). Kept non-async: the loader was never
-         render-blocking here, so async bought nothing and dropped the widget. -->
+    <!-- Error monitoring (Sentry). sentry-init.js defines window.sentryOnLoad and
+         must run BEFORE the loader, so the loader runs our explicit Sentry.init()
+         (the v10 loader no longer auto-initialises a client on its own). -->
+    <script src="sentry-init.js"></script>
     <script
       src="https://js-de.sentry-cdn.com/ce9396547e963ef331dbb030435c4d46.min.js"
       crossorigin="anonymous"
     ></script>
-    <script src="sentry-init.js"></script>
   </head>
   <body>
     <main id="app">

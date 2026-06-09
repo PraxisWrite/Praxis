@@ -41,7 +41,7 @@
       // Conservative pilot-scale sampling — adjust here as needed.
       tracesSampleRate: 0.1,
       replaysSessionSampleRate: 0.1,
-      replaysOnErrorSampleRate: 1.0,
+      replaysOnErrorSampleRate: 1,
     });
   };
 

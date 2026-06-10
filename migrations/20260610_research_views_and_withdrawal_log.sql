@@ -23,6 +23,24 @@ insert into public.research_config (key, value)
 values ('pseudonym_salt', encode(gen_random_bytes(32), 'hex'))
 on conflict (key) do nothing;
 
+-- Single source of truth for the salt lookup so the views don't repeat the
+-- key literal. SECURITY DEFINER + search_path so it resolves the salt as the
+-- owner. Execute must be revoked from PUBLIC (not just anon/authenticated):
+-- CREATE FUNCTION grants EXECUTE to PUBLIC by default, and the API roles
+-- inherit it through PUBLIC -- otherwise a user token could call it via RPC
+-- and recompute pseudonyms. The views still resolve it because they run as
+-- the owner, not as the calling role.
+create or replace function public.research_pseudonym_salt()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select value from public.research_config where key = 'pseudonym_salt'
+$$;
+revoke all on function public.research_pseudonym_salt() from public, anon, authenticated;
+
 -- ── 2. Withdrawal deletion log ───────────────────────────────
 create table public.research_deletion_log (
   id uuid primary key default gen_random_uuid(),
@@ -46,7 +64,7 @@ using (public.current_user_is_admin());
 -- from the student id without the private salt.
 create or replace view public.v_research_process_metrics as
 select
-  md5(spa.student_id::text || (select value from public.research_config where key = 'pseudonym_salt')) as student_pseudonym,
+  md5(spa.student_id::text || public.research_pseudonym_salt()) as student_pseudonym,
   c.name as class_name,
   a.id as assignment_id,
   a.title as assignment_title,
@@ -94,7 +112,7 @@ where p.role = 'student'
 
 create or replace view public.v_research_reflections as
 select
-  md5(s.student_id::text || (select value from public.research_config where key = 'pseudonym_salt')) as student_pseudonym,
+  md5(s.student_id::text || public.research_pseudonym_salt()) as student_pseudonym,
   c.name as class_name,
   a.id as assignment_id,
   a.title as assignment_title,

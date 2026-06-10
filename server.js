@@ -3233,7 +3233,7 @@ app.delete('/api/admin/research/students/:studentId/data', async (req, res) => {
       .eq('id', studentId)
       .maybeSingle();
     if (profileError) return res.status(400).json({ error: profileError.message });
-    if (!profile || profile.role !== 'student') {
+    if (profile?.role !== 'student') {
       return res.status(404).json({ error: 'Student profile not found.' });
     }
     if (/^P1-S\d/i.test(String(profile.name || '').trim())) {

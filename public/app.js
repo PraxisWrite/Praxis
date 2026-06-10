@@ -2920,6 +2920,74 @@ if (action === "admin-select-assignment") {
     return;
   }
 
+  if (action === "admin-toggle-research-exclusion") {
+    const studentId = target.dataset.studentId;
+    if (!studentId || !ui.adminClassDetail) return;
+    const member = safeArray(ui.adminClassDetail.members).find((item) => item?.id === studentId);
+    if (!member) return;
+    const nextExcluded = !member.exclude_from_writing_behavior;
+    ui.adminStudentFlagSavingId = studentId;
+    render();
+    try {
+      await globalThis.ApiService.updateAdminStudentFlags(studentId, {
+        excludeFromWritingBehavior: nextExcluded,
+      });
+    } catch (error) {
+      ui.notice = `Could not update the research flag: ${error.message}`;
+      ui.adminStudentFlagSavingId = null;
+      render();
+      return;
+    }
+    ui.notice = nextExcluded
+      ? "Student excluded from research data. Their data stays out of research exports and cohort analytics; the flag is invisible to teachers and the app is unchanged for the student."
+      : "Student included in research data again.";
+    await refreshAdminClassDetail({ keepNotice: true });
+    ui.adminStudentFlagSavingId = null;
+    render();
+    return;
+  }
+
+  if (action === "admin-delete-research-data") {
+    const studentId = target.dataset.studentId;
+    const studentName = target.dataset.studentName || "this student";
+    if (!studentId || !ui.adminClassDetail) return;
+    const confirmed = globalThis.confirm(
+      `Research withdrawal: permanently delete ALL of ${studentName}'s submissions, writing-process analyses, and class memberships across every class?\n\nOnly the fact and date of the deletion are logged. This cannot be undone.`
+    );
+    if (!confirmed) return;
+    ui.adminResearchDeleteSavingId = studentId;
+    render();
+    try {
+      const result = await globalThis.ApiService.deleteStudentResearchData(studentId);
+      const deleted = result?.deleted || {};
+      ui.notice = `Research data deleted: ${deleted.submissions_deleted ?? 0} submissions, ${deleted.analyses_deleted ?? 0} analyses, ${deleted.memberships_deleted ?? 0} class memberships.`;
+    } catch (error) {
+      ui.notice = `Could not delete research data: ${error.message}`;
+      ui.adminResearchDeleteSavingId = null;
+      render();
+      return;
+    }
+    await refreshAdminClassDetail({ keepNotice: true });
+    ui.adminResearchDeleteSavingId = null;
+    render();
+    return;
+  }
+
+  if (action === "admin-download-research-csv") {
+    const kind = target.dataset.kind === "reflections" ? "reflections" : "process-metrics";
+    ui.adminResearchDownloadBusy = true;
+    render();
+    try {
+      await downloadAdminResearchCsv(kind);
+      ui.notice = "";
+    } catch (error) {
+      ui.notice = `Could not download the research CSV: ${error.message}`;
+    }
+    ui.adminResearchDownloadBusy = false;
+    render();
+    return;
+  }
+
   if (action === "admin-view-as-teacher") {
     ui.adminViewingAsTeacher = true;
     await bootApp(currentProfile);
@@ -6252,6 +6320,34 @@ ${chatLines || "<p><em>No conversation recorded.</em></p>"}
 </html>`;
 
   return html;
+}
+
+// Admin-only research CSV download. Auth.apiFetch parses JSON, so the raw
+// CSV body is fetched directly with the bearer token and saved as a file.
+async function downloadAdminResearchCsv(kind) {
+  const token = globalThis.Auth?.getToken?.();
+  const response = await fetch(`/api/admin/research/${kind}.csv`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    let message = `Download failed (${response.status}).`;
+    try {
+      const data = await response.json();
+      if (data?.error) message = data.error;
+    } catch {
+      // Non-JSON error body; keep the status message.
+    }
+    throw new Error(message);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `praxis-research-${kind}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function downloadStudentWork(assignment, submission) {

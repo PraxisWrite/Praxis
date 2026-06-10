@@ -184,6 +184,21 @@
     `;
   }
 
+  function renderAdminResearchPanel() {
+    const { ui } = globalThis.AppState;
+    const busy = Boolean(ui.adminResearchDownloadBusy);
+    return `
+      <div style="border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;background:#fafaf8;">
+        <h3 style="margin:0 0 6px;font-size:1rem;">Research data exports</h3>
+        <p class="subtle" style="margin:0 0 10px;font-size:0.84rem;">De-identified CSVs for pilot reporting. Rows are keyed by a stable pseudonym — never names or emails — and exclude test accounts and research-excluded students.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="button-secondary" data-action="admin-download-research-csv" data-kind="process-metrics" ${busy ? "disabled" : ""}>Download process metrics CSV</button>
+          <button type="button" class="button-secondary" data-action="admin-download-research-csv" data-kind="reflections" ${busy ? "disabled" : ""}>Download reflections CSV</button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderAdminTeacherList() {
     const { ui } = globalThis.AppState;
     const teachers = ui.adminTeachers || [];
@@ -195,6 +210,7 @@
         </div>
        ${renderAdminCefrBenchmarkPanel()}
         ${renderAdminProcessRefreshStatus()}
+        ${renderAdminResearchPanel()}
         ${renderAdminAssignmentTypesPanel()}
         ${teachers.length === 0
           ? `<div class="empty-state"><p>No teachers found.</p></div>`
@@ -254,16 +270,31 @@
     if (member?.is_test_account) {
       flags.push(`<span class="warning-pill" title="Admin-only marker for fake/demo/test accounts. Future writing behaviour analytics should ignore this student.">Test account</span>`);
     }
+    if (member?.exclude_from_writing_behavior) {
+      flags.push(`<span class="warning-pill" title="Admin-only research flag. This student's data is excluded from research exports and cohort analytics. Never visible to teachers or students; their app experience is unchanged.">Research-excluded</span>`);
+    }
     return flags.length ? `<div class="pill-row" style="margin-top:8px;">${flags.join("")}</div>` : "";
   }
 
   function renderAdminStudentFlagControls(member) {
     const { ui } = globalThis.AppState;
     const saving = ui.adminStudentFlagSavingId === member?.id;
+    const deleting = ui.adminResearchDeleteSavingId === member?.id;
+    let testLabel = member?.is_test_account ? "Unmark test account" : "Mark as test account";
+    if (saving) testLabel = "Saving…";
+    let researchLabel = member?.exclude_from_writing_behavior ? "Include in research data" : "Exclude from research data";
+    if (saving) researchLabel = "Saving…";
+    const deleteLabel = deleting ? "Deleting…" : "Delete research data (withdrawal)";
     return `
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
         <button class="button-ghost" data-action="admin-toggle-test-student" data-student-id="${escapeAttribute(member?.id || "")}" ${saving ? "disabled" : ""} title="Admin-only marker for fake/demo/test accounts. This is not for one assignment concern. To exclude one assignment from the future data pool, use Flag submission in the teacher grading screen." style="font-size:0.78rem;">
-          ${saving ? "Saving…" : member?.is_test_account ? "Unmark test account" : "Mark as test account"}
+          ${testLabel}
+        </button>
+        <button class="button-ghost" data-action="admin-toggle-research-exclusion" data-student-id="${escapeAttribute(member?.id || "")}" ${saving ? "disabled" : ""} title="Admin-only research-consent flag. Excluded students never enter research exports or cohort analytics. The flag is invisible to teachers and students, and the app works identically for the student." style="font-size:0.78rem;">
+          ${researchLabel}
+        </button>
+        <button class="button-ghost" data-action="admin-delete-research-data" data-student-id="${escapeAttribute(member?.id || "")}" data-student-name="${escapeAttribute(member?.name || "")}" ${deleting ? "disabled" : ""} title="Research withdrawal: permanently deletes this student's submissions, process analyses, and class memberships across every class, while the data is still identifiable. Only the fact and date of deletion are logged." style="font-size:0.78rem;color:#9b3651;">
+          ${deleteLabel}
         </button>
       </div>
     `;

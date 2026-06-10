@@ -12,6 +12,8 @@
 -- pastes are not counted as pasted text (they are the student's own prior
 -- writing). Clamped at 0; NULL when activeMinutes is missing/zero (v1 rows).
 --
+-- The lateral extracts each metrics key once: the typed-rate expression and the
+-- plain columns share the same casts instead of repeating the json key literals.
 -- CREATE OR REPLACE VIEW only allows appending columns, so the new column is
 -- last; the full select list must be restated.
 create or replace view public.v_research_process_metrics as
@@ -25,11 +27,11 @@ select
   spa.analysis_version,
   spa.calculated_at,
   (spa.metrics->>'typingRate')::numeric as typing_rate,
-  (spa.metrics->>'activeMinutes')::numeric as active_minutes,
+  m.active_minutes,
   (spa.metrics->>'finalWords')::numeric as final_words,
-  (spa.metrics->>'finalChars')::numeric as final_chars,
+  m.final_chars,
   (spa.metrics->>'draftWords')::numeric as draft_words,
-  (spa.metrics->>'insertedChars')::numeric as inserted_chars,
+  m.inserted_chars,
   (spa.metrics->>'removedChars')::numeric as removed_chars,
   (spa.metrics->>'deletionChars')::numeric as deletion_chars,
   (spa.metrics->>'deletionEvents')::numeric as deletion_events,
@@ -49,20 +51,25 @@ select
   (spa.metrics->>'microCorrections')::numeric as micro_corrections,
   (spa.metrics->>'microCorrectionsPer100w')::numeric as micro_corrections_per_100w,
   (spa.metrics->>'meanBurstLength')::numeric as mean_burst_length,
-  (spa.metrics->>'pasteShare')::numeric as paste_share,
+  m.paste_share,
   (spa.metrics->>'pasteEventCount')::numeric as paste_event_count,
   (spa.metrics->>'externalPasteEventCount')::numeric as external_paste_event_count,
   case
-    when coalesce((spa.metrics->>'activeMinutes')::numeric, 0) > 0 then
+    when coalesce(m.active_minutes, 0) > 0 then
       greatest(0, round(
-        ((spa.metrics->>'insertedChars')::numeric
-          - coalesce((spa.metrics->>'pasteShare')::numeric, 0)
-            * coalesce((spa.metrics->>'finalChars')::numeric, 0))
-        / (spa.metrics->>'activeMinutes')::numeric
+        (m.inserted_chars - coalesce(m.paste_share, 0) * coalesce(m.final_chars, 0))
+        / m.active_minutes
       ))
     else null
   end as typed_chars_per_minute
 from public.submission_process_analyses spa
+cross join lateral (
+  select
+    (spa.metrics->>'activeMinutes')::numeric as active_minutes,
+    (spa.metrics->>'insertedChars')::numeric as inserted_chars,
+    (spa.metrics->>'finalChars')::numeric as final_chars,
+    (spa.metrics->>'pasteShare')::numeric as paste_share
+) m
 join public.submissions s on s.id = spa.submission_id
 join public.profiles p on p.id = spa.student_id
 left join public.assignments a on a.id = spa.assignment_id

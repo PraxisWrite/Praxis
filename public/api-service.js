@@ -520,14 +520,29 @@ async function deleteAssignment(assignmentId) {
       throw new Error("Missing student for admin flag update.");
     }
 
+    const payload = {};
+    if (flags.isTestAccount !== undefined) payload.isTestAccount = Boolean(flags.isTestAccount);
+    if (flags.excludeFromWritingBehavior !== undefined) {
+      payload.excludeFromWritingBehavior = Boolean(flags.excludeFromWritingBehavior);
+    }
     const result = await apiFetch(`/api/admin/students/${studentId}/flags`, {
       method: "PATCH",
-      body: JSON.stringify({
-        isTestAccount: Boolean(flags.isTestAccount),
-      }),
+      body: JSON.stringify(payload),
     });
     if (result?.error) throw createApiError(result, "Failed to update student flags");
     return result?.profile || null;
+  }
+
+  async function deleteStudentResearchData(studentId) {
+    if (!studentId) {
+      throw new Error("Missing student for research data deletion.");
+    }
+
+    const result = await apiFetch(`/api/admin/research/students/${studentId}/data`, {
+      method: "DELETE",
+    });
+    if (result?.error) throw createApiError(result, "Failed to delete research data");
+    return result;
   }
 
   async function loadSubmissionDebugState(assignmentId, studentId = null) {
@@ -691,6 +706,7 @@ async function deleteAssignment(assignmentId) {
     loadAdminTeachers,
     loadAdminClassDetail,
     updateAdminStudentFlags,
+    deleteStudentResearchData,
     loadSubmissionDebugState,
     loadSubmissionEmailDiagnosis,
     loadTeacherClasses,

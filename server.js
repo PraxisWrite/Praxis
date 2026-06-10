@@ -18,6 +18,7 @@ const {
   teacherReviewWasNewlySaved,
 } = require('./notification-utils');
 const {
+  buildDeidentifiedArchiveRow,
   createOpenTeacherReview,
   normalizeStudentVisibleSubmission,
   sanitizeStudentSubmissionPayload,
@@ -190,6 +191,17 @@ function isRlsDenial(error) {
   const code = String(error.code || "");
   const msg = String(error.message || "").toLowerCase();
   return code === "42501" || msg.includes("row-level security") || msg.includes("violates") || msg.includes("insufficient_privilege");
+}
+
+// Research-consent flag must never reach any client (IRB: consent status is
+// invisible to teachers and students alike). Strip it from every profile
+// payload the API returns; admins manage it through the dedicated flags
+// endpoint instead.
+function sanitizeProfileForClient(profile) {
+  if (!profile || typeof profile !== 'object') return profile;
+  const sanitized = { ...profile };
+  delete sanitized.exclude_from_writing_behavior;
+  return sanitized;
 }
 
 // Helper to get user profile including role
@@ -819,37 +831,38 @@ async function ensureTeacherOwnsAssignment(assignmentId, teacherId, client = sup
   return ownedClass ? { ...data, className: ownedClass.name || '' } : null;
 }
 
-// Snapshot submissions (and their raw keystroke / writing-process data) into
-// public.submission_archive before they are hard deleted, so the data survives
-// a class/assignment deletion for algorithm training. Throws if the archive
-// write fails so callers abort the delete rather than silently lose data.
-async function archiveSubmissionsForDeletion(submissions, { reason, archivedBy = null, classId = null }) {
+// Snapshot the de-identified writing-process data of submissions into
+// public.submission_archive before they are hard deleted, so timing/process
+// data survives a class/assignment deletion for algorithm training.
+//
+// IRB constraint: the archive holds NO text of student work and NO student
+// identity. Writing events are stripped to timing/position fields, the linked
+// analysis metrics are copied before the cascade delete removes them, and the
+// student id is replaced with a random UUID token (never derived from the id,
+// so it cannot be linked back; one token per student per batch keeps grouping).
+// Throws if the archive write fails so callers abort the delete rather than
+// silently lose data.
+async function archiveSubmissionsForDeletion(submissions, { reason, classId = null }) {
   const rows = (submissions || []).filter(Boolean);
   if (!rows.length) return;
-  const archiveRows = rows.map((submission) => ({
-    original_submission_id: submission.id,
-    assignment_id: submission.assignment_id ?? null,
-    class_id: classId,
-    student_id: submission.student_id ?? null,
-    status: submission.status ?? null,
-    draft_text: submission.draft_text ?? '',
-    final_text: submission.final_text ?? '',
-    chat_history: submission.chat_history ?? [],
-    writing_events: submission.writing_events ?? [],
-    keystroke_log: submission.keystroke_log ?? [],
-    feedback_history: submission.feedback_history ?? [],
-    reflections: submission.reflections ?? {},
-    outline: submission.outline ?? {},
-    self_assessment: submission.self_assessment ?? {},
-    teacher_review: submission.teacher_review ?? {},
-    fluency_summary: submission.fluency_summary ?? {},
-    submission_snapshot: submission,
-    original_submitted_at: submission.submitted_at ?? null,
-    original_started_at: submission.started_at ?? null,
-    original_updated_at: submission.updated_at ?? null,
-    archive_reason: reason,
-    archived_by: archivedBy,
-  }));
+  const submissionIds = rows.map((submission) => submission.id);
+  const { data: analyses, error: analysisError } = await supabase
+    .from('submission_process_analyses')
+    .select('submission_id, analysis_version, metrics')
+    .in('submission_id', submissionIds);
+  if (analysisError) throw analysisError;
+  const analysisBySubmissionId = new Map((analyses || []).map((analysis) => [analysis.submission_id, analysis]));
+  const tokenByStudentId = new Map();
+  const archiveRows = rows.map((submission) => {
+    const studentKey = submission.student_id || submission.id;
+    if (!tokenByStudentId.has(studentKey)) tokenByStudentId.set(studentKey, crypto.randomUUID());
+    return buildDeidentifiedArchiveRow(submission, {
+      reason,
+      classId,
+      studentToken: tokenByStudentId.get(studentKey),
+      analysis: analysisBySubmissionId.get(submission.id),
+    });
+  });
   const { error } = await supabase.from('submission_archive').insert(archiveRows);
   if (error) throw error;
 }
@@ -965,18 +978,50 @@ function getSubmissionProcessInputHash(submission = {}, assignment = {}, profile
       assignmentLevel: assignment.language_level || assignment.languageLevel || '',
       profileFlags: {
         isTestAccount: Boolean(profile.is_test_account || profile.isTestAccount),
+        excludeFromWritingBehavior: Boolean(profile.exclude_from_writing_behavior || profile.excludeFromWritingBehavior),
       },
       updatedAt: submission.updated_at || submission.updatedAt || '',
     }))
     .digest('hex');
 }
 
+// Exclusion source recorded when profiles.exclude_from_writing_behavior is
+// set (research-consent exclusion). It must never reach a non-admin client:
+// sanitizeProcessAnalysisForViewer strips it from API responses, and the
+// column grants keep it unreadable through PostgREST with a user token.
+const PROFILE_EXCLUSION_SOURCE = 'profile_exclusion';
+
 function getProcessAnalysisExclusionSources(submission = {}, profile = {}) {
   const sources = [];
   const review = getSubmissionTeacherReview(submission);
   if (profile?.is_test_account || profile?.isTestAccount) sources.push('test_account');
   if (review?.writingBehaviourExcluded || review?.writing_behaviour_excluded) sources.push('submission_flag');
+  if (profile?.exclude_from_writing_behavior || profile?.excludeFromWritingBehavior) sources.push(PROFILE_EXCLUSION_SOURCE);
   return sources;
+}
+
+// Consent status must be invisible outside the admin role: for any other
+// viewer (including the student themself) the analysis is reported as if the
+// profile-level exclusion did not exist, so the UI renders identically for
+// consenting and non-consenting students.
+function sanitizeProcessAnalysisForViewer(result, viewerProfile) {
+  if (viewerProfile?.role === 'admin') return result;
+  const strip = (sources) => (Array.isArray(sources) ? sources.filter((source) => source !== PROFILE_EXCLUSION_SOURCE) : []);
+  const analysis = result.analysis
+    ? {
+        ...result.analysis,
+        exclusionSources: strip(result.analysis.exclusionSources),
+        excludedFromAnalytics: strip(result.analysis.exclusionSources).length > 0,
+      }
+    : result.analysis;
+  const stored = result.stored
+    ? {
+        ...result.stored,
+        exclusion_sources: strip(result.stored.exclusion_sources),
+        excluded_from_analytics: strip(result.stored.exclusion_sources).length > 0,
+      }
+    : result.stored;
+  return { ...result, analysis, stored };
 }
 
 function buildProcessAnalysisPayload({ submission, assignment, profile, analysis, inputHash }) {
@@ -1039,7 +1084,7 @@ async function getProcessAnalysisContext(req, submissionId) {
 
   const { data: studentProfile } = await supabase
     .from('profiles')
-    .select('id, name, role, is_test_account')
+    .select('id, name, role, is_test_account, exclude_from_writing_behavior')
     .eq('id', submission.student_id)
     .maybeSingle();
 
@@ -1184,7 +1229,7 @@ async function recomputeStaleProcessAnalyses({ limit = 50 } = {}) {
       .select('submission_id, analysis_version, input_hash'),
     supabase
       .from('profiles')
-      .select('id, name, role, is_test_account'),
+      .select('id, name, role, is_test_account, exclude_from_writing_behavior'),
   ]);
 
   if (submissionsResult.error) throw submissionsResult.error;
@@ -1487,7 +1532,7 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(500).json({ error: SIGNUP_PROFILE_ERROR_MESSAGE });
     }
 
-    return res.status(201).json({ profile });
+    return res.status(201).json({ profile: sanitizeProfileForClient(profile) });
   } catch (error) {
     if (createdUserId) await deleteSignupUser(createdUserId, createdUserEmail || req.body?.email);
     res.status(500).json({ error: createdUserId ? SIGNUP_PROFILE_ERROR_MESSAGE : error.message });
@@ -1512,13 +1557,13 @@ function addBenchmarkMetric(bucket, metrics, key, target) {
   if (Number.isFinite(Number(metrics[key]))) bucket[target].push(metrics[key]);
 }
 
-function groupBenchmarkMetricsByLevel(submissions, assignmentById, testAccountIds) {
+function groupBenchmarkMetricsByLevel(submissions, assignmentById, excludedStudentIds) {
   const byLevel = {};
   for (const submission of submissions || []) {
     const assignment = assignmentById[submission.assignment_id] || {};
     const level = String(assignment.language_level || 'B1').trim().toUpperCase();
     const review = submission.teacher_review || {};
-    const isExcluded = testAccountIds.has(submission.student_id)
+    const isExcluded = excludedStudentIds.has(submission.student_id)
       || Boolean(review.writingBehaviourExcluded || review.writing_behaviour_excluded);
     byLevel[level] ||= buildBenchmarkLevelBucket(level);
     byLevel[level].total += 1;
@@ -1552,7 +1597,7 @@ app.post('/api/auth/signin', async (req, res) => {
     if (error) return res.status(401).json({ error: error.message });
     const profile = await getProfile(data.user.id);
     if (!profile) return res.status(409).json({ error: ACCOUNT_SETUP_INCOMPLETE_MESSAGE });
-    res.json({ session: data.session, profile });
+    res.json({ session: data.session, profile: sanitizeProfileForClient(profile) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1778,7 +1823,7 @@ app.get('/api/auth/me', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Not authenticated' });
     const profile = await getProfile(user.id);
     if (!profile) return res.status(409).json({ error: ACCOUNT_SETUP_INCOMPLETE_MESSAGE });
-    res.json({ profile });
+    res.json({ profile: sanitizeProfileForClient(profile) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1870,10 +1915,9 @@ app.delete('/api/classes/:classId', async (req, res) => {
         .select('*')
         .in('assignment_id', assignmentIds);
       if (fetchError) return res.status(400).json({ error: fetchError.message });
-      // Preserve keystroke/writing-process data before the hard delete.
+      // Preserve de-identified keystroke/writing-process data before the hard delete.
       await archiveSubmissionsForDeletion(submissionsToArchive, {
         reason: 'class_deleted',
-        archivedBy: user.id,
         classId: req.params.classId,
       });
       await supabase.from('submissions').delete().in('assignment_id', assignmentIds);
@@ -2244,10 +2288,9 @@ app.delete('/api/assignments/:id', async (req, res) => {
       .select('*')
       .eq('assignment_id', req.params.id);
     if (fetchError) return res.status(400).json({ error: fetchError.message });
-    // Preserve keystroke/writing-process data before the hard delete.
+    // Preserve de-identified keystroke/writing-process data before the hard delete.
     await archiveSubmissionsForDeletion(submissionsToArchive, {
       reason: 'assignment_deleted',
-      archivedBy: user.id,
       classId: ownedAssignment.class_id ?? null,
     });
 
@@ -2759,7 +2802,10 @@ app.get('/api/submissions/:id/process-analysis', async (req, res) => {
   try {
     const context = await getProcessAnalysisContext(req, req.params.id);
     if (context.error) return res.status(context.status).json({ error: context.error });
-    const result = await computeAndStoreProcessAnalysis(context, { store: true });
+    const result = sanitizeProcessAnalysisForViewer(
+      await computeAndStoreProcessAnalysis(context, { store: true }),
+      context.viewerProfile
+    );
     res.json({
       analysis: result.analysis,
       stored: result.stored,
@@ -2779,7 +2825,10 @@ app.post('/api/submissions/:id/process-analysis/recompute', async (req, res) => 
     if (context.viewerProfile.role !== 'teacher' && context.viewerProfile.role !== 'admin') {
       return res.status(403).json({ error: 'Teacher access required' });
     }
-    const result = await computeAndStoreProcessAnalysis(context, { store: true });
+    const result = sanitizeProcessAnalysisForViewer(
+      await computeAndStoreProcessAnalysis(context, { store: true }),
+      context.viewerProfile
+    );
     res.json({
       analysis: result.analysis,
       stored: result.stored,
@@ -2821,7 +2870,7 @@ app.patch('/api/submissions/:id/process-label', async (req, res) => {
     if (error) return res.status(400).json({ error: error.message });
     res.json({
       label: data,
-      analysis: analysisResult.analysis,
+      analysis: sanitizeProcessAnalysisForViewer(analysisResult, context.viewerProfile).analysis,
       storageWarning: analysisResult.storageError || '',
     });
   } catch (error) {
@@ -2878,18 +2927,20 @@ app.get('/api/admin/writing-process/benchmarks', async (req, res) => {
       .in('assignment_id', assignmentIds);
     if (subError) return res.status(400).json({ error: subError.message });
 
-    // Get test accounts so we can exclude them
-    let { data: profiles, error: profError } = await readClient
+    // Exclude test accounts and consent-excluded students from the benchmark
+    // pool. Read via the service role: exclude_from_writing_behavior is not
+    // readable with a user token (consent stays invisible outside the server).
+    let { data: profiles, error: profError } = await supabase
       .from('profiles')
-      .select('id, is_test_account')
-      .eq('is_test_account', true);
+      .select('id, is_test_account, exclude_from_writing_behavior')
+      .or('is_test_account.eq.true,exclude_from_writing_behavior.eq.true');
     if (profError && isMissingProfileFlagColumn(profError)) {
       profiles = [];
       profError = null;
     }
     if (profError) return res.status(400).json({ error: profError.message });
 
-    const testAccountIds = new Set((profiles || []).map(p => p.id));
+    const excludedStudentIds = new Set((profiles || []).map(p => p.id));
 
     // Build assignment lookups for the shared writing-process analyzer.
     const assignmentById = {};
@@ -2898,7 +2949,7 @@ app.get('/api/admin/writing-process/benchmarks', async (req, res) => {
     }
 
     // Group included submission metrics by CEFR level
-    const byLevel = groupBenchmarkMetricsByLevel(submissions, assignmentById, testAccountIds);
+    const byLevel = groupBenchmarkMetricsByLevel(submissions, assignmentById, excludedStudentIds);
 
     // Compute medians and ranges per level
     const median = arr => {
@@ -3040,7 +3091,20 @@ app.get('/api/admin/classes/:classId/detail', async (req, res) => {
     if (assignData.error) return res.status(400).json({ error: assignData.error.message });
     if (memberData.error) return res.status(400).json({ error: memberData.error.message });
     const assignments = assignData.data || [];
-    const members = (memberData.data || []).map(m => m.profiles).filter(isStudentProfile);
+    let members = (memberData.data || []).map(m => m.profiles).filter(isStudentProfile);
+    // Merge the research-consent flag via the service role (the column is not
+    // readable with a user token) so the admin UI can show/toggle it.
+    if (members.length) {
+      const { data: consentFlags } = await supabase
+        .from('profiles')
+        .select('id, exclude_from_writing_behavior')
+        .in('id', members.map((member) => member.id));
+      const consentById = new Map((consentFlags || []).map((row) => [row.id, Boolean(row.exclude_from_writing_behavior)]));
+      members = members.map((member) => ({
+        ...member,
+        exclude_from_writing_behavior: consentById.get(member.id) || false,
+      }));
+    }
     // Get submissions for all assignments in this class
     const assignmentIds = assignments.map(a => a.id);
     let submissions = [];
@@ -3058,15 +3122,22 @@ app.patch('/api/admin/students/:studentId/flags', async (req, res) => {
   try {
     const user = await requireAdmin(req, res);
     if (!user) return;
-    const isTestAccount = Boolean(req.body?.isTestAccount);
+    const updates = {};
+    if (req.body?.isTestAccount !== undefined) updates.is_test_account = Boolean(req.body.isTestAccount);
+    // Research-consent exclusion (IRB): set by the PI for non-consenting
+    // students. Admin-only — it is stripped from every other profile payload.
+    if (req.body?.excludeFromWritingBehavior !== undefined) {
+      updates.exclude_from_writing_behavior = Boolean(req.body.excludeFromWritingBehavior);
+    }
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: 'No student flags provided.' });
+    }
     const { data, error } = await supabase
       .from('profiles')
-      .update({
-        is_test_account: isTestAccount,
-      })
+      .update(updates)
       .eq('id', req.params.studentId)
       .eq('role', 'student')
-      .select('id, name, role, is_test_account')
+      .select('id, name, role, is_test_account, exclude_from_writing_behavior')
       .maybeSingle();
     if (error) {
       if (isMissingProfileFlagColumn(error)) {
@@ -3080,6 +3151,120 @@ app.patch('/api/admin/students/:studentId/flags', async (req, res) => {
     }
     if (!data) return res.status(404).json({ error: 'Student profile not found.' });
     res.json({ profile: data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ── Research exports & withdrawal (IRB pilot) ────────────────
+// The research surveys are a deliberately separate, unlinkable channel.
+// Never build any join between survey codes and app accounts.
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return '';
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+  if (/[",\n\r]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
+  return text;
+}
+
+function rowsToCsv(rows) {
+  if (!rows.length) return '';
+  const columns = Object.keys(rows[0]);
+  const lines = [columns.join(',')];
+  for (const row of rows) {
+    lines.push(columns.map((column) => csvEscape(row[column])).join(','));
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+// Streams one of the v_research_* views as a CSV download. The views already
+// exclude test accounts, consent-excluded students, and analytics-excluded
+// analyses, and key rows by the stable salted pseudonym (never name/email/id).
+async function sendResearchViewCsv(res, viewName, filename) {
+  const { data, error } = await supabase
+    .from(viewName)
+    .select('*')
+    .order('class_name', { ascending: true })
+    .order('submitted_at', { ascending: true });
+  if (error) return res.status(400).json({ error: error.message });
+  const rows = data || [];
+  if (rows.some((row) => !row.student_pseudonym)) {
+    return res.status(500).json({
+      error: 'Research pseudonym salt is missing (research_config.pseudonym_salt). Export aborted so identities are never exposed.',
+    });
+  }
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(rowsToCsv(rows));
+}
+
+app.get('/api/admin/research/process-metrics.csv', async (req, res) => {
+  try {
+    const user = await requireAdmin(req, res);
+    if (!user) return;
+    await sendResearchViewCsv(res, 'v_research_process_metrics', 'praxis-research-process-metrics.csv');
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/admin/research/reflections.csv', async (req, res) => {
+  try {
+    const user = await requireAdmin(req, res);
+    if (!user) return;
+    await sendResearchViewCsv(res, 'v_research_reflections', 'praxis-research-reflections.csv');
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Withdrawal deletion (IRB): hard-deletes a withdrawing student's submissions,
+// process analyses, and class memberships while the data is still identifiable,
+// deliberately bypassing the research archive. Logs only the fact, date, and
+// row counts — never which student or which admin.
+app.delete('/api/admin/research/students/:studentId/data', async (req, res) => {
+  try {
+    const user = await requireAdmin(req, res);
+    if (!user) return;
+    const studentId = req.params.studentId;
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, name, role')
+      .eq('id', studentId)
+      .maybeSingle();
+    if (profileError) return res.status(400).json({ error: profileError.message });
+    if (!profile || profile.role !== 'student') {
+      return res.status(404).json({ error: 'Student profile not found.' });
+    }
+    if (/^P1-S\d/i.test(String(profile.name || '').trim())) {
+      return res.status(400).json({ error: 'P1-S accounts are the retained pseudonymized Phase 1 dataset and must not be deleted.' });
+    }
+
+    const [subsResult, analysesResult, membershipsResult] = await Promise.all([
+      supabase.from('submissions').select('id').eq('student_id', studentId),
+      supabase.from('submission_process_analyses').select('id').eq('student_id', studentId),
+      supabase.from('class_members').select('id').eq('student_id', studentId),
+    ]);
+    const countError = subsResult.error || analysesResult.error || membershipsResult.error;
+    if (countError) return res.status(400).json({ error: countError.message });
+
+    // Deleting submissions cascades to analyses and labels; the explicit
+    // analyses delete catches any row whose submission was already gone.
+    const submissionDelete = await supabase.from('submissions').delete().eq('student_id', studentId);
+    if (submissionDelete.error) return res.status(400).json({ error: submissionDelete.error.message });
+    const analysisDelete = await supabase.from('submission_process_analyses').delete().eq('student_id', studentId);
+    if (analysisDelete.error) return res.status(400).json({ error: analysisDelete.error.message });
+    const membershipDelete = await supabase.from('class_members').delete().eq('student_id', studentId);
+    if (membershipDelete.error) return res.status(400).json({ error: membershipDelete.error.message });
+
+    const counts = {
+      submissions_deleted: (subsResult.data || []).length,
+      analyses_deleted: (analysesResult.data || []).length,
+      memberships_deleted: (membershipsResult.data || []).length,
+    };
+    const { error: logError } = await supabase.from('research_deletion_log').insert(counts);
+    if (logError) console.error('Research deletion log write failed:', logError.message);
+    res.json({ ok: true, deleted: counts });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

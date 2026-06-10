@@ -34,8 +34,19 @@ Always check whether a PR already exists for the branch before creating one.
 
 ## Active branch
 
-`claude/todo-ux-fixes` — todo housekeeping (mark done items as done in TODO.md + CLAUDE.md sync).  
+`claude/dreamy-albattani-ydfn53` — IRB research data layer (see `docs/research-data-irb.md`).
 Start a **new branch off main** for the next session's work.
+
+## Research pilot (IRB) — READ BEFORE TOUCHING DATA
+
+Praxis is entering a research pilot **pending IRB approval**. Full details in `docs/research-data-irb.md`. Hard rules:
+
+- `submission_archive` is de-identified by schema: no text columns, no student ids — only timing/process data under a random non-linkable `student_token`. Never add identity or text columns back.
+- `profiles.exclude_from_writing_behavior` = research-consent exclusion. It must stay invisible to teachers/students: stripped from profile responses (`sanitizeProfileForClient`), stripped from analysis responses for non-admins (`sanitizeProcessAnalysisForViewer`), and unreadable by the `authenticated` role (column grants). Read/write it via the service-role client only.
+- Research exports: `v_research_process_metrics` / `v_research_reflections` views + admin-only CSV endpoints (`/api/admin/research/*.csv`). Pseudonym = `md5(student_id || salt)`, salt in `research_config` (DB-only secret). Chat history is never exported.
+- Withdrawal: `DELETE /api/admin/research/students/:studentId/data` — hard delete, bypasses archive, logs only fact/date/counts in `research_deletion_log`.
+- Do NOT touch accounts `P1-S01…P1-S27` (retained pseudonymized Phase 1 data), test accounts, or pilot class "AWG 1001".
+- **Out of scope, do not build:** any linking between survey codes and app accounts. The surveys are a deliberately separate, unlinkable channel — flag any request that implies joining them.
 
 ### Recently merged (main is up to date through PR #296)
 

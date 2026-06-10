@@ -6324,15 +6324,17 @@ ${chatLines || "<p><em>No conversation recorded.</em></p>"}
 
 // Admin-only research CSV download. Auth.apiFetch parses JSON, so the raw
 // CSV body is fetched directly with the bearer token and saved as a file.
+// Note: must use the bare `Auth` binding — auth.js declares it with a
+// top-level `const` in a classic script, so `globalThis.Auth` is undefined.
 // Mirrors apiFetch's 401 handling: a long-open admin session can have an
 // expired access token, so refresh once and retry before surfacing an error.
 async function fetchResearchCsv(kind) {
   const url = `/api/admin/research/${kind}.csv`;
-  let response = await fetch(url, { headers: globalThis.Auth?.authHeaders?.() || {} });
-  if (response.status === 401 && globalThis.Auth?.restoreSession) {
-    const restored = await globalThis.Auth.restoreSession();
+  let response = await fetch(url, { headers: Auth.authHeaders() });
+  if (response.status === 401) {
+    const restored = await Auth.restoreSession();
     if (restored) {
-      response = await fetch(url, { headers: globalThis.Auth.authHeaders() });
+      response = await fetch(url, { headers: Auth.authHeaders() });
     }
   }
   return response;

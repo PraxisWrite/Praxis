@@ -67,6 +67,52 @@ The views themselves are revoked from `anon`/`authenticated` — a teacher
 token cannot query them (they could otherwise infer consent status from
 missing rows).
 
+### Data dictionary — `v_research_process_metrics`
+
+One row per **analyzed piece of writing** (not per submitted assignment —
+see caveat 2). Columns, by group:
+
+| Group | Columns | Notes |
+|---|---|---|
+| Keys | `student_pseudonym`, `class_name`, `assignment_id`, `assignment_title` | Pseudonym is stable across assignments. |
+| Status | `submitted_at`, `process_status`, `analysis_version`, `calculated_at` | `process_status`: `typical` / `review_suggested` / `close_review_needed` / `not_enough_writing_data`. |
+| Volume | `final_words`, `final_chars`, `draft_words`, `inserted_chars`, `removed_chars` | `inserted_chars` includes pasted characters. |
+| Rate | `typing_rate`, `typed_chars_per_minute`, `active_minutes` | See caveat 1 — the two rates answer different questions. |
+| Pauses | `long_pause_count`, `long_pauses_per_100w`, `mean_long_pause_ms`, `short_pause_count`, `ignored_idle_pause_count`, `ignored_idle_pause_ms` | Idle gaps ≥ `thinking_pause_max_ms` are clipped out of active time. |
+| Thresholds | `long_pause_min_ms`, `thinking_pause_max_ms` | Config echoes (2 000 ms / 120 000 ms in v2) so threshold changes stay interpretable per row. |
+| Revision | `local_revisions(_per_100w)`, `substantive_revisions(_per_100w)`, `micro_corrections(_per_100w)`, `deletion_chars`, `deletion_events`, `product_process_ratio`, `mean_burst_length` | `product_process_ratio` ≈ share of typed text surviving into the final. |
+| Paste | `paste_share`, `paste_event_count`, `external_paste_event_count` | `paste_share` = external pasted chars ÷ final chars (own-outline pastes excluded). |
+
+### Known caveats (read before analyzing)
+
+1. **`typing_rate` includes pasted characters** (it is
+   `inserted_chars / active_minutes`). This is deliberate in the
+   teacher-facing review: a wholesale paste shows up as an absurd
+   1 000+ chars/min, and that inflation is itself a detection signal
+   (cohort "typing pace above peer range" feeds the review verdict).
+   Do not "fix" the teacher view. For research questions about genuine
+   composition fluency use **`typed_chars_per_minute`** instead — a
+   paste-excluded rate reconstructed as
+   `(inserted_chars − paste_share × final_chars) / active_minutes`
+   (approximate: per-event pasted-char counts are not stored in metrics;
+   own-outline pastes count as the student's own writing).
+2. **`submitted_at` can be NULL** — the export covers analyzed *drafts*
+   as well as submissions. NULL means the student wrote but never
+   submitted. Filter on `submitted_at is not null` when the unit of
+   analysis is a submitted assignment; keep the NULL rows when studying
+   engagement/abandonment.
+3. **Filter `analysis_version = 'writing-process-v2'`** for metric
+   comparability. Residual v1 rows (all `not_enough_writing_data`) have
+   NULL threshold columns and an older pause model.
+4. **Treat `not_enough_writing_data` rows as missing data.** With ~0
+   final words, the per-100-words metrics divide into nonsense (e.g.
+   "700 revisions per 100w" on a 12-character draft). The status flag is
+   the filter; the raw columns are left untouched on purpose.
+5. **`class_name` + `submitted_at` are quasi-identifiers.** Someone who
+   knows a class roster could narrow rows to people. Exports are
+   admin-only by design; treat downloaded CSVs as confidential study
+   data and do not redistribute them as-is.
+
 ## 3. Consent exclusion (`profiles.exclude_from_writing_behavior`)
 
 Set by the PI for non-consenting students via the admin class detail

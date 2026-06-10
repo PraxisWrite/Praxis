@@ -391,13 +391,14 @@ async function sendEmail({ to, subject, html, text, idempotencyKey }) {
     return { skipped: true };
   }
   const recipients = Array.isArray(to) ? to : [to];
+  // canSendNotificationEmails() above already guarantees the Resend key and
+  // from-address exist here, so don't log anything derived from them
+  // (CodeQL js/clear-text-logging flags even Boolean(SECRET)).
   console.info('[EMAIL DIAG] Sending email', {
     subject,
     recipients: recipients.map(maskEmail),
     recipientCount: recipients.length,
     idempotencyKey: idempotencyKey || null,
-    hasResendApiKey: Boolean(RESEND_API_KEY),
-    hasFromEmail: Boolean(NOTIFY_FROM_EMAIL),
     from: maskEmail(NOTIFY_FROM_EMAIL),
   });
   const response = await fetch('https://api.resend.com/emails', {

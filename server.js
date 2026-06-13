@@ -1288,17 +1288,23 @@ const AI_BURST_MAX = 12;       // >12 calls in 30s is not human pacing
 const AI_HOURLY_WINDOW_MS = 3600000;
 const AI_HOURLY_MAX = 150;     // sustained ceiling no real user reaches
 const AI_COOLDOWN_TIERS_MS = [300000, 900000, 3600000, 86400000]; // 5m, 15m, 1h, 24h
-const aiUsageByUser = new Map(); // userId -> { hits: number[], cooldownUntil, offences }
+const AI_OFFENCE_DECAY_MS = 3600000; // 1h with no new trip resets the escalation tier
+const aiUsageByUser = new Map(); // userId -> { hits: number[], cooldownUntil, offences, lastTripAt }
 
 function checkAiVelocity(userId) {
   const now = Date.now();
   let rec = aiUsageByUser.get(userId);
   if (!rec) {
-    rec = { hits: [], cooldownUntil: 0, offences: 0 };
+    rec = { hits: [], cooldownUntil: 0, offences: 0, lastTripAt: 0 };
     aiUsageByUser.set(userId, rec);
   }
   if (now < rec.cooldownUntil) {
     return { allowed: false, retryAfter: Math.ceil((rec.cooldownUntil - now) / 1000) };
+  }
+  // Decay the escalation tier after a sustained clean period so occasional trips
+  // days apart (normal classroom bursts) don't compound toward a 24h lockout.
+  if (rec.offences > 0 && now - rec.lastTripAt > AI_OFFENCE_DECAY_MS) {
+    rec.offences = 0;
   }
   rec.hits = rec.hits.filter((t) => now - t < AI_HOURLY_WINDOW_MS);
   const burstCount = rec.hits.filter((t) => now - t < AI_BURST_WINDOW_MS).length;
@@ -1306,6 +1312,7 @@ function checkAiVelocity(userId) {
     const tier = Math.min(rec.offences, AI_COOLDOWN_TIERS_MS.length - 1);
     const cooldownMs = AI_COOLDOWN_TIERS_MS[tier];
     rec.offences += 1;
+    rec.lastTripAt = now;
     rec.cooldownUntil = now + cooldownMs;
     return { allowed: false, retryAfter: Math.ceil(cooldownMs / 1000) };
   }
@@ -1417,16 +1424,19 @@ app.post('/api/generate', async (req, res) => {
   if (aiInputCharCount(prompt, messages, system) > MAX_AI_INPUT_CHARS) {
     return res.status(413).json({ error: 'Your request is too large. Please shorten it and try again.' });
   }
+  // Concurrency gate FIRST: a request bounced for transient contention must not
+  // count against the user's velocity budget. Otherwise classroom congestion
+  // (14 students clicking "generate" at once, each client retrying the busy-429)
+  // would push legitimate students toward the burst limit and its cooldowns.
+  if (aiRequestsInFlight >= AI_MAX_CONCURRENT) {
+    // Flagged retryable so the client distinguishes this from the velocity-breaker
+    // 429 below and retries only this one after a brief wait.
+    return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.', retryable: true });
+  }
   const velocity = checkAiVelocity(user.id);
   if (!velocity.allowed) {
     res.set('Retry-After', String(velocity.retryAfter));
     return res.status(429).json({ error: 'Too many requests in a short time. Please wait a few minutes and try again.' });
-  }
-  if (aiRequestsInFlight >= AI_MAX_CONCURRENT) {
-    // Transient contention (not abuse): retrying after a brief wait is safe and
-    // expected, unlike the velocity-breaker 429 above. Flagged so the client
-    // can distinguish the two and retry only this one.
-    return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.', retryable: true });
   }
   aiRequestsInFlight++;
   try {
@@ -1460,7 +1470,16 @@ app.post('/api/generate', async (req, res) => {
     }
 
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || 'AI request failed.' });
+    if (!response.ok) {
+      // Upstream rate-limit (429), overload (529), or transient unavailability
+      // (503): tell the client to retry with backoff instead of hard-failing the
+      // student mid-class. The client only auto-retries 429s flagged retryable,
+      // so map these onto that path rather than relaying the raw status.
+      if (response.status === 429 || response.status === 503 || response.status === 529) {
+        return res.status(429).json({ error: 'AI is busy right now. Please try again in a moment.', retryable: true });
+      }
+      return res.status(response.status).json({ error: data?.error?.message || 'AI request failed.' });
+    }
     const text = data?.content?.[0]?.text;
     if (!text) return res.status(502).json({ error: 'AI returned an empty response. Please try again.' });
     res.json({ response: text });
@@ -1474,9 +1493,15 @@ app.post('/api/generate', async (req, res) => {
 
 // ── Auth endpoints ───────────────────────────────────────────
 
-function validateSignupPayload({ email, password, name, role }) {
+function validateSignupPayload({ email, password, name, role }, signupCode) {
   if (!email || !password || !name || !role) return 'email, password, name and role are required';
   if (!['student', 'teacher'].includes(role)) return 'Please choose student or teacher.';
+  // Optional gate: when TEACHER_SIGNUP_CODE is set, teacher self-signup requires
+  // it, so a public pilot URL can't be used to mint teacher accounts (which can
+  // spend the AI budget). Inert when the env var is unset — default unchanged.
+  if (role === 'teacher' && process.env.TEACHER_SIGNUP_CODE && signupCode !== process.env.TEACHER_SIGNUP_CODE) {
+    return 'Teacher sign-up is restricted. Please contact an administrator.';
+  }
   return validatePasswordStrength(password);
 }
 
@@ -1512,8 +1537,8 @@ app.post('/api/auth/signup', async (req, res) => {
   let createdUserId = null;
   let createdUserEmail = null;
   try {
-    const { email, password, name, role } = req.body;
-    const validationError = validateSignupPayload({ email, password, name, role });
+    const { email, password, name, role, signupCode } = req.body;
+    const validationError = validateSignupPayload({ email, password, name, role }, signupCode);
     if (validationError) return res.status(400).json({ error: validationError });
 
     const { data, error } = await supabase.auth.admin.createUser({

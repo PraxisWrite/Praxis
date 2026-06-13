@@ -7,6 +7,125 @@ Items from pilot testing and teacher feedback. Bugs first, then features.
 
 ---
 
+## Security audit findings (pre-pilot, 2026-06-13)
+
+Full read-only audit ahead of the 20–40 student pilot (~14 concurrent). No
+cross-tenant data leaks found; the IRB data-layer grant changes broke no live
+flow; student work is protected by synchronous localStorage persistence. Items
+below are the residual findings, ranked by pilot impact.
+
+### Fixed in the security batch (2026-06-13)
+
+- [x] **Stored XSS in grade-sheet export** — `public/app.js:6163` interpolated the
+  student-set display name unescaped into the chat log (every other field in the
+  builder was escaped); fired in the teacher's browser on "Download student work".
+  Fixed: wrapped in `escapeHtml(studentName)`.
+- [x] **AI rate-limit burst hard-errored students** — `server.js` `/api/generate`
+  relayed Anthropic 429/503/529 with no `retryable` flag, so the client never
+  retried and every student got an instant error during a synchronized class
+  burst. Fixed: map upstream 429/503/529 → retryable 429. Also bumped the client
+  AI timeout (20s→25s) above the server's 20s Anthropic timeout to kill the
+  tie-race that wasted near-20s responses.
+- [x] **AI velocity breaker could 24h-lock a legitimate student** — `server.js`
+  `checkAiVelocity`: `offences` never decayed and the velocity hit was recorded
+  *before* the concurrency gate, so classroom congestion (busy-429s + client
+  retries) pushed students toward the burst limit and its escalating cooldowns.
+  Fixed: concurrency gate now runs first (busy-rejected calls don't count), and
+  the escalation tier decays after 1h with no new trip (`AI_OFFENCE_DECAY_MS`).
+- [x] **Self-registerable teacher accounts** — `server.js` signup took `role` from
+  the body with no gate. Added an **opt-in** `TEACHER_SIGNUP_CODE` env gate:
+  inert by default (no behavior change), and when set, teacher self-signup
+  requires the code. **ACTION: set `TEACHER_SIGNUP_CODE` in Railway before the
+  pilot URL is shared** (note: activating it blocks teacher self-signup via the
+  current client form — existing teacher accounts are unaffected; create new
+  teachers by calling the API with the code or temporarily unsetting it).
+
+### Fix before / early in pilot
+
+- [ ] **[HIGH] No rate limiting on auth endpoints** — `server.js` has no
+  `express-rate-limit`/`helmet`; `/api/auth/signin|signup|forgot-password|refresh`
+  rely solely on Supabase's limits. **Design note:** key any limiter by **email,
+  not IP** — 14 students behind one university NAT share a public IP, so an
+  IP-based limit would lock out a whole classroom at sign-in. Per-email (signin
+  brute-force) + generous per-IP ceiling is the safe shape. Deferred from the
+  batch because a misconfigured limiter is itself a pilot-breaking risk; needs
+  testing against the real deploy.
+- [ ] **[HIGH] E2E does not gate PRs / can't validate PR code** — the Playwright
+  suite targets **production** (`baseURL || "https://praxiswrite.com"`, no
+  `webServer` block), so a `pull_request` trigger would test prod (old code), not
+  the PR. Real fix: add a `webServer` block that boots the PR's server with test
+  Supabase creds (or a Railway preview deploy) and point E2E at it, then add the
+  `pull_request` gate. **Pilot-week mitigation:** freeze merges to `main` during
+  live sessions; rely on the post-merge smoke + manual login→write→submit→grade.
+- [ ] **[MEDIUM] `restoreSession` logs the user out on a transient network error**
+  — `public/auth.js:113-147`: the catch wipes the stored session on any thrown
+  error (e.g. a `fetch` TypeError when a laptop wakes before WiFi), bouncing the
+  student to login mid-class. Written work is safe (localStorage). Fix: on a
+  network error (vs a parsed `data.error`), keep the session and soft-fail.
+- [ ] **[MEDIUM] Unload flush has no `keepalive`/`sendBeacon`** —
+  `public/app.js:1816-1823`: the `pagehide`/`beforeunload` sync is a normal fetch
+  the browser aborts on close, so the final few seconds of writing-events may not
+  reach the server until the student reopens on the same device. Bounded (text is
+  in localStorage), but fix with `keepalive:true`/`navigator.sendBeacon`.
+
+### Post-pilot backlog
+
+- [ ] **[MEDIUM] Teacher grading list pulls full keystroke logs for the whole
+  class** — `server.js:2317` `select('*, profiles(id,name)')`, no pagination;
+  largest server memory spike. Select only list-view columns; lazy-load heavy
+  arrays per submission.
+- [ ] **[MEDIUM] Deploy hardening** — add `engines.node: "20.x"` to package.json
+  (CI runs Node 20; Railway picks its own) and a `/healthz` route + Railway
+  healthcheck (no health endpoint today, so Railway can't auto-restart an
+  OOM-thrashing instance).
+- [ ] **[MEDIUM] Server→Anthropic timeout race** — partly addressed (client now
+  25s > server 20s). Consider making the intent explicit/configurable.
+- [ ] **[MEDIUM] CSP is report-only** — `server.js:51-62` blocks nothing; promote
+  to enforcing once inline event handlers are removed.
+- [ ] **[MEDIUM] Open redirect in password reset** — `server.js:272-296` passes a
+  client-controlled `redirectTo` to Supabase. Harmless **iff** the Supabase
+  "Redirect URLs" allowlist is locked to the domain (see manual checklist); stop
+  accepting the client value regardless.
+- [ ] **[LOW] `error.message` leaked to clients** in auth/AI handlers (DB/internal
+  details); harden like the submission handlers (generic message + `errorClassForLog`).
+- [ ] **[LOW] Unauthenticated `/api/classes/:classId/invite`** leaks class +
+  teacher name; account-existence leak on signin/forgot-password.
+- [ ] **[LOW] Withdrawal-delete guards only `P1-S*` names** (`server.js:3240`),
+  not test accounts or the "AWG 1001" pilot class — admin mis-click is
+  unrecoverable. Extend the guard.
+- [ ] **[LOW] No multi-tab session sync** — Supabase rotates refresh tokens; a
+  student with two tabs can get logged out of both. Add a `storage` listener.
+- [ ] **[LOW] `/api/rubric/parse` raw fetch has no 401 refresh** —
+  `public/app.js:4504`: expired token → misleading "Could not read the rubric
+  file." (teacher-only, pre-class).
+- [ ] **[LOW] In-memory quota/velocity maps never prune** (`aiUsageByUser`,
+  `rubricUsageByUser`) — negligible at pilot scale; add a periodic sweep before
+  scaling.
+- [ ] **[LOW] Rubric AI endpoints** (teacher, 10/day) aren't covered by the 200k
+  input cap or velocity breaker; accept 5MB files.
+- [ ] **[LOW] Research-layer hardening** — `writeWithRequestScopedFallback`
+  catches RLS but not column-grant denials (latent footgun if profiles writes
+  ever route through it); `research_deletion_log` insert failure is only logged;
+  `fluency_summary`/`metrics` copied into the archive without a key whitelist;
+  IRB helper functions (`sanitizeProfileForClient`, `sanitizeProcessAnalysisForViewer`,
+  `archiveSubmissionsForDeletion`) are untested.
+- [ ] **[LOW] Client load** — 31 separate `<script defer>` (~830KB unminified);
+  Sentry loader is synchronous in `<head>` (consider `async`).
+- [ ] Run `npm audit --omit=dev` before the pilot (not run in the audit sandbox).
+
+### Manual verification checklist (could not be checked from the audit sandbox)
+
+- [ ] **Supabase "Redirect URLs" allowlist** — confirm it's locked to the Praxis
+  domain (gates the password-reset open-redirect severity).
+- [ ] **Anthropic account RPM/TPM** — confirm it covers ~14 near-simultaneous
+  `claude-sonnet-4-6` calls (determines whether the rate-limit path is hit).
+- [ ] **Production smoke test** — manual login → write → submit → grade (sandbox
+  egress blocked `praxiswrite.com`).
+- [ ] **Live DB grants** — static audit verified migration/code consistency;
+  confirm with `\dp profiles` / `submission_process_analyses` if convenient.
+
+---
+
 ## Bugs
 
 ### High priority

@@ -2129,7 +2129,10 @@ async function requestAiGenerate(payload, options = {}) {
   await aiRequestSemaphore.acquire();
   const retries = Math.max(0, Number(options.retries ?? 1));
   const externalSignal = options.signal || null;
-  const timeoutMs = Math.max(8000, Number(options.timeoutMs || 20000));
+  // Client timeout is intentionally longer than the server's 20s Anthropic
+  // timeout so the server's own 504 reaches us before we abort — otherwise an
+  // exactly-20s response races the abort and wastes the call.
+  const timeoutMs = Math.max(8000, Number(options.timeoutMs || 25000));
   // Transient "server busy" 429s get their own short-backoff retry budget,
   // independent of the normal attempt count.
   const MAX_BUSY_RETRIES = 3;
@@ -6160,7 +6163,7 @@ function buildGradeSheetHtml(assignment, submission) {
   const currentStatus = submission.status || submission.teacherReview?.status || "not_started";
   const chatLines = (submission.chatHistory || []).map((m) => `
     <div class="msg msg-${m.role}">
-      <strong>${m.role === "assistant" ? "Coach" : studentName}</strong>
+      <strong>${m.role === "assistant" ? "Coach" : escapeHtml(studentName)}</strong>
       <p>${escapeHtml(m.content)}</p>
     </div>`).join("");
 

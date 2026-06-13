@@ -272,6 +272,24 @@ function isLocalhostUrl(value) {
     raw.startsWith('[::1]:');
 }
 
+// Apply a trusted configured origin to a reset redirect: honor the client's
+// requested redirect only if it is same-origin, otherwise keep just its
+// path+query on the trusted origin. Extracted to keep getPasswordResetBaseUrl's
+// cognitive complexity within bounds.
+function applyTrustedResetOrigin(configuredBase, redirectFromClient, isAbsoluteClientRedirect) {
+  if (!isAbsoluteClientRedirect) return configuredBase;
+  try {
+    const trusted = new URL(configuredBase);
+    const requested = new URL(redirectFromClient);
+    if (requested.origin === trusted.origin) {
+      return stripTrailingSlashes(requested.href);
+    }
+    return stripTrailingSlashes(`${trusted.origin}${requested.pathname}${requested.search}`);
+  } catch {
+    return configuredBase; // malformed redirect — fall back to the trusted base
+  }
+}
+
 function getPasswordResetBaseUrl(req, requestedRedirect) {
   const redirectFromClient = String(requestedRedirect || '').trim();
   const lowerRedirect = redirectFromClient.toLowerCase();
@@ -280,30 +298,15 @@ function getPasswordResetBaseUrl(req, requestedRedirect) {
     !isLocalhostUrl(redirectFromClient);
 
   // When a trusted public base is configured (PUBLIC_APP_URL etc.), never emit an
-  // off-domain reset link: honor the client's requested redirect only if it is
-  // same-origin, otherwise keep just its path+query on the trusted origin. This is
-  // defense-in-depth on top of Supabase's redirect allow-list, and it cannot break
-  // the normal flow — a same-origin `…/?reset=1` is returned verbatim. When no
-  // trusted base is configured the previous behavior is preserved so the origin is
-  // never mis-resolved from proxy headers.
+  // off-domain reset link (defense-in-depth on top of Supabase's allow-list). A
+  // same-origin `…/?reset=1` is returned verbatim, so the normal flow is unchanged.
+  // When no trusted base is configured the previous behavior is preserved so the
+  // origin is never mis-resolved from proxy headers.
   const configuredBase = getConfiguredPublicBaseUrl();
   if (configuredBase && !isLocalhostUrl(configuredBase)) {
-    if (isAbsoluteClientRedirect) {
-      try {
-        const trusted = new URL(configuredBase);
-        const requested = new URL(redirectFromClient);
-        if (requested.origin === trusted.origin) {
-          return stripTrailingSlashes(requested.href);
-        }
-        return stripTrailingSlashes(`${trusted.origin}${requested.pathname}${requested.search}`);
-      } catch {
-        // malformed redirect — fall back to the trusted base below
-      }
-    }
-    return configuredBase;
+    return applyTrustedResetOrigin(configuredBase, redirectFromClient, isAbsoluteClientRedirect);
   }
 
-  // No trusted base configured: preserve the previous behavior unchanged.
   if (isAbsoluteClientRedirect) {
     return stripTrailingSlashes(redirectFromClient);
   }

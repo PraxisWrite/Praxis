@@ -88,7 +88,10 @@ app.use((req, res, next) => {
 // the file here — lets the static middleware below do the file read, so this
 // handler performs no direct file-system access of its own.
 app.get('/', (req, res, next) => {
-  if (req.query.join) {
+  // Serve the app (not the marketing landing page) for flows the SPA must
+  // handle on load: class invites (?join) and the password-reset callback
+  // (?reset), whose recovery token Supabase appends to this URL as a hash.
+  if (req.query.join || req.query.reset) {
     req.url = '/index.html';
   }
   return next();

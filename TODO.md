@@ -39,6 +39,29 @@ below are the residual findings, ranked by pilot impact.
   pilot URL is shared** (note: activating it blocks teacher self-signup via the
   current client form — existing teacher accounts are unaffected; create new
   teachers by calling the API with the code or temporarily unsetting it).
+- [x] **Password reset landed on the marketing page, not the reset form** —
+  `server.js` `/` route only swapped in the app (`index.html`) for `?join`, so a
+  reset callback (`/?reset=1#access_token…`) fell through to `landing.html`,
+  which has no recovery-token handling — the reset form never showed. Fixed:
+  `/` now also serves the app for `?reset`. (Found during the dashboard fix
+  below: with Supabase Site URL/allow-list corrected, the link reached
+  praxiswrite.com but showed the landing page.)
+
+### Manual config done / to do (Supabase dashboard)
+
+- [x] **Supabase URL config fixed** — Site URL was `http://localhost:3000` with
+  an empty redirect allow-list, so every reset email redirected to localhost
+  (resets silently broken for everyone). Set Site URL = `https://praxiswrite.com`
+  and redirect allow-list = `https://praxiswrite.com/**` (domain-locked, which
+  also keeps the off-site-redirect finding closed).
+- [ ] **Move Supabase Auth emails to Resend SMTP + rebrand** — reset emails
+  currently send via Supabase's built-in test SMTP: unbranded ("Supabase Auth",
+  "powered by Supabase"), heavily rate-limited, and landing in spam. Point
+  Supabase → Authentication → SMTP Settings at Resend (host `smtp.resend.com`,
+  port 465, user `resend`, password = existing `RESEND_API_KEY`, sender = the
+  verified `NOTIFY_FROM_EMAIL` domain), then rebrand the "Reset Password" email
+  template (Authentication → Email Templates) as Praxis. Raises the send rate
+  limit and fixes deliverability before the pilot.
 
 ### Fix before / early in pilot
 

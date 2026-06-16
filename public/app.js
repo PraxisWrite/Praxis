@@ -5102,9 +5102,7 @@ function updateDraftSubmission(nextText) {
     return;
   }
 
-  const previousText = editorDiffBaselines.draftText != null
-    ? editorDiffBaselines.draftText
-    : (submission.draftText || "");
+  const previousText = editorDiffBaselines.draftText ?? (submission.draftText || "");
   const now = new Date().toISOString();
   const event = buildProcessWritingEvent(previousText, nextText, { phase: "draft", field: "draftText" });
   editorDiffBaselines.draftText = nextText;
@@ -5126,9 +5124,7 @@ function updateDraftSubmission(nextText) {
 function updateFinalSubmission(nextText) {
   const submission = getStudentSubmission();
   if (!submission) return;
-  const previousText = editorDiffBaselines.finalText != null
-    ? editorDiffBaselines.finalText
-    : (submission.finalText || submission.draftText || "");
+  const previousText = editorDiffBaselines.finalText ?? (submission.finalText || submission.draftText || "");
   const now = new Date().toISOString();
   const event = buildProcessWritingEvent(previousText, nextText, { phase: "final", field: "finalText" });
   editorDiffBaselines.finalText = nextText;

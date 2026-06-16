@@ -976,6 +976,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   appEl.addEventListener("click", handleClick);
   appEl.addEventListener("change", handleChange);
   appEl.addEventListener("input", handleInput);
+  appEl.addEventListener("focusin", handleEditorFocusBaseline);
   appEl.addEventListener("paste", handlePaste, true);
   appEl.addEventListener("keydown", handleKeydown);
 
@@ -1855,6 +1856,7 @@ function bindEvents() {
   appEl.addEventListener("click", handleClick);
   appEl.addEventListener("change", handleChange);
   appEl.addEventListener("input", handleInput);
+  appEl.addEventListener("focusin", handleEditorFocusBaseline);
   appEl.addEventListener("scroll", handleScroll, true);
   appEl.addEventListener("paste", handlePaste, true);
   appEl.addEventListener("keydown", handleKeydown);
@@ -5073,15 +5075,39 @@ function buildProcessWritingEvent(previousText, nextText, { phase = "draft", fie
   };
 }
 
+// Diff baselines for the writing editors. They must follow the editor's
+// on-screen content, NOT submission.draftText/finalText: a background sync/merge
+// can revert those state fields behind the live editor, and diffing a keystroke
+// against a reverted field turns a one-character edit into a giant phantom
+// "replace" event (which both breaks the playback and massively inflates the
+// process metrics). The baseline is anchored on focus (initial focus, refocus
+// after a re-render, or switching submissions) and advanced only by the input
+// handlers below — so a sync can never desync it.
+const editorDiffBaselines = { draftText: null, finalText: null };
+function resetEditorDiffBaseline(field, value) {
+  editorDiffBaselines[field] = typeof value === "string" ? value : null;
+}
+function handleEditorFocusBaseline(event) {
+  const target = event.target;
+  if (target?.id === "draft-editor") {
+    resetEditorDiffBaseline("draftText", target.value);
+  } else if (target?.id === "final-editor") {
+    resetEditorDiffBaseline("finalText", target.value);
+  }
+}
+
 function updateDraftSubmission(nextText) {
   const submission = getStudentSubmission();
   if (!submission) {
     return;
   }
 
-  const previousText = submission.draftText || "";
+  const previousText = editorDiffBaselines.draftText != null
+    ? editorDiffBaselines.draftText
+    : (submission.draftText || "");
   const now = new Date().toISOString();
   const event = buildProcessWritingEvent(previousText, nextText, { phase: "draft", field: "draftText" });
+  editorDiffBaselines.draftText = nextText;
   if (!event) {
     return;
   }
@@ -5100,9 +5126,12 @@ function updateDraftSubmission(nextText) {
 function updateFinalSubmission(nextText) {
   const submission = getStudentSubmission();
   if (!submission) return;
-  const previousText = submission.finalText || submission.draftText || "";
+  const previousText = editorDiffBaselines.finalText != null
+    ? editorDiffBaselines.finalText
+    : (submission.finalText || submission.draftText || "");
   const now = new Date().toISOString();
   const event = buildProcessWritingEvent(previousText, nextText, { phase: "final", field: "finalText" });
+  editorDiffBaselines.finalText = nextText;
   if (event) {
     event.timestamp = now;
     submission.writingEvents.push(event);

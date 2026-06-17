@@ -1,9 +1,25 @@
 (function () {
   const PLAYBACK_INTRA_EVENT_DELAY_MS = 60;
   const PLAYBACK_MAX_FRAME_DELAY_MS = 1200;
+  const PLAYBACK_PRE_STYLE = "margin:0;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;";
+
+  // Render the playback text with an insertion-point caret at `caret`, so the
+  // viewer can see exactly where each keystroke/deletion lands (GPTZero-style).
+  // The caret span is static markup; the surrounding text is always escaped.
+  function buildPlaybackPreHtml(text, caret) {
+    const { escapeHtml } = globalThis;
+    const safeText = String(text ?? "");
+    const caretAt = Number(caret);
+    if (Number.isFinite(caretAt) && caretAt >= 0 && caretAt <= safeText.length) {
+      const before = escapeHtml(safeText.slice(0, caretAt));
+      const after = escapeHtml(safeText.slice(caretAt));
+      return `<pre style="${PLAYBACK_PRE_STYLE}">${before}<span class="playback-caret" aria-hidden="true"></span>${after}</pre>`;
+    }
+    return `<pre style="${PLAYBACK_PRE_STYLE}">${escapeHtml(safeText)}</pre>`;
+  }
 
   function renderPlaybackScreenOnly() {
-    const { escapeHtml, getSelectedReviewSubmission } = globalThis;
+    const { getSelectedReviewSubmission } = globalThis;
     const submission = getSelectedReviewSubmission();
     const playbackScreen = document.getElementById("playback-screen");
     if (!submission || !playbackScreen) {
@@ -11,7 +27,7 @@
     }
 
     const playback = getPlaybackState(submission);
-    playbackScreen.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(playback.text)}</pre>`;
+    playbackScreen.innerHTML = buildPlaybackPreHtml(playback.text, playback.caret);
   }
 
   function getPlaybackSpeedMultiplier() {
@@ -141,7 +157,7 @@
   }
 
   function syncPlaybackUi() {
-    const { getSelectedReviewSubmission, escapeHtml } = globalThis;
+    const { getSelectedReviewSubmission } = globalThis;
     const { ui } = globalThis.AppState;
     const submission = getSelectedReviewSubmission();
     if (!submission) {
@@ -156,7 +172,7 @@
 
     const playbackScreen = document.getElementById("playback-screen");
     if (playbackScreen) {
-      playbackScreen.innerHTML = `<pre style="margin:0;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;">${escapeHtml(playback.text)}</pre>`;
+      playbackScreen.innerHTML = buildPlaybackPreHtml(playback.text, playback.caret);
     }
 
     const playbackMeta = document.getElementById("playback-meta");
@@ -236,6 +252,7 @@
       frames,
       index,
       text: frame.text,
+      caret: frame.caret,
       label: frame.label,
       elapsedMs: frame.elapsedMs || 0,
       totalMs: frames.at(-1)?.elapsedMs || 0,
@@ -259,6 +276,7 @@
         text: "",
         label: "Start",
         timeMs: firstEventTime,
+        caret: 0,
       },
     ];
 
@@ -302,11 +320,12 @@
   }
 
   function createPlaybackFramePusher(frames, firstEventTime) {
-    return (frameText, label, timeMs) => {
+    return (frameText, label, timeMs, caret) => {
       frames.push({
         text: frameText,
         label,
         timeMs: Number.isFinite(timeMs) ? timeMs : (frames.at(-1)?.timeMs || firstEventTime),
+        caret: Number.isFinite(caret) ? caret : frameText.length,
       });
     };
   }
@@ -341,7 +360,7 @@
     const fallbackEnd = deleteStart + String(event.removedText || "").length;
     const deleteEnd = clamp(Number.isFinite(recordedEnd) && recordedEnd > deleteStart ? recordedEnd : fallbackEnd, deleteStart, text.length);
     const nextText = text.slice(0, deleteStart) + text.slice(deleteEnd);
-    pushFrame(nextText, `Deleted ${String(event.removedText || "").length} characters • ${formatTime(event.timestamp)}`, eventTimeMs + (operationIndex * intraEventDelayMs));
+    pushFrame(nextText, `Deleted ${String(event.removedText || "").length} characters • ${formatTime(event.timestamp)}`, eventTimeMs + (operationIndex * intraEventDelayMs), deleteStart);
     return nextText;
   }
 
@@ -351,7 +370,7 @@
     const label = event.type === "paste"
       ? `Pasted ${String(event.insertedText || "").length} characters`
       : `Bulk inserted ${String(event.insertedText || "").length} characters`;
-    pushFrame(nextText, `${label} • ${formatTime(event.timestamp)}`, eventTimeMs + (operationIndex * intraEventDelayMs));
+    pushFrame(nextText, `${label} • ${formatTime(event.timestamp)}`, eventTimeMs + (operationIndex * intraEventDelayMs), pasteStart + String(event.insertedText || "").length);
     return nextText;
   }
 
@@ -361,12 +380,13 @@
       const char = event.insertedText[index];
       const insertIndex = clamp(Number(event.start || 0) + index, 0, nextText.length);
       nextText = nextText.slice(0, insertIndex) + char + nextText.slice(insertIndex);
-      pushFrame(nextText, `${titleCase(event.type)} • ${formatTime(event.timestamp)}`, eventTimeMs + ((operationIndex + index) * intraEventDelayMs));
+      pushFrame(nextText, `${titleCase(event.type)} • ${formatTime(event.timestamp)}`, eventTimeMs + ((operationIndex + index) * intraEventDelayMs), insertIndex + 1);
     }
     return nextText;
   }
 
   const PlaybackRender = {
+    buildPlaybackPreHtml,
     renderPlaybackScreenOnly,
     getPlaybackSpeedMultiplier,
     getPlaybackFrameDelayMs,

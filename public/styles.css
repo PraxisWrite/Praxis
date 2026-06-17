@@ -920,6 +920,36 @@ button {
   line-height: 1.55;
 }
 
+/* Insertion-point caret for writing playback — marks where each keystroke or
+   deletion lands so the replay reads like a live cursor (GPTZero-style). */
+.playback-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin: 0 -1px;
+  vertical-align: -0.2em;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: playback-caret-blink 1.05s step-end infinite;
+}
+
+@keyframes playback-caret-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  55.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playback-caret {
+    animation: none;
+  }
+}
+
 /* Editable AI draft */
 .assist-title-input {
   width: 100%;

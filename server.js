@@ -1351,7 +1351,34 @@ function checkAiVelocity(userId) {
 }
 
 // ── Rubric parsing endpoints ────────────────────────────────
-app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
+// Multer failures (oversized file, malformed multipart, unexpected field) are
+// raised in connect middleware BEFORE the route handler runs, so the route's
+// try/catch never sees them and Express would emit a bare HTML 500 (which the
+// client can't even parse as JSON). Wrap the upload so those failures come back
+// as a clean, teacher-actionable JSON error.
+function uploadRubricSingle(req, res, next) {
+  upload.single('rubric')(req, res, (err) => {
+    if (err) {
+      const tooBig = err.code === 'LIMIT_FILE_SIZE';
+      return res.status(tooBig ? 413 : 400).json({
+        success: false,
+        error: tooBig
+          ? 'That file is too large (max 5 MB). Upload a smaller PDF / Word file, or paste the rubric text.'
+          : "We couldn't read that upload. Please use a PDF or Word file, or paste the rubric text.",
+      });
+    }
+    return next();
+  });
+}
+
+// A rubric the parser can't read (scanned/image PDF, empty, corrupt, or
+// password-protected file) is a client-side problem, not a server fault —
+// surface it as 422 with the parser's actionable message, not a bare 500.
+function rubricParseErrorStatus(error) {
+  return error?.code === 'RUBRIC_UNREADABLE' ? 422 : 500;
+}
+
+app.post('/api/rubric/parse', uploadRubricSingle, async (req, res) => {
   try {
     const { user, error, status } = await requireTeacherProfile(req);
     if (error) return res.status(status).json({ success: false, error });
@@ -1373,11 +1400,11 @@ app.post('/api/rubric/parse', upload.single('rubric'), async (req, res) => {
       rubricData,
     });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(rubricParseErrorStatus(error)).json({ success: false, error: error.message });
   }
 });
 
-app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
+app.post('/api/extract-rubric', uploadRubricSingle, async (req, res) => {
   try {
     const { user, error, status } = await requireTeacherProfile(req);
     if (error) return res.status(status).json({ error });
@@ -1394,7 +1421,7 @@ app.post('/api/extract-rubric', upload.single('rubric'), async (req, res) => {
 
     res.json({ text, schema, rubricData });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(rubricParseErrorStatus(error)).json({ error: error.message });
   }
 });
 

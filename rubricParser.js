@@ -203,9 +203,34 @@ async function parseWithClaude(rawText, fileName = 'Uploaded rubric') {
   return result;
 }
 
+function unreadableRubricError(message, cause) {
+  const error = new Error(message);
+  error.code = 'RUBRIC_UNREADABLE';
+  if (cause) error.cause = cause;
+  return error;
+}
+
 async function parseRubricBuffer(buffer, mimeType = '', fileName = 'Uploaded rubric') {
-  const text = await extractTextFromBuffer(buffer, mimeType, fileName);
- const schema = await parseWithClaude(text, fileName);
+  // A corrupt, password-protected, or non-PDF file makes the extractor throw
+  // (e.g. "Invalid PDF structure", "bad XRef entry"). A scanned / image-only PDF
+  // instead extracts to little or no text. Either way, feeding the result to the
+  // model fails — a hard throw, or prose that blows up in JSON.parse — and the
+  // teacher just sees an opaque 500. Convert both into a clear, actionable error.
+  let text;
+  try {
+    text = await extractTextFromBuffer(buffer, mimeType, fileName);
+  } catch (extractError) {
+    throw unreadableRubricError(
+      "We couldn't read this file. It may be a scanned image, password-protected, or a damaged PDF. Try a text-based PDF / Word file, or paste the rubric text instead.",
+      extractError
+    );
+  }
+  if (text.replace(/\s+/g, '').length < 15) {
+    throw unreadableRubricError(
+      "We couldn't find readable text in this file. If it's a scanned or image-only PDF, upload a text-based PDF / Word file, or paste the rubric text instead."
+    );
+  }
+  const schema = await parseWithClaude(text, fileName);
   return {
     text,
     schema,

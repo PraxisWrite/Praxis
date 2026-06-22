@@ -153,6 +153,25 @@ below are the residual findings, ranked by pilot impact.
 
 ### High priority
 
+- [ ] **[PILOT] Rubric PDF upload still fails** — the 2026-06-22 hotfix (PR #343)
+  only hardened the *error path*: unreadable / scanned / empty / corrupt files now
+  return a friendly **422** with an actionable message, and multer failures
+  (>5 MB, malformed multipart) return a clean **413/400** instead of a bare 500.
+  A valid PDF was confirmed to extract fine in isolation (`pdf-parse@1.1.4` on
+  Node 20, ~4 k chars). **But the actual teacher-facing PDF upload still does not
+  work** — root cause not yet found. Next step: capture the *real* failure from a
+  live teacher attempt (exact response status + body, or the offending PDF) since
+  the cause isn't the engine, deps, or client contract (all ruled out). Plus two
+  UX gaps to fix alongside: (1) **surface the server error message to the teacher**
+  — the drop-zone `catch {}` in `uploadRubricFile` (`public/app.js:4503`) can
+  swallow it into a generic "Try a different format"; (2) **add a reliable loading
+  / spinner state** for the whole upload+parse round-trip — the current
+  "Extracting text…" `innerHTML` swap isn't dependable.
+- [ ] **Assignment setup: essay / assignment type doesn't match between the two
+  sections** — during assignment setup the selected essay (assignment) type shown
+  in one section doesn't match the other; the two should stay in sync. *(Needs the
+  two sections pinned down — likely the "Format with AI" setup vs. the manual
+  setup, or the setup form vs. the formatted preview.)*
 - [x] **Ghost sign-in** — visiting the invite URL on a device with a stored teacher session auto-logged in as the wrong account. Fixed: non-student sessions are now signed out and the auth screen shown when opening `?join=classId`. *(PR #257)*
 - [x] **Chat coach renders `**markdown**` as literal asterisks** — AI coach responses were passed through `escapeHtml` with no markdown conversion. Fixed: `parseCoachMarkdown()` now converts `**bold**` → `<strong>` and newlines → `<br>` for assistant messages only. *(PR #257)*
 - [x] **Annotate function** — annotations were reported not showing in the grading area. Investigated: rendering path in `teacher-render.js` is complete (inline highlights + panel). Likely a display/scroll issue — needs manual recheck in staging.

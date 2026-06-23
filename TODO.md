@@ -151,6 +151,79 @@ below are the residual findings, ranked by pilot impact.
 
 ## Bugs
 
+### Pilot session 2 — open feedback (2026-06-23)
+
+Captured from live pilot use ahead of session 2. **The pilot runs the next day —
+fix only low-risk, well-understood items; nothing may break the live flow.**
+
+**Rubric / assignment setup**
+
+- [ ] **[PILOT] Rubric PDF upload still fails** — the 2026-06-22 hotfix (PR #343)
+  only hardened the *error path*: unreadable / scanned / empty / corrupt files now
+  return a friendly **422** with an actionable message, and multer failures
+  (>5 MB, malformed multipart) return a clean **413/400** instead of a bare 500. A
+  valid PDF was confirmed to extract fine in isolation (`pdf-parse@1.1.4`, Node 20,
+  ~4 k chars). **But the actual teacher-facing PDF upload still does not work** —
+  root cause not yet found (engine, deps, and client contract all ruled out). Next
+  step: capture the *real* failure from a live attempt (exact response status +
+  body, or the offending PDF). Plus two UX gaps: (1) **surface the server error to
+  the teacher** — the drop-zone `catch {}` in `uploadRubricFile` (`public/app.js`)
+  can swallow it into a generic message; (2) **add a reliable loading / spinner
+  state** for the whole upload+parse round-trip (the current "Extracting text…"
+  `innerHTML` swap isn't dependable).
+- [ ] **Assignment setup: essay / assignment type doesn't match between the two
+  sections** — during setup the selected essay (assignment) type shown in one
+  section doesn't match the other; they should stay in sync. *(Pin down the two
+  sections — likely the "Format with AI" setup vs. the manual setup, or the setup
+  form vs. the formatted preview.)*
+
+**Class join / approval flow**
+
+- [ ] **Teacher "Refresh" (students) button doesn't actually refresh the roster** —
+  clicking it doesn't pull newly-joined / newly-approved students; the roster
+  reload isn't re-fetching from the server (appears to serve cached state).
+- [ ] **Student view should auto-refresh when the teacher approves them** — a
+  pending student stays on the waiting screen even after the teacher flips their
+  status to approved; they have to reload manually. Add polling or a Supabase
+  realtime / `storage` refresh so approval lets them in automatically.
+- [ ] **Clear student "awaiting teacher to let you in to the class" note** — make
+  the pending/waiting state explicit and friendly on the student side (PR #267
+  added a waiting screen; this needs an unmissable message). Pair with the
+  auto-refresh above.
+- [ ] **Email the teacher when a student requests to join** — so the teacher knows
+  to approve a pending student (reuse the Resend / notify path used elsewhere).
+  Defer if the notify path adds risk this close to the pilot.
+
+**Teacher grading**
+
+- [ ] **New teacher annotations attach at the TOP of the writing, not inline** —
+  pre-made / existing annotations render inline correctly, but a *newly added*
+  annotation lands at offset 0 (top) instead of at the selected text. Likely the
+  selection start/end offset isn't captured for new annotations
+  (`annotation-render.js` + the add-annotation handler). High value for grading.
+- [ ] **Side panel says "Graded" before the grade is sent to the student** —
+  misleading: the rail shows "Graded" as soon as a teacher-review draft exists,
+  even though the student hasn't received it. Should read as pending / "unseen"
+  (or "In review") until the grade is actually *published*, then switch to a ✓
+  "Graded / sent". (Rail status logic in `teacher-render.js`; tie to
+  `teacherReview.publishedReview` / `savedAt`.)
+- [ ] **"Ignore AI score" + manual override still shows 16/20** — after the teacher
+  hits *ignore* on the AI-suggested score and manually overrides to 0, the panel
+  still displays 16/20. The displayed total isn't recomputed from the override (or
+  the ignored suggestion isn't cleared). Correctness bug in the grading total.
+- [ ] **Remove auto-scroll-to-top of the rubric on every score bump** — bumping a
+  rubric score (`bump-rubric-band`) scrolls the rubric/page back up each time,
+  unlike `select-rubric-band` which already snapshots & restores `scrollY` (see
+  "Clicking rubric sections causes page to jump"). Apply the same scroll-preserve
+  to the bump handler. Low-risk, high-annoyance.
+
+**Student workflow**
+
+- [ ] **Student drafted their whole essay in the outline box** — the outline
+  textarea invites mis-use. Make it clearly not-for-drafting: a prominent label /
+  placeholder, or make it read-only until the student clicks an "Edit outline"
+  button. Prevents lost / mis-placed drafts during the pilot.
+
 ### High priority
 
 - [x] **Ghost sign-in** — visiting the invite URL on a device with a stored teacher session auto-logged in as the wrong account. Fixed: non-student sessions are now signed out and the auth screen shown when opening `?join=classId`. *(PR #257)*

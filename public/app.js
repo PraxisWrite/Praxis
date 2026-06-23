@@ -59,6 +59,7 @@ let currentClassMembers = [];
 let currentPendingClasses = [];
 let reviewRefreshTimer = null;
 let adminClassRefreshTimer = null;
+let studentMembershipRefreshTimer = null;
 let storageWarningShown = false;
 let adminProcessRecomputePromise = null;
 
@@ -132,6 +133,7 @@ const ui = {
     touched: false,
   },
   lastAnnotationSelection: "",
+  lastAnnotationSelectionStart: -1,
   pendingPaste: null,
   notice: "",
   draftSaveMessage: "",
@@ -1315,6 +1317,47 @@ function syncAdminClassPolling() {
   }, ADMIN_REFRESH_MS);
 }
 
+function stopStudentMembershipPolling() {
+  if (studentMembershipRefreshTimer) {
+    globalThis.clearInterval(studentMembershipRefreshTimer);
+    studentMembershipRefreshTimer = null;
+  }
+}
+
+// While a student is stuck on the "waiting for approval" screen, poll their
+// membership so they drop into the class automatically once the teacher approves
+// them — no manual reload. Self-limiting: stops the moment they have a class.
+async function refreshStudentMembershipIfApproved() {
+  const waiting = currentProfile?.role === "student"
+    && (currentPendingClasses?.length || 0) > 0
+    && currentClasses.length === 0
+    && document.visibilityState === "visible";
+  if (!waiting) return;
+  await refreshStudentClasses();
+  if (currentClasses.length) {
+    await loadStudentAssignmentsForCurrentClass();
+    render();
+  }
+}
+
+function syncStudentMembershipPolling() {
+  const shouldPoll = currentProfile?.role === "student"
+    && (currentPendingClasses?.length || 0) > 0
+    && currentClasses.length === 0;
+  if (!shouldPoll) {
+    stopStudentMembershipPolling();
+    return;
+  }
+  if (studentMembershipRefreshTimer) {
+    return;
+  }
+  studentMembershipRefreshTimer = globalThis.setInterval(() => {
+    refreshStudentMembershipIfApproved().catch((error) => {
+      console.error("Could not refresh student membership:", error);
+    });
+  }, REVIEW_REFRESH_MS);
+}
+
 async function loadTeacherClassContext(classId) {
   currentClassId = classId || null;
   saveActiveClassId(currentProfile, currentClassId);
@@ -2422,11 +2465,16 @@ if (action === "generate-teacher-assist") {
     }
     submission.teacherReview = submission.teacherReview || {};
     submission.teacherReview.annotations = submission.teacherReview.annotations || [];
+    // Only trust the captured offset when it belongs to the text we're tagging.
+    const hasCapturedStart = annotationText === ui.lastAnnotationSelection
+      && Number.isInteger(ui.lastAnnotationSelectionStart)
+      && ui.lastAnnotationSelectionStart >= 0;
     submission.teacherReview.annotations.push({
       id: uid("ann"),
       code,
       label: getAnnotationCodeMeaning({ code }),
       selectedText: annotationText,
+      start: hasCapturedStart ? ui.lastAnnotationSelectionStart : undefined,
       note,
     });
     ui.lastAnnotationSelection = annotationText;
@@ -3226,10 +3274,19 @@ if (action === "sign-out") {
   }
 
   if (action === "refresh-assignment-statuses") {
-    ui.notice = "Refreshing submission statuses...";
+    ui.notice = "Refreshing class…";
     render();
+    // Re-fetch the roster too, so newly joined / just-approved students appear —
+    // not only submission statuses for the students already loaded.
+    try {
+      if (currentClassId) {
+        currentClassMembers = await globalThis.ApiService.loadClassMembers(currentClassId) || [];
+      }
+    } catch (error) {
+      console.error("Could not refresh class members:", error);
+    }
     const changed = await refreshTeacherAssignmentStatusData({ forceRender: true });
-    ui.notice = changed ? "Submission statuses refreshed." : "Submission statuses are already up to date.";
+    ui.notice = changed ? "Class refreshed." : "Class is up to date.";
     render();
     return;
   }
@@ -3832,15 +3889,7 @@ if (action === "select-assignment") {
     } else {
       submission.teacherReview.rowScores = [...remainingRows, buildTeacherReviewRowScore(criterion, band)];
     }
-    submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
-    // Capture any in-progress notes textarea value before render() wipes the DOM.
-    const notesInput = document.getElementById("teacher-review-notes");
-    if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
-    persistState();
-    scheduleTeacherReviewSync(submission);
-    const scrollYBeforeRender = globalThis.scrollY;
-    render();
-    globalThis.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
+    commitRubricScoreChange(assignment, submission);
     scrollToNextRubricCriterionMobile(criterion.id);
     return;
   }
@@ -3863,14 +3912,7 @@ if (action === "select-assignment") {
       return;
     }
     entry.points = nextPoints;
-    submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
-    const notesInput = document.getElementById("teacher-review-notes");
-    if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
-    persistState();
-    scheduleTeacherReviewSync(submission);
-    const scrollYBeforeRender = globalThis.scrollY;
-    render();
-    globalThis.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
+    commitRubricScoreChange(assignment, submission);
     return;
   }
 
@@ -4288,6 +4330,23 @@ function handleInput(event) {
     return;
   }
 
+  if (target.id === "teacher-review-final-score") {
+    const submission = getSelectedReviewSubmission();
+    if (!submission) return;
+    submission.teacherReview = submission.teacherReview || {};
+    const raw = target.value;
+    const num = Number(raw);
+    if (raw !== "" && Number.isNaN(num)) return; // ignore partial input like "-" or "e"
+    submission.teacherReview.finalScore = raw === "" ? null : num;
+    // Reflect the override (including 0) in the footer total live, without a full
+    // re-render that would steal focus from the number input mid-edit.
+    const scoreVal = document.querySelector(".rubric-total-number .score-val");
+    if (scoreVal && raw !== "") scoreVal.textContent = String(num);
+    persistState();
+    scheduleTeacherReviewSync(submission);
+    return;
+  }
+
   if (target.dataset.teacherField) {
     ui.teacherDraft[target.dataset.teacherField] = target.value;
     if (ui.teacherAssist && (target.dataset.teacherField === "wordCountMin" || target.dataset.teacherField === "wordCountMax")) {
@@ -4432,6 +4491,7 @@ function render() {
   if (!currentProfile || !Auth.getToken() || !Auth.getProfile()) {
     stopTeacherReviewPolling();
     stopAdminClassPolling();
+    stopStudentMembershipPolling();
     resetAppShellState();
     const params = new URLSearchParams(globalThis.location.search);
     renderAuthScreen(params.get("join"));
@@ -4477,6 +4537,7 @@ function render() {
 
   syncTeacherReviewPolling();
   syncAdminClassPolling();
+  syncStudentMembershipPolling();
 }
 
 globalThis.handleRubricDrop = async (event) => {
@@ -6079,6 +6140,25 @@ function scrollToComment(annotationId) {
   flashScrollTarget(document.getElementById(`comment-${annotationId}`));
 }
 
+// Shared tail for the rubric score handlers (band-select + ±0.5 bump): recompute
+// the total, fold in any in-progress notes, persist, sync, then re-render while
+// preserving BOTH window scroll and the rubric pane's own scrollTop (on desktop
+// the rubric scrolls inside .rubric-pane-body), so the list never snaps to top.
+function commitRubricScoreChange(assignment, submission) {
+  submission.teacherReview.finalScore =
+    calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
+  const notesInput = document.getElementById("teacher-review-notes");
+  if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
+  persistState();
+  scheduleTeacherReviewSync(submission);
+  const scrollYBefore = globalThis.scrollY;
+  const paneBefore = document.querySelector(".rubric-pane-body")?.scrollTop || 0;
+  render();
+  globalThis.scrollTo({ top: scrollYBefore, behavior: "instant" });
+  const pane = document.querySelector(".rubric-pane-body");
+  if (pane) pane.scrollTop = paneBefore;
+}
+
 function preserveTeacherTextScroll(fn) {
   const container = document.getElementById("student-text-annotate");
   const scrollTop = container ? container.scrollTop : 0;
@@ -6091,17 +6171,39 @@ function preserveTeacherTextScroll(fn) {
   });
 }
 
+// Map a selection's start to an offset in the PLAIN source text, skipping the
+// injected non-source nodes (the code-badge <span> and the PASTE/code <sup>), so
+// a new annotation records where the teacher actually selected.
+function annotationSourceOffset(container, range) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let consumed = 0;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const tag = node.parentElement?.tagName;
+    if (tag === "SUP") continue;
+    if (tag === "SPAN" && node.parentElement.closest("mark")) continue;
+    if (node === range.startContainer) return consumed + range.startOffset;
+    consumed += node.textContent.length;
+  }
+  return -1;
+}
+
 function captureAnnotationSelection() {
   const container = document.getElementById("student-text-annotate");
-  const selection = window.getSelection();
+  const selection = globalThis.getSelection();
   if (!container || !selection || !selection.rangeCount) return;
   const range = selection.getRangeAt(0);
   const selectedText = selection.toString().trim();
   if (!selectedText) return;
-  const commonNode = range.commonAncestorContainer;
-  if (container.contains(commonNode)) {
-    ui.lastAnnotationSelection = selectedText;
-  }
+  if (!container.contains(range.commonAncestorContainer)) return;
+  ui.lastAnnotationSelection = selectedText;
+  // Record a source-text start offset so the highlight lands inline (not at the
+  // top via indexOf when getSelection picks up an injected code badge). Only kept
+  // when it matches the source exactly; -1 falls back to the substring scan.
+  const submission = getSelectedReviewSubmission();
+  const sourceText = submission ? getSubmissionReviewText(submission) : "";
+  const offset = annotationSourceOffset(container, range);
+  ui.lastAnnotationSelectionStart =
+    offset >= 0 && sourceText.slice(offset, offset + selectedText.length) === selectedText ? offset : -1;
 }
 
 function getAnnotationDisplayLabel(annotation, index = null) {

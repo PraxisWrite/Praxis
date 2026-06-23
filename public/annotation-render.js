@@ -307,8 +307,20 @@
       .filter(Boolean);
   }
 
+  function resolveAnnotationStart(text, annotation, searchStarts) {
+    // Prefer the offset captured when the teacher selected, but only if it still
+    // matches the source text exactly; otherwise fall back to the substring scan.
+    const stored = annotation.start;
+    if (Number.isInteger(stored) && stored >= 0
+        && text.slice(stored, stored + annotation.selectedText.length) === annotation.selectedText) {
+      searchStarts.set(annotation.selectedText, stored + Math.max(annotation.selectedText.length, 1));
+      return stored;
+    }
+    return findNextSequentialIndex(text, annotation.selectedText, searchStarts);
+  }
+
   function createAnnotationHighlight(text, annotation, index, pasteHighlights, searchStarts) {
-    const start = findNextSequentialIndex(text, annotation.selectedText, searchStarts);
+    const start = resolveAnnotationStart(text, annotation, searchStarts);
     if (start === -1) {
       return null;
     }

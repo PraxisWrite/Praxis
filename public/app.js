@@ -3889,20 +3889,7 @@ if (action === "select-assignment") {
     } else {
       submission.teacherReview.rowScores = [...remainingRows, buildTeacherReviewRowScore(criterion, band)];
     }
-    submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
-    // Capture any in-progress notes textarea value before render() wipes the DOM.
-    const notesInput = document.getElementById("teacher-review-notes");
-    if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
-    persistState();
-    scheduleTeacherReviewSync(submission);
-    // Desktop rubric scrolls inside .rubric-pane-body; preserve it like the bump
-    // handler so selecting a band doesn't snap the list back to the top.
-    const scrollYBeforeRender = globalThis.scrollY;
-    const paneScrollBefore = document.querySelector(".rubric-pane-body")?.scrollTop || 0;
-    render();
-    globalThis.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
-    const paneAfter = document.querySelector(".rubric-pane-body");
-    if (paneAfter) paneAfter.scrollTop = paneScrollBefore;
+    commitRubricScoreChange(assignment, submission);
     scrollToNextRubricCriterionMobile(criterion.id);
     return;
   }
@@ -3925,20 +3912,7 @@ if (action === "select-assignment") {
       return;
     }
     entry.points = nextPoints;
-    submission.teacherReview.finalScore = calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
-    const notesInput = document.getElementById("teacher-review-notes");
-    if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
-    persistState();
-    scheduleTeacherReviewSync(submission);
-    // On desktop the rubric scrolls inside .rubric-pane-body (its own scroll
-    // container), so the window-scroll restore below isn't enough — preserve the
-    // pane's scrollTop too, or every bump snaps the list back to the top.
-    const scrollYBeforeRender = globalThis.scrollY;
-    const paneScrollBefore = document.querySelector(".rubric-pane-body")?.scrollTop || 0;
-    render();
-    globalThis.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
-    const paneAfter = document.querySelector(".rubric-pane-body");
-    if (paneAfter) paneAfter.scrollTop = paneScrollBefore;
+    commitRubricScoreChange(assignment, submission);
     return;
   }
 
@@ -6164,6 +6138,25 @@ function scrollToAnnotation(annotationId) {
 
 function scrollToComment(annotationId) {
   flashScrollTarget(document.getElementById(`comment-${annotationId}`));
+}
+
+// Shared tail for the rubric score handlers (band-select + ±0.5 bump): recompute
+// the total, fold in any in-progress notes, persist, sync, then re-render while
+// preserving BOTH window scroll and the rubric pane's own scrollTop (on desktop
+// the rubric scrolls inside .rubric-pane-body), so the list never snaps to top.
+function commitRubricScoreChange(assignment, submission) {
+  submission.teacherReview.finalScore =
+    calculateTeacherReviewSummary(assignment, submission, submission.teacherReview.rowScores).totalScore;
+  const notesInput = document.getElementById("teacher-review-notes");
+  if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
+  persistState();
+  scheduleTeacherReviewSync(submission);
+  const scrollYBefore = globalThis.scrollY;
+  const paneBefore = document.querySelector(".rubric-pane-body")?.scrollTop || 0;
+  render();
+  globalThis.scrollTo({ top: scrollYBefore, behavior: "instant" });
+  const pane = document.querySelector(".rubric-pane-body");
+  if (pane) pane.scrollTop = paneBefore;
 }
 
 function preserveTeacherTextScroll(fn) {

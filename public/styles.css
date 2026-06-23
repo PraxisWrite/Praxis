@@ -667,7 +667,7 @@ button {
 }
 
 .rail-student--graded .rail-student-dot { background: var(--sage-soft); color: var(--sage); }
-.rail-student--in-review .rail-student-dot { background: #fdf0d5; color: #b07d18; }
+.rail-student--in-review .rail-student-dot { background: #fdf0d5; color: #6b4500; }
 .rail-student--submitted .rail-student-dot { background: var(--accent-soft); color: var(--accent-deep); }
 .rail-student--in-progress .rail-student-dot { background: #eef2fa; color: var(--accent-deep); }
 .rail-student--not-started .rail-student-dot { background: #f1f3f7; color: #5b6a82; }

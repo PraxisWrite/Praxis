@@ -3895,9 +3895,14 @@ if (action === "select-assignment") {
     if (notesInput) submission.teacherReview.finalNotes = notesInput.value;
     persistState();
     scheduleTeacherReviewSync(submission);
+    // Desktop rubric scrolls inside .rubric-pane-body; preserve it like the bump
+    // handler so selecting a band doesn't snap the list back to the top.
     const scrollYBeforeRender = globalThis.scrollY;
+    const paneScrollBefore = document.querySelector(".rubric-pane-body")?.scrollTop || 0;
     render();
     globalThis.scrollTo({ top: scrollYBeforeRender, behavior: "instant" });
+    const paneAfter = document.querySelector(".rubric-pane-body");
+    if (paneAfter) paneAfter.scrollTop = paneScrollBefore;
     scrollToNextRubricCriterionMobile(criterion.id);
     return;
   }

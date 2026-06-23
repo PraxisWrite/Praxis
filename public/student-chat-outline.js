@@ -203,7 +203,7 @@ Build the student's outline as JSON now.`,
     const label = document.createElement("p");
     label.className = "mini-label";
     label.style.margin = "0";
-    label.textContent = "📋 Your outline (from your chat)";
+    label.textContent = "📋 Outline — short notes only (not your essay)";
 
     const regen = document.createElement("button");
     regen.className = "button-ghost";
@@ -223,14 +223,14 @@ Build the student's outline as JSON now.`,
     textarea.id = TEXT_ID;
     textarea.dataset.outlineField = "chatOutlineText";
     textarea.rows = 8;
-    textarea.placeholder = "Your outline will appear here. You can edit it freely before you write.";
+    textarea.placeholder = "Short bullet notes only. Write your full essay in the draft box below — not here.";
     textarea.style.cssText = "width:100%;resize:vertical;line-height:1.6;";
     textarea.value = outlineText(submission);
 
     const hint = document.createElement("p");
     hint.className = "subtle";
     hint.style.cssText = "margin:8px 0 0;font-size:0.8rem;";
-    hint.textContent = "These are your ideas from the coaching chat. Edit or add to them, then write your draft below.";
+    hint.textContent = "Keep this to short notes and bullets — your actual essay goes in the draft editor below this box.";
 
     panel.append(header, status, textarea, hint);
     return panel;

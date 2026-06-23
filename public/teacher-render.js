@@ -701,8 +701,18 @@
     if (!submission || !hasText) {
       return { key: "not-started", dot: "·", label: "Not started" };
     }
-    if (isSubmissionGraded(submission)) {
+    // "Graded" only once the grade is actually published to the student. An
+    // autosaved-but-unpublished review draft still reads "In review" — matching
+    // what the student sees (which gates on teacherReview.publishedReview).
+    const review = submission.teacherReview || {};
+    const isPublished = Boolean(review.publishedReview)
+      || (Boolean(review.savedAt) && submission.status === "graded"
+          && !globalThis.window.teacherReviewHasUnpublishedEdits?.(review));
+    if (isPublished) {
       return { key: "graded", dot: "✓", label: "Graded" };
+    }
+    if (isSubmissionGraded(submission)) {
+      return { key: "in-review", dot: "◐", label: "In review" };
     }
     const status = submission.status || "";
     if (status === "submitted" || status === "late") {

@@ -151,78 +151,78 @@ below are the residual findings, ranked by pilot impact.
 
 ## Bugs
 
-### Pilot session 2 — open feedback (2026-06-23)
+### Pilot session 2 — feedback (2026-06-23)
 
-Captured from live pilot use ahead of session 2. **The pilot runs the next day —
-fix only low-risk, well-understood items; nothing may break the live flow.**
+Captured from live pilot use. **Most items were fixed in PR #344** (each in its
+lowest-risk form); the rest are deferred below.
 
-**Rubric / assignment setup**
+**Fixed in PR #344**
 
-- [ ] **[PILOT] Rubric PDF upload still fails** — the 2026-06-22 hotfix (PR #343)
-  only hardened the *error path*: unreadable / scanned / empty / corrupt files now
-  return a friendly **422** with an actionable message, and multer failures
-  (>5 MB, malformed multipart) return a clean **413/400** instead of a bare 500. A
-  valid PDF was confirmed to extract fine in isolation (`pdf-parse@1.1.4`, Node 20,
-  ~4 k chars). **But the actual teacher-facing PDF upload still does not work** —
-  root cause not yet found (engine, deps, and client contract all ruled out). Next
-  step: capture the *real* failure from a live attempt (exact response status +
-  body, or the offending PDF). Plus two UX gaps: (1) **surface the server error to
-  the teacher** — the drop-zone `catch {}` in `uploadRubricFile` (`public/app.js`)
-  can swallow it into a generic message; (2) **add a reliable loading / spinner
-  state** for the whole upload+parse round-trip (the current "Extracting text…"
-  `innerHTML` swap isn't dependable).
+- [x] **Rubric snapped to the top on every score change** — both `select-rubric-band`
+  and the ±0.5 `bump-rubric-band` now preserve the `.rubric-pane-body` scrollTop
+  (on desktop the rubric scrolls inside that pane, not the window), via a shared
+  `commitRubricScoreChange` helper.
+- [x] **Rail said "Graded" before the grade was sent** — `getRailStudentStatus`
+  now shows an amber "In review" until `teacherReview.publishedReview` exists, then
+  ✓ Graded (matches the student-visible gate).
+- [x] **"Ignore AI score" + override to 0 still showed 16/20** — the
+  `teacher-review-final-score` input had no handler; added one that writes
+  `finalScore` (incl. 0) and updates the footer total live (no focus-stealing re-render).
+- [x] **New annotations landed at the top, not inline** — `captureAnnotationSelection`
+  now records a *validated* source-text offset (skipping injected badge/`<sup>`
+  nodes); render prefers it and falls back to the substring scan, so existing
+  annotations are untouched.
+- [x] **Teacher "Refresh" didn't refresh the roster** — `refresh-assignment-statuses`
+  now also re-fetches class members, not just submission statuses.
+- [x] **Students didn't auto-enter the class on approval** — new visible-tab poll
+  (`syncStudentMembershipPolling`, 30s, only while on the waiting screen) drops them
+  in automatically once approved.
+- [x] **Outline box mis-used for full drafts** — relabel + placeholder + hint make
+  clear it's for short notes (copy-only; the read-only-until-"Edit outline" toggle
+  is deferred).
+
+**Deferred (higher-risk / out of scope)**
+
+- [ ] **[PILOT] Rubric PDF upload still fails** — PR #343 only hardened the *error
+  path*: unreadable / scanned / corrupt files → friendly **422**, multer failures →
+  **413/400**. A valid PDF extracts fine in isolation (`pdf-parse@1.1.4`, Node 20),
+  but the actual teacher-facing upload **still doesn't work** — root cause TBD
+  (engine, deps, client contract all ruled out). Capture the *real* failure from a
+  live attempt (status + body, or the offending PDF). Plus two UX gaps: (1) surface
+  the server error to the teacher — the drop-zone `catch {}` in `uploadRubricFile`
+  (`public/app.js`) swallows it into a generic message; (2) add a reliable loading /
+  spinner state for the upload+parse round-trip.
 - [ ] **Assignment setup: essay / assignment type doesn't match between the two
-  sections** — during setup the selected essay (assignment) type shown in one
-  section doesn't match the other; they should stay in sync. *(Pin down the two
-  sections — likely the "Format with AI" setup vs. the manual setup, or the setup
-  form vs. the formatted preview.)*
+  sections** — pin down which two (likely "Format with AI" setup vs. manual setup,
+  or the setup form vs. the formatted preview) and keep them in sync.
+- [ ] **Email the teacher when a student requests to join** — reuse the Resend /
+  notify path; deferred as higher-risk (touches the email path).
+- [ ] **Clearer "awaiting teacher" message** — the waiting screen exists and now
+  auto-refreshes on approval (#344); the copy could still be made more unmissable.
 
-**Class join / approval flow**
+**Post-pilot follow-ups (from the 2026-06-23 Sentry "Not authenticated" report)**
 
-- [ ] **Teacher "Refresh" (students) button doesn't actually refresh the roster** —
-  clicking it doesn't pull newly-joined / newly-approved students; the roster
-  reload isn't re-fetching from the server (appears to serve cached state).
-- [ ] **Student view should auto-refresh when the teacher approves them** — a
-  pending student stays on the waiting screen even after the teacher flips their
-  status to approved; they have to reload manually. Add polling or a Supabase
-  realtime / `storage` refresh so approval lets them in automatically.
-- [ ] **Clear student "awaiting teacher to let you in to the class" note** — make
-  the pending/waiting state explicit and friendly on the student side (PR #267
-  added a waiting screen; this needs an unmissable message). Pair with the
-  auto-refresh above.
-- [ ] **Email the teacher when a student requests to join** — so the teacher knows
-  to approve a pending student (reuse the Resend / notify path used elsewhere).
-  Defer if the notify path adds risk this close to the pilot.
+- [ ] **401 on student boot → Sentry noise + forced re-login** —
+  `loadStudentClassMembership` (`api-service.js`) throws on a 401 from
+  `/api/student/classes`; `bootStudentWorkspace` catches it and `sentryCapture`s it
+  ("Not authenticated"). Seen on Mobile Safari / iOS where the session token is
+  evicted or expired (ITP storage cap, tab suspension), so a returning student's
+  class-load 401s before re-auth. Fix: on 401, try `Auth.refreshToken()` once and
+  retry; if still unauthenticated, route cleanly to login instead of throwing /
+  capturing. Same family as the `restoreSession` transient-logout and no-401-refresh
+  items below. No data loss today (work is in localStorage) — it's noise + a mildly
+  annoying re-login.
+- [ ] **Student-membership poll should back off on 401** — `syncStudentMembershipPolling`
+  / `refreshStudentMembershipIfApproved` (`app.js`, added in #344) calls
+  `loadStudentClassMembership` every 30s while on the waiting screen; if the token
+  expires it makes futile 401 calls (caught to `console.error`, not Sentry). When
+  doing the 401-refresh fix above, have the poll stop / back off on an auth failure.
 
-**Teacher grading**
+**Post-pilot Sonar housekeeping (PR #344 warnings — non-gating, not in that diff)**
 
-- [ ] **New teacher annotations attach at the TOP of the writing, not inline** —
-  pre-made / existing annotations render inline correctly, but a *newly added*
-  annotation lands at offset 0 (top) instead of at the selected text. Likely the
-  selection start/end offset isn't captured for new annotations
-  (`annotation-render.js` + the add-annotation handler). High value for grading.
-- [ ] **Side panel says "Graded" before the grade is sent to the student** —
-  misleading: the rail shows "Graded" as soon as a teacher-review draft exists,
-  even though the student hasn't received it. Should read as pending / "unseen"
-  (or "In review") until the grade is actually *published*, then switch to a ✓
-  "Graded / sent". (Rail status logic in `teacher-render.js`; tie to
-  `teacherReview.publishedReview` / `savedAt`.)
-- [ ] **"Ignore AI score" + manual override still shows 16/20** — after the teacher
-  hits *ignore* on the AI-suggested score and manually overrides to 0, the panel
-  still displays 16/20. The displayed total isn't recomputed from the override (or
-  the ignored suggestion isn't cleared). Correctness bug in the grading total.
-- [ ] **Remove auto-scroll-to-top of the rubric on every score bump** — bumping a
-  rubric score (`bump-rubric-band`) scrolls the rubric/page back up each time,
-  unlike `select-rubric-band` which already snapshots & restores `scrollY` (see
-  "Clicking rubric sections causes page to jump"). Apply the same scroll-preserve
-  to the bump handler. Low-risk, high-annoyance.
-
-**Student workflow**
-
-- [ ] **Student drafted their whole essay in the outline box** — the outline
-  textarea invites mis-use. Make it clearly not-for-drafting: a prominent label /
-  placeholder, or make it read-only until the student clicks an "Edit outline"
-  button. Prevents lost / mis-placed drafts during the pilot.
+- [ ] **Deprecated `word-break: break-word` ×4** (`styles.css` ~919, 1076, 1100,
+  2241) → `overflow-wrap: break-word` (behaviour-equivalent; clears the deprecation).
+- [ ] **`.find` used as a boolean** (`app.js` ~5990, feedback pool) → `.some(...)`.
 
 ### High priority
 
